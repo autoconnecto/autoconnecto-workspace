@@ -1,0 +1,41 @@
+---
+description: Frontend rules for dashboards/widgets + realtime Socket.IO usage and drift prevention
+globs: frontend/**/*.{ts,tsx,js,jsx,json}
+alwaysApply: true
+---
+
+# Frontend Governance (Autoconnecto)
+
+Autoconnecto frontend is a Vite + React + TypeScript app with:
+- A large registry-driven dashboard widget system (`frontend/src/features/dashboards/registry/widgetRegistry.ts`)
+- Realtime consumption over Socket.IO (backend path `/socket.io`)
+- Telemetry stream normalization/buffering (`frontend/src/realtime/telemetry.store.ts`)
+- Attribute update merging in dashboard context (`frontend/src/features/dashboards/context/DashboardContext.tsx`)
+
+## Deterministic realtime rules
+
+- **One socket client ownership model**:
+  - exactly one module/provider creates the Socket.IO client instance
+  - listeners must be registered via a controlled API to prevent duplicate listeners
+  - subscriptions (`subscribe_device` / `unsubscribe_device`) must be ref-counted or lifecycle-bound
+- Do not introduce new ad-hoc sockets in feature modules.
+
+## Widget system anti-drift rules
+
+- Widget `type` strings are stable API. Renames are breaking changes unless dual-supported.
+- Any new widget must include:
+  - registry entry (or auto-discovery export) with stable `type`
+  - config UI (if configurable) with deterministic defaults
+  - explicit data source expectations (telemetry/alarm/device)
+- Avoid hidden dependencies on `localStorage` keys unless documented and namespaced.
+
+## Telemetry/attribute event rules
+
+- Payload normalization belongs in shared utilities/stores, not in each widget.
+- Attribute updates are partial and must be merged; do not overwrite whole device state on partial updates.
+
+## Deployment safety (frontend)
+
+- Frontend env (`VITE_*`) values must be documented when changed (URLs, websocket base).
+- Avoid hardcoding backend URLs; use env + central API client modules.
+

@@ -1,0 +1,54 @@
+---
+description: Backend rules for NestJS + Socket.IO + raw device WS + MQTT + Postgres/Redis startup stability
+globs: backend/**/*.{ts,js,json}
+alwaysApply: true
+---
+
+# Backend Governance (Autoconnecto)
+
+Autoconnecto backend is a NestJS monolith with:
+- HTTP API (`NestFactory.create(AppModule)` in `backend/src/main.ts`)
+- Socket.IO gateway (`/socket.io`) in `backend/src/realtime/realtime.gateway.ts`
+- Separate raw device WebSocket server (`ws`) in `backend/src/realtime/device-ws.gateway.ts`
+- Multiple MQTT clients across modules (`backend/src/mqtt-*`)
+- Postgres (`pg` pool in `backend/src/common/database.service.ts`)
+- Redis presence + optional queue (BullMQ)
+
+## Startup stability rules
+
+### No early env gating
+- Do **not** read `process.env` at **module registration time** to decide critical behavior (dynamic modules must not depend on env being already loaded from `.env`).
+- Prefer `ConfigService` or explicit bootstrap configuration objects.
+
+### No hidden side effects
+- Avoid constructors that create network clients or start listeners unless that is explicitly the intended boot behavior and is documented.
+- For side effects, prefer `onModuleInit` with explicit error handling and lifecycle documentation.
+
+### Readiness is explicit
+- Any new listener/consumer must define:
+  - when it is safe to start consuming messages
+  - what happens if DB/Redis/realtime is unavailable
+  - how reconnect/backoff behaves
+
+### Realtime coupling must be guarded
+- Code emitting via Socket.IO must not assume the Socket.IO server is initialized unless enforced by lifecycle.
+- MQTT consumers and device WS gateway must tolerate “realtime not ready” conditions deterministically (buffer, drop with metrics, or gate startup).
+
+## Transport contract rules (backend side)
+
+- Socket.IO path must remain `/socket.io`.
+- Maintain room naming: `device:{deviceId}`.
+- Topic/event names are treated as public API to frontend and device SDK.
+
+## Infrastructure rules (backend side)
+
+- No “silent default” production behavior:
+  - Broker URL defaults are acceptable for local dev but must be explicit in production configuration.
+- Failures must be observable:
+  - log unique failure states (connect, reconnect, close, offline) without flooding logs.
+
+## Database rules
+
+- DB is the persisted source of truth. Realtime is delivery only.
+- New writes must be idempotent where feasible (MQTT QoS can cause duplicates).
+

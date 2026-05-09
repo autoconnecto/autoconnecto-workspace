@@ -1,0 +1,117 @@
+import React from 'react';
+import type { Metadata } from 'next';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import HeroSection from '@/app/components/HeroSection';
+import DashboardSection from '@/app/components/DashboardSection';
+import FeaturesSection from '@/app/components/FeaturesSection';
+import ScaleSection from '@/app/components/ScaleSection';
+import ContactSection from '@/app/components/ContactSection';
+import TestimonialsSection from '@/app/components/TestimonialsSection';
+
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+export const metadata: Metadata = {
+  title: 'Autoconnecto — Enterprise IoT Platform',
+  description:
+    'Autoconnecto is a full-stack IoT platform with live dashboards, 50+ widgets, MQTT/HTTPS support, RBAC, alarms engine, and white-label capability for enterprise scale.',
+  openGraph: {
+    type: 'website',
+    url: baseUrl,
+    title: 'Autoconnecto — Enterprise IoT Platform',
+    description: 'Full-stack IoT platform for enterprise device management and visualization.',
+    siteName: 'Autoconnecto',
+    images: [
+      {
+        url: `${baseUrl}/assets/images/app_logo.png`,
+        width: 1200,
+        height: 630,
+        alt: 'Autoconnecto Enterprise IoT Platform',
+        type: 'image/png',
+      },
+    ],
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Autoconnecto — Enterprise IoT Platform',
+    description: 'Full-stack IoT platform for enterprise device management and visualization.',
+    images: [`${baseUrl}/assets/images/app_logo.png`],
+  },
+};
+
+export default function LandingPage() {
+  return (
+    <main className="relative overflow-x-hidden bg-background">
+      {/* Structured Data - WebPage Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: 'Autoconnecto — Enterprise IoT Platform',
+            description: 'Autoconnecto is a full-stack IoT platform with live dashboards, 50+ widgets, MQTT/HTTPS support, RBAC, alarms engine, and white-label capability for enterprise scale.',
+            url: baseUrl,
+            image: `${baseUrl}/assets/images/app_logo.png`,
+            isPartOf: {
+              '@type': 'WebSite',
+              name: 'Autoconnecto',
+              url: baseUrl,
+            },
+          }),
+        }}
+      />
+
+      {/* Structured Data - SoftwareApplication Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'Autoconnecto',
+            description: 'Enterprise IoT Platform for device management and visualization',
+            url: baseUrl,
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Cloud',
+            offers: {
+              '@type': 'Offer',
+              price: '0',
+              priceCurrency: 'USD',
+            },
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: '4.8',
+              ratingCount: '100',
+            },
+            author: {
+              '@type': 'Organization',
+              name: 'Autoconnecto',
+              url: baseUrl,
+            },
+          }),
+        }}
+      />
+
+      {/* Background atmosphere */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0B1120] via-[#0D1829] to-[#0B1120]" />
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full blur-[120px] opacity-20"
+          style={{ background: 'radial-gradient(circle, #0EA5E9 0%, transparent 70%)' }} />
+        <div className="absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full blur-[100px] opacity-10"
+          style={{ background: 'radial-gradient(circle, #06B6D4 0%, transparent 70%)' }} />
+        <div className="noise-overlay absolute inset-0 opacity-30" />
+      </div>
+
+      <Header />
+      <HeroSection />
+      <DashboardSection />
+      <FeaturesSection />
+      <ScaleSection />
+      <TestimonialsSection />
+      <ContactSection />
+      <Footer />
+    </main>
+  );
+}

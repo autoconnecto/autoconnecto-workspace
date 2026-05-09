@@ -1,0 +1,42 @@
+---
+description: SDK rules for Arduino/ESP32 transport contract stability and single-instance constraints
+globs: sdk/**/*.{h,cpp,ino,md,properties}
+alwaysApply: false
+---
+
+# SDK Governance (Autoconnecto Arduino/ESP32)
+
+The `sdk/` project is an Arduino library implementing device transport and parity features.
+
+Confirmed patterns:
+- MQTT-over-WSS broker URI (`wss://{host}:{wssPort}/mqtt`)
+- Device-scoped topics for telemetry and attributes
+- Global singleton event dispatch pointer inside `MQTTTransport.cpp`
+
+## Transport contract discipline
+
+- MQTT topic names are a compatibility contract with the backend.
+- Any change to topics/payloads must be coordinated with backend consumers and documented in:
+  - `sdk/TRANSPORT_ARCHITECTURE.md`
+  - `backend/ARCHITECTURE.md`
+  - root `ARCHITECTURE.md`
+
+## Single-instance constraint (confirmed)
+
+- `MQTTTransport.cpp` uses a global pointer to route static callbacks.
+- Do not introduce designs requiring multiple concurrent transport instances unless this constraint is intentionally removed and documented.
+
+## Deterministic device behavior
+
+- Avoid blocking loops unless explicitly required (WiFi connect currently blocks; any change must consider device UX and watchdog).
+- Reconnect logic must be explicit and bounded (backoff, retry cadence).
+- Maintain idempotent behavior where feasible (MQTT can redeliver).
+
+## Rollback-first firmware compatibility
+
+- Assume field devices upgrade slowly; avoid breaking topic/payload changes without dual-compat windows.
+- When changing transport behavior, provide:
+  - compatibility notes
+  - expected broker requirements
+  - downgrade path (old firmware behavior still supported or explicitly sunset)
+

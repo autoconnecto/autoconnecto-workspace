@@ -1,0 +1,55 @@
+---
+description: Workspace-wide AI governance (determinism, rollback-first, contract discipline)
+alwaysApply: true
+---
+
+# Autoconnecto AI Governance (Workspace)
+
+## Operating principles (non-negotiable)
+
+- **Deterministic engineering over convenience**: prefer explicit ownership, explicit lifecycle, explicit ordering, explicit config.
+- **Rollback-first**: for any operational change, define the rollback path before implementation.
+- **No invented systems**: if the codebase does not show it, mark it “unconfirmed” and avoid asserting it as truth.
+- **Minimize blast radius**: prefer small, isolated diffs that preserve behavior.
+- **Contracts are products**: transport contracts (MQTT topics, Socket.IO events, payload shapes) are versioned and protected.
+
+## Git discipline (AI must follow)
+
+- Keep commits reviewable: one intent per commit; avoid mixed refactors + behavior changes.
+- Avoid formatting churn. No repo-wide reformatting unless explicitly requested.
+- Never commit secrets. Treat `*.env*` as secret-bearing unless explicitly a sanitized example file.
+- Do not change ports, topic names, or protocol shapes silently.
+
+## Infrastructure discipline
+
+Autoconnecto runtime dependencies in this workspace (confirmed):
+- Postgres (backend `pg` pool)
+- Redis (presence + optional BullMQ)
+- MQTT broker (multiple backend MQTT clients)
+
+Rules:
+- Any code touching these must define: **readiness**, **failure mode**, and **timeouts/backoff**.
+- No reliance on implicit defaults in production (defaults may remain for local dev only, and must be documented).
+
+## Transport contract governance
+
+### Fixed points (confirmed today)
+- Socket.IO path: `/socket.io`
+- Room naming: `device:{deviceId}`
+
+### Change policy
+
+For any change to MQTT topics, WS message types, Socket.IO events, or payloads:
+- Categorize change: **backward-compatible** / **dual-compat window** / **breaking**
+- Update documentation in the same PR:
+  - `ARCHITECTURE.md`
+  - `backend/ARCHITECTURE.md`, `backend/STARTUP_FLOW.md`, `backend/ENVIRONMENT.md`
+  - `frontend/WIDGET_ARCHITECTURE.md`, `frontend/STATE_MANAGEMENT.md`
+  - `sdk/TRANSPORT_ARCHITECTURE.md`, `sdk/DEVICE_LIFECYCLE.md`
+- Provide rollback plan and validation steps.
+
+## Documentation maintenance
+
+- Docs must separate **confirmed behavior** from **recommendations**.
+- Any discovered mismatch (e.g., SDK topic vs backend subscribe topic) must be documented explicitly as a risk with a deterministic resolution plan.
+
