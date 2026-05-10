@@ -29,8 +29,23 @@ jobs:
     name: Generate docs & deploy to S3
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Pass PAT via env so actions/checkout always receives a non-empty token input.
+    # If GIT_READ_TOKEN is missing, secrets.* is "" and checkout@v4 errors with
+    # "Input required and not supplied: token".
+    env:
+      CHECKOUT_PAT: ${{ secrets.GIT_READ_TOKEN }}
 
     steps:
+      - name: Ensure GIT_READ_TOKEN is set
+        run: |
+          if [ -z "$CHECKOUT_PAT" ]; then
+            echo "::error::Repository secret GIT_READ_TOKEN is empty or missing."
+            echo "Add it on autoconnecto-workspace: Settings → Secrets → Actions."
+            echo "Name must be exactly: GIT_READ_TOKEN (fine-grained PAT, Contents: Read on backend + frontend)."
+            exit 1
+          fi
+          echo "GIT_READ_TOKEN is present."
+
       # Workspace repo tracks backend/frontend as gitlinks without .gitmodules, so default
       # checkout leaves backend/frontend empty → npm ci finds no package-lock.
       # Check out backend + frontend repos explicitly next to docs/ sibling layout.
@@ -40,7 +55,7 @@ jobs:
           repository: autoconnecto/autoconnecto-backend
           ref: main
           path: backend
-          token: ${{ secrets.GIT_READ_TOKEN }}
+          token: ${{ env.CHECKOUT_PAT }}
 
       - name: Checkout frontend
         uses: actions/checkout@v4
@@ -48,7 +63,7 @@ jobs:
           repository: autoconnecto/autoconnecto-frontend
           ref: main
           path: frontend
-          token: ${{ secrets.GIT_READ_TOKEN }}
+          token: ${{ env.CHECKOUT_PAT }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
