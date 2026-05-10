@@ -150,17 +150,25 @@ jobs:
             --delete \
             --cache-control "public, max-age=0, must-revalidate"
 
+      # Optional: push generated markdown onto EC2 disk for the in-app docs API.
+      # Raw files are already at s3://autoconnecto-docs-site/backend-generated/ — if SSH
+      # fails (wrong EC2_SSH_KEY vs instance key pair), run on EC2 manually:
+      #   aws s3 sync s3://autoconnecto-docs-site/backend-generated/ \
+      #     /home/ubuntu/autoconnecto/backend/docs/generated/ --region ap-south-1
+      - name: Start ssh-agent (EC2 deploy key)
+        continue-on-error: true
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
       - name: Sync docs to EC2 backend
+        continue-on-error: true
         env:
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          set -e
           mkdir -p ~/.ssh
-          printf '%s\n' "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/ec2_key
-          chmod 600 ~/.ssh/ec2_key
           ssh-keyscan -t rsa,ecdsa,ed25519 "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-          ssh -i ~/.ssh/ec2_key -o IdentitiesOnly=yes ubuntu@"$EC2_HOST" \
+          ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new ubuntu@"$EC2_HOST" \
             "aws s3 sync s3://autoconnecto-docs-site/backend-generated/ \
               /home/ubuntu/autoconnecto/backend/docs/generated/ \
               --region ap-south-1 && echo 'Docs synced to EC2'"
@@ -169,5 +177,7 @@ jobs:
         run: |
           echo "### Docs deployed ✓" >> $GITHUB_STEP_SUMMARY
           echo "- **Live at**: https://docs.autoconnecto.in" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend markdown (S3):** \`s3://autoconnecto-docs-site/backend-generated/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **EC2 disk sync:** SSH step may still fail if EC2_SSH_KEY ≠ instance key pair — run \`aws s3 sync\` on EC2 (see workflow comment)." >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
