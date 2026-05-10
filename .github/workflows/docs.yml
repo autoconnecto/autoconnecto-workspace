@@ -1,3 +1,9 @@
+# Required Actions secrets on autoconnecto-workspace (Settings → Secrets → Actions):
+#   GIT_READ_TOKEN    Fine-grained PAT: Contents READ on repos autoconnecto-backend +
+#                     autoconnecto-frontend. The default GITHUB_TOKEN only sees THIS repo,
+#                     so cross-repo checkout of private siblings fails with "not found").
+# (Also: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DOCS_DEPLOY_KEY, EC2_SSH_KEY, EC2_HOST.)
+
 name: Docs — Generate & Deploy
 
 on:
@@ -34,7 +40,7 @@ jobs:
           repository: autoconnecto/autoconnecto-backend
           ref: main
           path: backend
-          token: ${{ secrets.GIT_READ_TOKEN || github.token }}
+          token: ${{ secrets.GIT_READ_TOKEN }}
 
       - name: Checkout frontend
         uses: actions/checkout@v4
@@ -42,7 +48,7 @@ jobs:
           repository: autoconnecto/autoconnecto-frontend
           ref: main
           path: frontend
-          token: ${{ secrets.GIT_READ_TOKEN || github.token }}
+          token: ${{ secrets.GIT_READ_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
