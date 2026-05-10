@@ -52,10 +52,52 @@ This document reflects the architecture confirmed from the current codebase. Any
 - Backend emits attribute updates to browser via Socket.IO (`attribute_update`), and the frontend merges partial updates keyed by `deviceId`.
 - Shared attributes are stored in DB and published to devices via MQTT snapshots (retained), and can also be requested by devices via MQTT request/response topics.
 
-### Commands and ACK/RPC
+### Attribute-based control (stateful, persistent across power cycles)
+
+This is the primary control pattern for widgets that manage device state: **Switch**, **AttributeControlCard**, **SliderControl**.
+
+**Write path (dashboard → device):**
+1. User changes a value on the dashboard widget (e.g. toggles a switch).
+2. Frontend writes to the **shared attribute** via `POST /api/devices/:deviceId/attributes` with `scope: "SHARED"`.
+3. Backend persists the shared attribute to DB and publishes it to the device via MQTT (retained, so the device receives it even after reconnection).
+
+**Confirmation path (device → dashboard):**
+4. Device receives the shared attribute update.
+5. Device applies the change to its hardware state and writes a matching **client attribute** back to the backend as confirmation (e.g. `channel1: 1`).
+6. Backend persists the client attribute and emits `attribute_update` to browser clients via Socket.IO.
+7. Dashboard receives the client attribute update and reflects the confirmed state in the widget.
+
+**Power-cycle behaviour:**
+On device restart, the device subscribes to its shared attributes (MQTT retained) at startup, restores its working state from them, and immediately publishes its client attributes back. This brings the dashboard into sync automatically — without any user action — because the confirmed state is driven by the device reading its own shared attributes on boot.
+
+**Design intent:** Shared attributes are the source of truth for desired state. Client attributes are the source of truth for confirmed device state. The feedback loop ensures the dashboard always reflects actual hardware state, not just the last command sent.
+
+**Platform differentiator:** This attribute feedback loop solves a known pain point in platforms like ThingsBoard, where a device reboot causes the dashboard to show stale state until the user manually re-issues a command. In Autoconnecto, the device self-heals on every boot — it reads its own retained shared attributes, restores hardware state, and pushes confirmed client attributes back — making the dashboard resync automatically with zero user intervention. This is a core platform USP and must be preserved in all future control widget designs.
+
+---
+
+### RPC commands (fire-and-forget, imperative triggers)
+
+This is the control pattern for **one-time actions that do not have persistent state**: reboot device, open door, reset counter, trigger OTA update, etc.
+
+**Write path (dashboard → device):**
+1. User clicks an action button on the **RPC Widget**.
+2. Frontend calls `POST /api/devices/:deviceId/commands` with `{ method, params, requestId }`.
+3. Backend routes the command to the device via raw device WS (if connected) or MQTT publish (`devices/{token}/commands`).
+
+**Response path (device → dashboard, optional):**
+4. Device receives the RPC command, executes the action, and publishes an RPC response via MQTT (`devices/{token}/rpc/response/{requestId}`).
+5. Backend consumes the MQTT RPC/ack topic and emits `device_rpc_response` to browser clients via Socket.IO.
+6. Frontend RPC Widget receives the response (matched by `requestId`), displays it inline, and logs it to the execution history.
+
+**Design intent:** RPC is stateless and non-persistent. There is no attribute written, no power-cycle restoration, and no confirmation loop. The action either succeeds (with optional response) or times out. The RPC Widget supports configurable timeout, retry, and confirmation dialogs for safety-critical actions.
+
+---
+
+### Commands and ACK/RPC (transport layer)
 
 - Backend attempts to send commands to connected devices via raw device WS; falls back to MQTT publish (`devices/{token}/commands`).
-- Backend consumes MQTT RPC/ack response topics and re-emits to browser clients via Socket.IO.
+- Backend consumes MQTT RPC/ack response topics and re-emits to browser clients via Socket.IO (`device_rpc_response`).
 - SDK implements RPC request handling and publishes RPC responses; topic alignment must be verified across SDK and backend (`sdk/TRANSPORT_ARCHITECTURE.md`).
 
 ## Confirmed deployment assumptions (implicit in code)
