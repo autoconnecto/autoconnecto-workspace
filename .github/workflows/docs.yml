@@ -1,0 +1,149 @@
+name: Docs — Generate & Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/src/**"
+      - "backend/src/**"
+      - "backend/scripts/**"
+      - "docs/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: true # if two pushes land quickly, cancel the older run
+
+jobs:
+  generate-and-deploy:
+    name: Generate docs & deploy to S3
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # ── 1. Checkout full monorepo ─────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js setup ──────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      # ── 3. Install backend dependencies ───────────────────────────────────
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      # ── 4. Generate docs (standalone — no server, no DB, no OpenAI) ───────
+      - name: Generate documentation
+        working-directory: backend
+        env:
+          # ts-node resolves relative to backend/; frontend/src is at ../frontend/src
+          DOCS_FRONTEND_ROOT: ${{ github.workspace }}/frontend/src
+          NODE_ENV: production
+        run: npm run docs:generate:standalone
+
+      # ── 5. Verify generated output ────────────────────────────────────────
+      - name: Verify generated docs
+        working-directory: backend
+        run: |
+          echo "=== Generated scopes ==="
+          ls docs/generated/
+          echo "=== navigation.json ==="
+          cat docs/generated/navigation.json | python3 -m json.tool | head -40
+
+      # ── 6. Clone / update VitePress docs repo ─────────────────────────────
+      - name: Clone docs repo
+        env:
+          DOCS_DEPLOY_KEY: ${{ secrets.DOCS_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DOCS_DEPLOY_KEY" > ~/.ssh/docs_deploy_key
+          chmod 600 ~/.ssh/docs_deploy_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/docs_deploy_key" \
+            git clone git@github.com:autoconnecto/autoconnecto-docs.git docs
+
+      # ── 7. Sync generated markdown to VitePress content dir ───────────────
+      - name: Sync to VitePress
+        working-directory: backend
+        run: node scripts/sync-docs-to-vitepress.mjs
+
+      # ── 8. Install VitePress dependencies ─────────────────────────────────
+      - name: Install VitePress dependencies
+        working-directory: docs
+        run: npm ci
+
+      # ── 9. Build VitePress ────────────────────────────────────────────────
+      - name: Build VitePress site
+        working-directory: docs
+        run: npm run docs:build
+
+      # ── 10. Configure AWS credentials ─────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      # ── 11. Deploy VitePress build to S3 (docs.autoconnecto.in) ───────────
+      - name: Deploy docs site to S3 (immutable assets)
+        run: |
+          aws s3 sync docs/docs/.vitepress/dist s3://autoconnecto-docs-site/ \
+            --delete \
+            --exclude "*.html" --exclude "sitemap.xml" \
+            --cache-control "public, max-age=31536000, immutable"
+
+      - name: Deploy docs site to S3 (HTML)
+        run: |
+          aws s3 sync docs/docs/.vitepress/dist s3://autoconnecto-docs-site/ \
+            --include "*.html" --include "sitemap.xml" \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      # ── 12. Invalidate CloudFront ──────────────────────────────────────────
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id E30AD6N6537JGX \
+            --paths "/*"
+
+      # ── 13. Upload raw generated markdown to S3 (for EC2 backend API) ─────
+      # The backend API at /api/documentation/* serves raw markdown to the
+      # frontend in-app docs viewer. EC2 can't generate docs (no frontend src).
+      # We upload here and EC2's deploy script syncs it down.
+      - name: Upload raw generated docs for EC2 backend
+        run: |
+          aws s3 sync backend/docs/generated/ \
+            s3://autoconnecto-docs-site/backend-generated/ \
+            --delete \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      # ── 14. Trigger EC2 to sync latest docs ───────────────────────────────
+      # EC2 backend polls /api/documentation/sync-from-cloud or we SSH-trigger.
+      # Using SSH here for simplicity — EC2_SSH_KEY is the EC2 instance key.
+      - name: Sync docs to EC2 backend
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ubuntu@$EC2_HOST \
+            "aws s3 sync s3://autoconnecto-docs-site/backend-generated/ \
+              /home/ubuntu/autoconnecto/backend/docs/generated/ \
+              --region ap-south-1 && echo 'Docs synced to EC2'"
+
+      # ── 15. Summary ───────────────────────────────────────────────────────
+      - name: Summary
+        run: |
+          echo "### Docs deployed ✓" >> $GITHUB_STEP_SUMMARY
+          echo "- **Live at**: https://docs.autoconnecto.in" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: \`${{ github.actor }}\` on \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
