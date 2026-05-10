@@ -1,8 +1,11 @@
 # Required Actions secrets on autoconnecto-workspace (Settings → Secrets → Actions):
 #   GIT_READ_TOKEN    Fine-grained PAT: Contents READ on repos autoconnecto-backend +
-#                     autoconnecto-frontend. The default GITHUB_TOKEN only sees THIS repo,
-#                     so cross-repo checkout of private siblings fails with "not found").
-# (Also: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DOCS_DEPLOY_KEY, EC2_SSH_KEY, EC2_HOST.)
+#                     autoconnecto-frontend.
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY  (CI deploy to S3 / CloudFront)
+#   DOCS_DEPLOY_KEY (SSH private key → clone autoconnecto-docs in this job)
+#
+# EC2 does NOT receive updates over SSH from CI. The instance role syncs from:
+#   s3://autoconnecto-docs-site/backend-generated/ — see backend/scripts/sync-generated-docs-from-s3.sh
 
 name: Docs — Generate & Deploy
 
@@ -150,34 +153,11 @@ jobs:
             --delete \
             --cache-control "public, max-age=0, must-revalidate"
 
-      # Optional: push generated markdown onto EC2 disk for the in-app docs API.
-      # Raw files are already at s3://autoconnecto-docs-site/backend-generated/ — if SSH
-      # fails (wrong EC2_SSH_KEY vs instance key pair), run on EC2 manually:
-      #   aws s3 sync s3://autoconnecto-docs-site/backend-generated/ \
-      #     /home/ubuntu/autoconnecto/backend/docs/generated/ --region ap-south-1
-      - name: Start ssh-agent (EC2 deploy key)
-        continue-on-error: true
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
-
-      - name: Sync docs to EC2 backend
-        continue-on-error: true
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -t rsa,ecdsa,ed25519 "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-          ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new ubuntu@"$EC2_HOST" \
-            "aws s3 sync s3://autoconnecto-docs-site/backend-generated/ \
-              /home/ubuntu/autoconnecto/backend/docs/generated/ \
-              --region ap-south-1 && echo 'Docs synced to EC2'"
-
       - name: Summary
         run: |
           echo "### Docs deployed ✓" >> $GITHUB_STEP_SUMMARY
           echo "- **Live at**: https://docs.autoconnecto.in" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backend markdown (S3):** \`s3://autoconnecto-docs-site/backend-generated/\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **EC2 disk sync:** SSH step may still fail if EC2_SSH_KEY ≠ instance key pair — run \`aws s3 sync\` on EC2 (see workflow comment)." >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend markdown (S3, for EC2 pull):** \`s3://autoconnecto-docs-site/backend-generated/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **EC2**: instance role + \`backend/scripts/sync-generated-docs-from-s3.sh\` or systemd timer (no CI→SSH)." >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
