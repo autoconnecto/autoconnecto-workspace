@@ -3,9 +3,16 @@
 #                     autoconnecto-frontend.
 #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY  (CI deploy to S3 / CloudFront)
 #   DOCS_DEPLOY_KEY (SSH private key → clone autoconnecto-docs in this job)
+#   EC2_HOST        Public hostname or IPv4 of the docs backend host
+#   EC2_SSH_KEY     Private OpenSSH PEM whose public half matches EC2 Key pair assigned
+#                     at launch (AWS Console → EC2 → Instances → Key pair name).
 #
-# EC2 does NOT receive updates over SSH from CI. The instance role syncs from:
-#   s3://autoconnecto-docs-site/backend-generated/ — see backend/scripts/sync-generated-docs-from-s3.sh
+# Automated EC2 refresh (SSH, no login):
+#   - Security group on EC2 must allow inbound TCP 22 from GitHub Actions IP ranges OR
+#     (less ideal) from 0.0.0.0/0. See https://api.github.com/meta ("actions").
+#   - Remote user default: ubuntu (set EC2_USER secret to override).
+# After S3 uploads, SSH runs sudo chown (fixes Docker-owned docs dirs) then aws s3 sync
+# using the EC2 instance role, then optionally restarts the backend container.
 
 name: Docs — Generate & Deploy
 
@@ -18,6 +25,7 @@ on:
       - "backend/scripts/**"
       - "docs/**"
       - ".github/workflows/docs.yml"
+      - ".github/scripts/**"
   workflow_dispatch:
 
 concurrency:
@@ -37,6 +45,7 @@ jobs:
     # "Input required and not supplied: token".
     env:
       CHECKOUT_PAT: ${{ secrets.GIT_READ_TOKEN }}
+      EC2_SYNC_HOST: ${{ secrets.EC2_HOST }}
 
     steps:
       - name: Ensure GIT_READ_TOKEN is set
@@ -49,9 +58,28 @@ jobs:
           fi
           echo "GIT_READ_TOKEN is present."
 
-      # Workspace repo tracks backend/frontend as gitlinks without .gitmodules, so default
-      # checkout leaves backend/frontend empty → npm ci finds no package-lock.
-      # Check out backend + frontend repos explicitly next to docs/ sibling layout.
+      - name: Ensure EC2 SSH secrets are set
+        env:
+          EC2_HOST_CHK: ${{ secrets.EC2_HOST }}
+          EC2_KEY_CHK: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          if [ -z "$EC2_HOST_CHK" ]; then
+            echo "::error::Secret EC2_HOST is empty. Use the instance public hostname or IPv4."
+            exit 1
+          fi
+          if [ -z "$EC2_KEY_CHK" ]; then
+            echo "::error::Secret EC2_SSH_KEY is empty. Paste full .pem matching EC2 » Key pair assigned at launch."
+            exit 1
+          fi
+          echo "EC2 SSH sync enabled → $EC2_HOST_CHK"
+
+      # Scripts used by SSH step live in this workspace repo (.github/scripts).
+      - name: Checkout workspace (helper scripts only need default clone)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # Workspace metadata links backend/frontend as git-submodule-style pointers — clone real repos beside ./backend and ./frontend.
       - name: Checkout backend
         uses: actions/checkout@v4
         with:
@@ -153,11 +181,32 @@ jobs:
             --delete \
             --cache-control "public, max-age=0, must-revalidate"
 
+      - name: Start ssh-agent (EC2 CI key)
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Sync docs on EC2 (pull from S3 + fix ownership + restart backend)
+        env:
+          EC2_REMOTE_USER: ${{ secrets.EC2_USER }}
+        run: |
+          set -euo pipefail
+          REMOTE="${EC2_REMOTE_USER:-ubuntu}"
+          chmod +x .github/scripts/ec2-remote-pull-backend-docs.sh
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa,ecdsa,ed25519 "$EC2_SYNC_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          SCP_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          # shellcheck disable=SC2086
+          scp $SCP_OPTS .github/scripts/ec2-remote-pull-backend-docs.sh \
+            "${REMOTE}@${EC2_SYNC_HOST}:/tmp/ec2-remote-pull-backend-docs.sh"
+          ssh $SCP_OPTS "${REMOTE}@${EC2_SYNC_HOST}" \
+            "chmod +x /tmp/ec2-remote-pull-backend-docs.sh && bash /tmp/ec2-remote-pull-backend-docs.sh"
+
       - name: Summary
         run: |
           echo "### Docs deployed ✓" >> $GITHUB_STEP_SUMMARY
           echo "- **Live at**: https://docs.autoconnecto.in" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backend markdown (S3, for EC2 pull):** \`s3://autoconnecto-docs-site/backend-generated/\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **EC2**: instance role + \`backend/scripts/sync-generated-docs-from-s3.sh\` or systemd timer (no CI→SSH)." >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend markdown (S3 + EC2 pull):** \`s3://autoconnecto-docs-site/backend-generated/\` synced over SSH → \`/home/ubuntu/autoconnecto/backend/docs/generated\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
