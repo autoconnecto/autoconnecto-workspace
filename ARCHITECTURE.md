@@ -100,6 +100,77 @@ This is the control pattern for **one-time actions that do not have persistent s
 - Backend consumes MQTT RPC/ack response topics and re-emits to browser clients via Socket.IO (`device_rpc_response`).
 - SDK implements RPC request handling and publishes RPC responses; topic alignment must be verified across SDK and backend (`sdk/TRANSPORT_ARCHITECTURE.md`).
 
+## Deployment and release (confirmed)
+
+Source code lives in **separate Git repositories** (typical remotes):
+
+- Backend: `https://github.com/autoconnecto/autoconnecto-backend.git`
+- Frontend: `https://github.com/autoconnecto/autoconnecto-frontend.git`
+
+Operational values below are confirmed for the current production layout; substitute your own buckets or IDs if the account changes.
+
+### Browser app (`app.autoconnecto.in`)
+
+**Build:**
+
+- Working directory: `frontend/`
+- Production env: `frontend/.env.production` defines `VITE_API_BASE_URL`, `VITE_COGNITO_REDIRECT_URI`, etc.
+
+```bash
+cd frontend
+npm ci
+npm run build
+```
+
+**Artifact:** static files under `frontend/dist/`.
+
+**S3 bucket (origin for the app):** `s3://app.autoconnecto.in/` (Region: `ap-south-1`).
+
+**Publish (AWS CLI example):**
+
+```bash
+aws s3 sync frontend/dist s3://app.autoconnecto.in/ --delete --region ap-south-1
+```
+
+**CloudFront:** distribution ID **`E21R9QJBLA5QZB`** fronts the browser app.
+
+After uploading new `dist` assets, **invalidate** the edge cache so users receive fresh `index.html` and hashed bundles:
+
+```bash
+aws cloudfront create-invalidation --distribution-id E21R9QJBLA5QZB --paths "/*"
+```
+
+`-region` is accepted by the CLI but invalidation is a global CloudFront operation; IAM must allow **`cloudfront:CreateInvalidation`** on that distribution. Some IAM users can create invalidations even when **`cloudfront:ListDistributions`** is denied.
+
+**Rollback (frontend):** redeploy a previous `dist` (from git tag or CI artifact), sync to S3 again, invalidate `/*`.
+
+### Backend API (`api.autoconnecto.in`)
+
+**Host:** EC2 (or equivalent) where the Nest process runs (often via Docker Compose).
+
+**Typical release steps on the server:**
+
+```bash
+cd /path/to/autoconnecto-backend
+git pull origin main
+npm ci
+npm run build
+npm run migrate
+# restart the API process (systemd, compose, etc. — project-specific)
+```
+
+**Configuration:** production secrets and env live **on the server** (e.g. `.env.production` injected by the operator, not committed). See `backend/ENVIRONMENT.md` for variable names, including **self-serve signup OTP** (`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `SIGNUP_OTP_HMAC_SECRET`, Cognito pool, AWS region).
+
+**IAM:** the runtime identity (EC2 instance role or explicit access keys) must include Cognito **admin** actions required by `CognitoSignupAdminService` (scoped to the user pool ARN). See `backend/ENVIRONMENT.md` and policy examples discussed in project ops docs.
+
+**Rollback (backend):** deploy previous image or `git checkout` known-good tag, rebuild, run migrations only if a forward migration was already applied (otherwise prefer code rollback that matches DB schema).
+
+### Documentation site (separate pipeline)
+
+Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts under `backend/scripts/publish-docs.mjs`, bucket `autoconnecto-docs-site`, CloudFront **`E30AD6N6537JGX`** for the docs hostname). That path is **not** the same as the browser app bucket above; do not conflate the two distributions.
+
+---
+
 ## Confirmed deployment assumptions (implicit in code)
 
 - Backend expects:
