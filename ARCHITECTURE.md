@@ -167,7 +167,9 @@ npm run migrate
 
 ### Documentation site (separate pipeline)
 
-Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts under `backend/scripts/publish-docs.mjs`, bucket `autoconnecto-docs-site`, CloudFront **`E30AD6N6537JGX`** for the docs hostname). That path is **not** the same as the browser app bucket above; do not conflate the two distributions.
+Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts under `backend/scripts/publish-docs.mjs`, bucket `autoconnecto-docs-site`, CloudFront **`E30AD6N6537JGX`** for the docs hostname). That path is **not** the same as the browser app bucket above.
+
+**EC2 hygiene:** Generated behaviour markdown consumed by **`DocumentationService`** must **not** be written into **`~/autoconnecto/backend/docs/generated`** on the EC2 host by CI (that overlaps the Git checkout). CI uploads to S3 → SSH syncs **`/home/ubuntu/autoconnecto/artifacts/backend-generated/`** → bind-mount that path into **`backend`'s container** at **`.../docs/generated`**. Detail: **`backend/ENVIRONMENT.md`** (Documentation pipeline section).
 
 ---
 

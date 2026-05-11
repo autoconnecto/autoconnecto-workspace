@@ -11,8 +11,9 @@
 #   - Security group on EC2 must allow inbound TCP 22 from GitHub Actions IP ranges OR
 #     (less ideal) from 0.0.0.0/0. See https://api.github.com/meta ("actions").
 #   - Remote user default: ubuntu (set EC2_USER secret to override).
-# After S3 uploads, SSH runs sudo chown (fixes Docker-owned docs dirs) then aws s3 sync
-# using the EC2 instance role, then optionally restarts the backend container.
+# After S3 uploads, SSH runs aws s3 sync using the EC2 instance role into
+# ~/autoconnecto/artifacts/backend-generated (outside the backend Git repo), then
+# restarts the backend container. The repo working tree must not receive CI sync.
 
 name: Docs — Generate & Deploy
 
@@ -186,7 +187,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Sync docs on EC2 (pull from S3 + fix ownership + restart backend)
+      - name: Sync generated markdown on EC2 (S3 -> artifacts dir + restart backend)
         env:
           EC2_REMOTE_USER: ${{ secrets.EC2_USER }}
         run: |
@@ -207,6 +208,6 @@ jobs:
         run: |
           echo "### Docs deployed ✓" >> $GITHUB_STEP_SUMMARY
           echo "- **Live at**: https://docs.autoconnecto.in" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backend markdown (S3 + EC2 pull):** \`s3://autoconnecto-docs-site/backend-generated/\` synced over SSH → \`/home/ubuntu/autoconnecto/backend/docs/generated\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **EC2 backend markdown artifact:** \`s3://autoconnecto-docs-site/backend-generated/\` → SSH → \`/home/ubuntu/autoconnecto/artifacts/backend-generated\` (outside Git clone; bind-mount into backend container)." >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
