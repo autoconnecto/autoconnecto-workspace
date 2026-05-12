@@ -22,16 +22,31 @@
 
 name: Docs — In-app (generate + deploy to backend)
 
+# Triple-redundant trigger (production grade):
+#   1. repository_dispatch — fired by notify-workspace-docs.yml in the
+#      autoconnecto-backend and autoconnecto-frontend repos on every push
+#      to main that touches src/** or scripts/**. This is the primary,
+#      real-time refresh path.
+#   2. workflow_dispatch — manual override, always available; this is the
+#      first-line graceful-recovery action if the dispatch ever drops.
+#   3. schedule — daily catch-up at 02:30 UTC (08:00 IST). Even if every
+#      dispatch in a day is lost (PAT revoked, GH outage, etc.), the cron
+#      will resync EC2 with the latest backend/frontend HEAD. Cost is
+#      negligible: aws s3 sync etag-deduplicates and the EC2 container
+#      restart is idempotent when config/image are unchanged.
+#   4. push (workspace) — also fires when the workflow file or the EC2
+#      pull script change here, so self-test on edit is automatic.
 on:
   push:
     branches: [main]
     paths:
-      - "frontend/src/**"
-      - "backend/src/**"
-      - "backend/scripts/**"
       - ".github/workflows/inapp-docs.yml"
       - ".github/scripts/ec2-remote-pull-backend-docs.sh"
+  repository_dispatch:
+    types: [upstream-source-changed]
   workflow_dispatch:
+  schedule:
+    - cron: "30 2 * * *"
 
 concurrency:
   group: inapp-docs
@@ -210,24 +225,65 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -t rsa,ecdsa,ed25519 "$EC2_SYNC_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          SCP_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
-          # shellcheck disable=SC2086
-          scp $SCP_OPTS .github/scripts/ec2-remote-pull-backend-docs.sh \
-            "${REMOTE}@${EC2_SYNC_HOST}:/tmp/ec2-remote-pull-backend-docs.sh"
-          ssh $SCP_OPTS "${REMOTE}@${EC2_SYNC_HOST}" \
-            "chmod +x /tmp/ec2-remote-pull-backend-docs.sh && bash /tmp/ec2-remote-pull-backend-docs.sh"
+          SCP_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
+
+          # Retry the remote orchestration up to 3 times. The script itself
+          # is idempotent (aws s3 sync --delete + docker compose up -d), so
+          # repeating it is safe and converges to the latest state.
+          attempt=1
+          max_attempts=3
+          while [ $attempt -le $max_attempts ]; do
+            echo "::group::EC2 sync attempt $attempt/$max_attempts"
+            # shellcheck disable=SC2086
+            if scp $SCP_OPTS .github/scripts/ec2-remote-pull-backend-docs.sh \
+                 "${REMOTE}@${EC2_SYNC_HOST}:/tmp/ec2-remote-pull-backend-docs.sh" \
+               && ssh $SCP_OPTS "${REMOTE}@${EC2_SYNC_HOST}" \
+                    "chmod +x /tmp/ec2-remote-pull-backend-docs.sh && bash /tmp/ec2-remote-pull-backend-docs.sh"; then
+              echo "::endgroup::"
+              echo "✓ EC2 sync succeeded on attempt $attempt"
+              break
+            fi
+            echo "::endgroup::"
+            echo "::warning::EC2 sync attempt $attempt failed."
+            attempt=$((attempt + 1))
+            if [ $attempt -le $max_attempts ]; then
+              backoff=$((attempt * 10))
+              echo "Backing off for ${backoff}s before retry..."
+              sleep $backoff
+            fi
+          done
+
+          if [ $attempt -gt $max_attempts ]; then
+            echo "::error::EC2 sync failed after $max_attempts attempts."
+            echo "::error::Manual recovery: SSH into EC2 and run bash ~/autoconnecto/.github/scripts/ec2-remote-pull-backend-docs.sh"
+            exit 1
+          fi
 
       - name: Verify navigation served by API
         run: |
           set -e
-          sleep 5
-          BODY=$(curl -fsSL https://api.autoconnecto.in/api/documentation/navigation || true)
-          echo "$BODY" | head -c 400
-          echo
-          SECTION_COUNT=$(printf '%s' "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('sections',[])))" 2>/dev/null || echo 0)
-          echo "Sections served by API: $SECTION_COUNT"
+          # Poll up to 6 times (30s total) to give the backend container a
+          # moment to come back up after `docker compose up -d`. The mount is
+          # read-only so navigation.json is already in place; we just wait for
+          # Nest to be ready.
+          attempt=1
+          max_attempts=6
+          SECTION_COUNT=0
+          while [ $attempt -le $max_attempts ]; do
+            sleep 5
+            BODY=$(curl -fsSL https://api.autoconnecto.in/api/documentation/navigation || true)
+            SECTION_COUNT=$(printf '%s' "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('sections',[])))" 2>/dev/null || echo 0)
+            echo "Attempt $attempt/$max_attempts → sections: $SECTION_COUNT"
+            if [ "$SECTION_COUNT" -gt 0 ]; then
+              break
+            fi
+            attempt=$((attempt + 1))
+          done
+
           if [ "$SECTION_COUNT" = "0" ]; then
-            echo "::warning::API still returns 0 sections — backend may be mid-restart; check EC2 logs."
+            echo "::warning::API still returns 0 sections after ${max_attempts} polls. Production may still be serving the previous version (the read-only mount is intact). Inspect backend container logs on EC2."
+          else
+            echo "✓ API serving $SECTION_COUNT sections."
           fi
 
       - name: Summary
