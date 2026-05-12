@@ -25,6 +25,12 @@
 
 set -euo pipefail
 
+# Line-numbered error trap so a non-zero from any command (especially aws-cli
+# returning 255 for credential/region/endpoint issues) surfaces with the
+# offending line and exit code in the GitHub Actions annotations.
+trap 'rc=$?; printf "::error::[cf-deploy] FAILED at line %s with exit %s while running: %s\n" \
+      "${BASH_LINENO[0]}" "$rc" "${BASH_COMMAND}" >&2; exit "$rc"' ERR
+
 DIST_ID="${CF_DIST_ID:-E30AD6N6537JGX}"
 FN_NAME="${CF_FN_NAME:-docs-spa-rewrite}"
 FN_COMMENT="VitePress directory URL rewrite (managed by infra/cloudfront/deploy-spa-rewrite.sh)"

@@ -17,14 +17,22 @@
 name: Docs — Public site (docs.autoconnecto.in)
 
 on:
+  # The workspace push trigger only fires when this workflow file or
+  # docs/** is touched directly; submodule pointer bumps under
+  # backend/, frontend/, sdk/ do NOT match because git stores them
+  # as gitlinks, not as paths under those directories. The
+  # repository_dispatch below is what actually carries backend/frontend
+  # source pushes through into this workflow.
   push:
     branches: [main]
     paths:
-      - "frontend/src/**"
-      - "backend/src/**"
-      - "backend/scripts/**"
       - "docs/**"
+      - "infra/cloudfront/**"
       - ".github/workflows/public-docs-site.yml"
+  # Fired by notify-workspace-docs.yml in autoconnecto-backend and
+  # autoconnecto-frontend whenever they push to main under src/**.
+  repository_dispatch:
+    types: [upstream-source-changed]
   workflow_dispatch:
 
 concurrency:
