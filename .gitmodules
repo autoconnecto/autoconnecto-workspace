@@ -1,0 +1,26 @@
+; Autoconnecto meta-repo submodule manifest.
+;
+; The workspace tree records four gitlinks (mode 160000) at backend/,
+; frontend/, sdk/, docs/. Without this manifest, any tool that walks the
+; tree (notably actions/checkout's post-cleanup, `git submodule foreach`,
+; `git submodule status`) fails with:
+;   fatal: No url found for submodule path '<path>' in .gitmodules
+;
+; URLs match the public GitHub repos already configured as `origin` in
+; each working copy locally and pulled by .github/workflows/inapp-docs.yml.
+[submodule "backend"]
+	path = backend
+	url = https://github.com/autoconnecto/autoconnecto-backend.git
+	branch = main
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/autoconnecto/autoconnecto-frontend.git
+	branch = main
+[submodule "sdk"]
+	path = sdk
+	url = https://github.com/autoconnecto/autoconnecto-sdk.git
+	branch = main
+[submodule "docs"]
+	path = docs
+	url = https://github.com/autoconnecto/autoconnecto-docs.git
+	branch = main
