@@ -113,7 +113,7 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v0.1.5` *(tag pushed, EC2 deploy pending)* | _pending_ | After deploy: `git -C ~/autoconnecto/backend describe --tags --always --dirty` → `v0.1.5`; migration `0011_add_solution_icon_name.sql` runs automatically via the `migrate` compose service; `docker compose ps backend emqx` both report `healthy`; `docker compose logs emqx \| grep cert_file_not_found` returns empty. |
+| Backend (`api.autoconnecto.in`) | `v0.1.5` | 2026-05-12 ~16:15 UTC | `git -C ~/autoconnecto/backend describe --tags --always` → `v0.1.5` (commit `a55d94e`). Migration `0011_add_solution_icon_name.sql` applied (verified via `information_schema.columns` and `schema_migrations`). `docker compose ps backend emqx` both `healthy`. EMQX recreated with the new env-var overrides; `docker compose logs emqx \| grep cert_file_not_found` after last start returns **0** (noise eliminated). `/healthz` returns `{status:"ok", postgres:"ok", redis:"ok", timestamp:"2026-05-12T16:15:36.276Z"}`. |
 | Frontend (`app.autoconnecto.in`) | `v0.1.5` | 2026-05-12 ~16:03 UTC | `curl -sS https://app.autoconnecto.in/` references hashed bundle `index-BGHioVAO.js` (CSS hash `index-CqJNeAJo.css` unchanged from v0.1.4 — no global style changes shipped); CloudFront invalidation `IDM7EKDPVL99SUOWRS9D6YU8XD`. |
 | SDK (`autoconnecto-sdk`) | `v0.1.5` *(tagged for version consistency; source identical to v0.1.4)* | 2026-05-12 ~16:00 UTC | `git -C ~/autoconnecto/sdk describe --tags --always` → `v0.1.5`. SDK has no server-side deploy; in-field devices keep running whatever firmware they were last flashed with. Existing fleet remains on the v0.1.3 single-root (ISRG Root X1) trust bundle; reflash to v0.1.4 or v0.1.5 to pick up the X1 + X2 multi-CA bundle (same firmware on both tags). |
 
@@ -296,9 +296,9 @@ Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts u
 
 ## Current Status
 
-**Production release (as of 2026-05-12, evening):** frontend + SDK tags `v0.1.5` are live; backend `v0.1.5` is tagged + pushed but not yet pulled to the EC2 host. Until the operator runs the deploy sequence at the bottom of this doc, the live API is still on the `v0.1.4` commit.
+**Production release (as of 2026-05-12, evening):** all four artefacts of `v0.1.5` (backend, frontend, SDK, workspace) are live and verified.
 
-- Backend `api.autoconnecto.in` — `v0.1.5` tag pushed to GitHub; EC2 deploy pending. Once deployed, the `migrate` compose service will run `0011_add_solution_icon_name.sql` automatically (additive, nullable column, idempotent).
+- Backend `api.autoconnecto.in` — pulled to EC2 at ~16:15 UTC, container rebuilt from tag `v0.1.5`, reported `healthy`. EMQX was recreated in a follow-up step at ~16:15 UTC to pick up the `p7` schema-validation silencer env vars; post-recreate the EMQX log shows **zero** `cert_file_not_found` lines after the last "is running now". Migration `0011_add_solution_icon_name.sql` applied successfully (`information_schema.columns` confirms `solutions.icon_name TEXT NULL`).
 - Frontend `app.autoconnecto.in` — built from tag `v0.1.5`, synced to `s3://app.autoconnecto.in/`, CloudFront `E21R9QJBLA5QZB` invalidation `IDM7EKDPVL99SUOWRS9D6YU8XD` issued and edge confirmed serving the new bundle (`index-BGHioVAO.js`). Cross-version compatibility: the v0.1.5 frontend talks to either v0.1.4 or v0.1.5 backend; the new admin-only fields (`is_active`, `icon_name`) silently no-op on the older backend.
 - SDK `autoconnecto-sdk` — tagged `v0.1.5` for version consistency across the release set. Source is byte-identical to `v0.1.4`. In-field devices keep running whatever firmware they were last flashed with; reflash to `v0.1.4` or `v0.1.5` (same firmware) to pick up the X1 + X2 multi-CA trust bundle.
 - Self-serve signup (Brevo OTP + Cognito Admin) and login flows continue to function end-to-end in production.
