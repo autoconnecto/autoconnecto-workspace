@@ -1,89 +1,100 @@
 # CloudFront infrastructure (docs.autoconnecto.in)
 
-This folder owns the small, deterministic CloudFront tweaks needed to
-serve the VitePress site that the `Docs — Public site` GitHub Actions
-workflow uploads to S3.
+This folder owns the edge config for `docs.autoconnecto.in`, applied
+automatically by the `Docs — Public site` GitHub Actions workflow on
+every run.
 
-## What is in here
+## Files
 
 | File | Purpose |
 |---|---|
-| `viewer-request-spa-rewrite.js` | CloudFront Function that rewrites `/foo/` → `/foo/index.html` so VitePress's directory URLs work with the secure S3 REST origin. |
+| `viewer-request-spa-rewrite.js` | CloudFront Function: rewrites `/foo/` → `/foo/index.html` so VitePress directory URLs work over the secure S3 REST origin. |
+| `deploy-spa-rewrite.sh` | Idempotent reconcile script (used by CI). Creates/updates the function and attaches it to distribution `E30AD6N6537JGX`. |
 
-## Why this is needed
+## How it runs in CI
 
-The deploy step in `.github/workflows/public-docs-site.yml` runs
-`vitepress build` and `aws s3 sync` to `s3://autoconnecto-docs-site/`.
-VitePress emits files at e.g. `dashboards/index.html`, `api/index.html`.
-CloudFront's *Default Root Object* setting only rewrites the bucket
-root (`/` → `/index.html`); nested paths like `/dashboards/` are
-forwarded verbatim to S3, and the REST endpoint returns `403
-AccessDenied` for keys ending in `/`.
+`.github/workflows/public-docs-site.yml` runs `deploy-spa-rewrite.sh`
+on every workflow execution, right before the CloudFront invalidation
+step. Decision flow inside the script:
 
-A viewer-request CloudFront Function fixes this without weakening the
-origin (no need to switch to the public S3 website endpoint).
-
-## One-time deploy (AWS CLI)
-
-> Requires AWS CLI v2 with credentials that have
-> `cloudfront:CreateFunction`, `cloudfront:PublishFunction`,
-> `cloudfront:DescribeFunction`, `cloudfront:GetDistributionConfig`,
-> and `cloudfront:UpdateDistribution` on the docs distribution.
-
-```bash
-DIST_ID=E30AD6N6537JGX
-FN_NAME=docs-spa-rewrite
-
-# 1) Create the function (one time)
-aws cloudfront create-function \
-  --name "$FN_NAME" \
-  --function-config 'Comment="VitePress directory URL rewrite",Runtime=cloudfront-js-2.0' \
-  --function-code "fileb://viewer-request-spa-rewrite.js"
-
-# 2) Publish the DEVELOPMENT stage to LIVE. Capture the ETag.
-DEV_ETAG=$(aws cloudfront describe-function --name "$FN_NAME" \
-  --query 'ETag' --output text)
-aws cloudfront publish-function --name "$FN_NAME" --if-match "$DEV_ETAG"
-
-# 3) Capture the function's ARN (needed by UpdateDistribution).
-FN_ARN=$(aws cloudfront describe-function --name "$FN_NAME" --stage LIVE \
-  --query 'FunctionSummary.FunctionMetadata.FunctionARN' --output text)
-echo "FunctionARN=$FN_ARN"
-
-# 4) Attach to the default-cache-behavior on viewer-request.
-#    This is a read-modify-write of the whole distribution config.
-aws cloudfront get-distribution-config --id "$DIST_ID" \
-  --output json > /tmp/dist.json
-ETAG=$(jq -r '.ETag' /tmp/dist.json)
-jq --arg arn "$FN_ARN" '
-  .DistributionConfig.DefaultCacheBehavior.FunctionAssociations = {
-    Quantity: 1,
-    Items: [{ FunctionARN: $arn, EventType: "viewer-request" }]
-  } | .DistributionConfig
-' /tmp/dist.json > /tmp/new-dist.json
-aws cloudfront update-distribution --id "$DIST_ID" \
-  --if-match "$ETAG" \
-  --distribution-config file:///tmp/new-dist.json
-
-# 5) Wait for the new config to deploy (~3-5 min), then invalidate.
-aws cloudfront wait distribution-deployed --id "$DIST_ID"
-aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths '/*'
+```
+              ┌───────────────────────────┐
+              │ list-functions preflight  │── fails → print IAM policy
+              └────────────┬──────────────┘             & exit 1
+                           │ ok
+              ┌────────────▼──────────────┐
+              │ describe-function LIVE    │
+              └────────────┬──────────────┘
+              not present  │   present
+        ┌─────────────────┘   └─────────────────┐
+        ▼                                        ▼
+   create-function                       get-function LIVE
+   publish-function                       │
+        │                                  ▼
+        │                          cmp -s with local source?
+        │                                  │
+        │                            no diff │   diff
+        │                                  │   │
+        │             ┌────────────────────┘   ▼
+        │             │                update + publish
+        │             │                        │
+        ▼             ▼                        ▼
+              describe-function LIVE → ARN
+                          │
+              get-distribution-config E30AD6N6537JGX
+                          │
+              already attached on viewer-request?
+              ├── yes  → done (no-op fast path, ~2s)
+              └── no   → update-distribution + wait → done
 ```
 
-## Verify
+All AWS writes use `--if-match` ETags, so two concurrent CI runs cannot
+corrupt the distribution. The `concurrency:` group at the top of the
+workflow makes concurrent runs unlikely anyway.
 
-```bash
-# All four should now return 200 OK.
-for p in / /dashboards/ /api/ /devices/; do
-  printf '%-15s -> ' "$p"
-  curl -s -o /dev/null -w '%{http_code}\n' "https://docs.autoconnecto.in$p"
-done
+## One-time IAM setup (required only the first time)
+
+The CI IAM user behind `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
+must have these CloudFront actions. The script's preflight prints the
+exact JSON policy to attach if any are missing:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "DocsSpaRewriteFunction",
+    "Effect": "Allow",
+    "Action": [
+      "cloudfront:ListFunctions",
+      "cloudfront:DescribeFunction",
+      "cloudfront:GetFunction",
+      "cloudfront:CreateFunction",
+      "cloudfront:UpdateFunction",
+      "cloudfront:PublishFunction",
+      "cloudfront:GetDistributionConfig",
+      "cloudfront:UpdateDistribution"
+    ],
+    "Resource": "*"
+  }]
+}
 ```
 
-## Rollback
+(The existing `cloudfront:CreateInvalidation` permission on the
+distribution stays as it is. S3 sync permissions are unrelated.)
 
-Detach the function from the distribution (keeps the function around
-in case we want to reattach later):
+## Manual deploy / rollback
+
+You should not need this once IAM is set up; CI keeps everything in
+sync. Kept here for emergency operations.
+
+```bash
+# Run from this folder, with AWS CLI v2 and credentials configured.
+cd infra/cloudfront
+bash deploy-spa-rewrite.sh        # same script CI uses
+```
+
+To detach the function (rollback to pre-fix behaviour where
+`/dashboards/` returns 403):
 
 ```bash
 DIST_ID=E30AD6N6537JGX
@@ -98,19 +109,16 @@ aws cloudfront update-distribution --id "$DIST_ID" --if-match "$ETAG" \
 aws cloudfront wait distribution-deployed --id "$DIST_ID"
 ```
 
-## When to redeploy
+The function definition stays around (use `aws cloudfront
+delete-function --name docs-spa-rewrite` if you want it fully gone)
+so re-attaching later is a one-line CI run.
 
-Only when this folder's `.js` source changes. Repeat steps 1-5 above,
-substituting `update-function` for `create-function` on the second
-and subsequent deploys:
+## Verifying the fix is live
 
 ```bash
-FN_ETAG=$(aws cloudfront describe-function --name docs-spa-rewrite \
-  --query 'ETag' --output text)
-aws cloudfront update-function \
-  --name docs-spa-rewrite \
-  --if-match "$FN_ETAG" \
-  --function-config 'Comment="VitePress directory URL rewrite",Runtime=cloudfront-js-2.0' \
-  --function-code "fileb://viewer-request-spa-rewrite.js"
-# then publish-function + update-distribution as in steps 2-4.
+for p in / /dashboards/ /api/ /devices/ /alarms/; do
+  printf '%-15s -> ' "$p"
+  curl -s -o /dev/null -w '%{http_code}\n' "https://docs.autoconnecto.in$p"
+done
+# expected: all 200
 ```

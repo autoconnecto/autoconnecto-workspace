@@ -145,6 +145,14 @@ jobs:
             --exclude "backend-generated/*" \
             --cache-control "public, max-age=0, must-revalidate"
 
+      # Reconciles the CloudFront Function that rewrites /foo/ -> /foo/index.html
+      # so that VitePress's directory URLs resolve against the S3 REST origin.
+      # Idempotent: first run creates + attaches; steady-state is a ~2s no-op.
+      # If the CI IAM lacks the 7 cloudfront:* actions listed in the script,
+      # it fails fast with the exact IAM policy to add.
+      - name: Reconcile CloudFront viewer-request function (SPA rewrite)
+        run: bash infra/cloudfront/deploy-spa-rewrite.sh
+
       - name: Invalidate CloudFront
         run: |
           aws cloudfront create-invalidation \
