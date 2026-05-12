@@ -225,7 +225,11 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -t rsa,ecdsa,ed25519 "$EC2_SYNC_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          SCP_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
+          # DO NOT set IdentitiesOnly=yes — that disables the ssh-agent key
+          # loaded by webfactory/ssh-agent and produces "Permission denied
+          # (publickey)" with no Failed-publickey entry in sshd auth.log.
+          # See https://github.com/webfactory/ssh-agent#working-with-identitiesonly
+          SCP_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
 
           # Retry the remote orchestration up to 3 times. The script itself
           # is idempotent (aws s3 sync --delete + docker compose up -d), so
