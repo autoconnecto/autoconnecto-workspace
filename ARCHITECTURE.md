@@ -243,6 +243,41 @@ Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts u
   - REST API reachable at `/api` (proxied in dev) and websocket base URL `VITE_WS_BASE_URL`
 - Website is static-export oriented (suitable for S3/Netlify static hosting)
 
+## Strategic decisions pending
+
+### MQTT broker (EMQX) — license posture and version policy
+
+**Current state (confirmed):** the production broker is pinned to `emqx/emqx:6.0.0` in `backend/docker-compose.yml`. Single-node deployment on the EC2 host. No clustering.
+
+**Licensing context (verified against EMQ's own documentation as of 2026-05):**
+
+- EMQX **5.8.x and earlier** ship under **Apache License 2.0** — fully open source, no commercial-use restrictions, no clustering restrictions.
+- EMQX **5.9 onward (including 6.0.x)** switched to the **Business Source License 1.1 (BSL)** with an "Additional Use Grant" carve-out. Each released minor version automatically reverts to Apache 2.0 four years after its publication date.
+
+**What BSL 1.1 actually allows for free (Additional Use Grant):**
+
+- Single-node production deployment of any size — ✅ this is our current configuration.
+- Education / non-profit production deployments without node limits.
+
+**What BSL 1.1 restricts (requires a commercial license from EMQ):**
+
+- Clustering multiple nodes — not on our roadmap today, but limits future horizontal scaling on the broker tier.
+- "Offering the software as-a-service to third parties" — this is the clause that genuinely applies to Autoconnecto. The platform's tenants connect their devices to the broker we operate; whether that constitutes "offering EMQX-as-a-service" vs. "operating EMQX as one internal component of a larger SaaS product" is a legal question, not a technical one.
+
+**Three options, ordered by cost/risk to Autoconnecto:**
+
+| Option | Cost | What it costs you | What you keep |
+|---|---|---|---|
+| **A. Stay on `6.0.0` Community (today)** | $0 cash | Legal ambiguity on the SaaS clause; no clustering path; depends on EMQ not enforcing the SaaS restriction against single-node small-scale deployments. | All EMQX 6.0 features; no migration work; no downtime. |
+| **B. Roll back to EMQX 5.8.x (Apache 2.0)** | $0 cash + one scheduled maintenance window | Loss of EMQX 6.0 features (operator dashboard refresh, MQTT 5 enhancements, gateway updates). Need to verify mnesia state / named volume compatibility — likely needs starting fresh, which means re-creating any dashboard config (we don't use the dashboard for config, so impact is small). Eventually 5.x reaches end-of-maintenance. | Apache 2.0 freedom — no commercial restrictions of any kind, clustering remains free if we ever need it. |
+| **C. Buy EMQX Enterprise** | $$ annual | Commercial subscription with EMQ; license model becomes per-node / per-connection. Vendor lock to EMQ commercial terms. | Full clustering, full SaaS rights, vendor support, all 6.x+ features. |
+
+**Recommended path (assistant's read, not a decision):** **B** — roll back to EMQX 5.8.x at the next maintenance window. Our deployment is single-node and not using any 6.0-only feature today. Apache 2.0 eliminates the SaaS ambiguity entirely with zero recurring cost. We re-evaluate **C** only when clustering or 6.x-specific features become real product requirements.
+
+**Operator call required:** pick A / B / C and record the decision date in this section. Until then we are on A by default, with the SaaS clause as an open legal risk.
+
+**Tracked as:** workspace todo `p8`.
+
 ## Engineering risks (confirmed)
 
 - Backend startup ordering and environment loading can be nondeterministic (multiple modules read `process.env` directly; some env reads occur during dynamic module registration).
