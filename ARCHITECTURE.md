@@ -109,6 +109,30 @@ Source code lives in **separate Git repositories** (typical remotes):
 
 Operational values below are confirmed for the current production layout; substitute your own buckets or IDs if the account changes.
 
+### Current production release (confirmed)
+
+| Component | Tag | Deployed (UTC) | Verification |
+|---|---|---|---|
+| Backend (`api.autoconnecto.in`) | `v0.1.4` | 2026-05-12 ~14:50 UTC | `git -C ~/autoconnecto/backend describe --tags --always --dirty` → `v0.1.4`; `docker compose ps backend` reports `healthy`; `curl -sS http://127.0.0.1:3000/healthz` returns `{status:"ok", postgres:"ok", redis:"ok", ...}` |
+| Frontend (`app.autoconnecto.in`) | `v0.1.4` | 2026-05-12 ~14:55 UTC | `curl -sS https://app.autoconnecto.in/` references hashed bundle `index-B5RsLEGi.js` (CSS hash `index-CqJNeAJo.css` unchanged from v0.1.3 — no style changes shipped); CloudFront invalidation `I6IUNTL51XASM8XK5IRHQ9O6UC` |
+| SDK (`autoconnecto-sdk`) | `v0.1.4` | 2026-05-12 ~14:30 UTC | `git -C ~/autoconnecto/sdk describe --tags --always --dirty` → `v0.1.4`. SDK has no server-side deploy; in-field devices keep running whatever firmware they were last flashed with. Existing fleet remains on the v0.1.3 single-root (ISRG Root X1) trust bundle; reflash to v0.1.4 to pick up the X1 + X2 multi-CA bundle. |
+
+**Versioning convention (confirmed in repos):**
+
+- Tags follow `vMAJOR.MINOR.PATCH` and are created on `main` in each repo separately.
+- Backend and frontend versions are advanced together when a release is cut, even when only one side has source changes (avoids drift between halves of a release).
+- `git describe --tags --always --dirty` on each working tree is currently the authoritative answer to "what is deployed?" — see **Version visibility (gap)** below.
+
+### Version visibility (gap — recommendation)
+
+Neither `/health` nor `/healthz` returns a version field today (`backend/src/app.controller.ts`). Determining "what is running in production" requires shell access to the EC2 host (git tag on the working tree + `docker compose ps`).
+
+Recommended (deferred from `v0.1.4` — did not ship in that release; tracked as a future release item):
+1. Bake the git tag into the backend Docker image via a `--build-arg APP_VERSION` and expose it on `/health` as `{ status, service, version, commit, timestamp }`.
+2. Frontend exposes the same value at build time via `VITE_APP_VERSION` and renders it in the footer / About dialog.
+
+Until that lands, treat the table above as the authoritative record of what is deployed.
+
 ### Browser app (`app.autoconnecto.in`)
 
 **Build:**
@@ -140,30 +164,66 @@ After uploading new `dist` assets, **invalidate** the edge cache so users receiv
 aws cloudfront create-invalidation --distribution-id E21R9QJBLA5QZB --paths "/*"
 ```
 
-`-region` is accepted by the CLI but invalidation is a global CloudFront operation; IAM must allow **`cloudfront:CreateInvalidation`** on that distribution. Some IAM users can create invalidations even when **`cloudfront:ListDistributions`** is denied.
+`--region` is accepted by the CLI but invalidation is a global CloudFront operation; IAM must allow **`cloudfront:CreateInvalidation`** on that distribution. Confirmed empirically on the `autoconnecto-backend` IAM user (account `813417990382`): `cloudfront:CreateInvalidation` succeeds even though `cloudfront:GetDistribution` is denied. Do not assume access to `Get*`/`List*` actions when wiring CI.
+
+**Verify after deploy (confirmed sequence):**
+
+```bash
+# 1. Built artifact matches what S3 origin now serves:
+aws s3 cp s3://app.autoconnecto.in/index.html - --region ap-south-1
+
+# 2. CloudFront edge serves the same bundles (look for X-Cache: Miss right after invalidation):
+curl -sSI https://app.autoconnecto.in/
+curl -sS  https://app.autoconnecto.in/ | grep -E 'index-[A-Za-z0-9_-]+\.(js|css)'
+```
+
+`Last-Modified` on the CloudFront response should match the S3 upload time within seconds. `X-Cache: Miss from cloudfront` confirms the invalidation forced an origin pull; subsequent requests will flip to `Hit from cloudfront` once the new object is cached at the POP.
 
 **Rollback (frontend):** redeploy a previous `dist` (from git tag or CI artifact), sync to S3 again, invalidate `/*`.
 
 ### Backend API (`api.autoconnecto.in`)
 
-**Host:** EC2 (or equivalent) where the Nest process runs (often via Docker Compose).
+**Host:** EC2 instance (Ubuntu) running the backend in **Docker Compose**. Compose project root: `~/autoconnecto/backend/` on the host. Services include `backend`, `timescaledb` (Postgres + Timescale), `redis`, `autoconnecto-emqx` (MQTT broker).
 
-**Typical release steps on the server:**
+**Confirmed release flow (used for v0.1.3 and v0.1.4, 2026-05-12):**
 
 ```bash
-cd /path/to/autoconnecto-backend
-git pull origin main
-npm ci
-npm run build
-npm run migrate
-# restart the API process (systemd, compose, etc. — project-specific)
+# On EC2 host (ubuntu@<instance>):
+cd ~/autoconnecto/backend
+git fetch --tags origin
+git checkout v0.1.4                       # or: git pull origin main
+docker compose up -d --build --no-deps backend
 ```
 
-**Configuration:** production secrets and env live **on the server** (e.g. `.env.production` injected by the operator, not committed). See `backend/ENVIRONMENT.md` for variable names, including **self-serve signup OTP** (`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `SIGNUP_OTP_HMAC_SECRET`, Cognito pool, AWS region).
+`--no-deps backend` is intentional: it rebuilds and recreates only the `backend` container, leaving `timescaledb` / `redis` / `autoconnecto-emqx` untouched so dependencies don't restart on every release.
 
-**IAM:** the runtime identity (EC2 instance role or explicit access keys) must include Cognito **admin** actions required by `CognitoSignupAdminService` (scoped to the user pool ARN). See `backend/ENVIRONMENT.md` and policy examples discussed in project ops docs.
+**Verify after deploy (confirmed sequence):**
 
-**Rollback (backend):** deploy previous image or `git checkout` known-good tag, rebuild, run migrations only if a forward migration was already applied (otherwise prefer code rollback that matches DB schema).
+```bash
+# 1. Source tree is on the tag you intended:
+git -C ~/autoconnecto/backend describe --tags --always --dirty
+
+# 2. Container is up and healthy:
+docker compose ps backend
+
+# 3. API responds. Note: the liveness endpoints are registered at the
+#    application root (no `/api` prefix). `/health` is the cheap
+#    "is the process alive?" check; `/healthz` is the deep check
+#    that pings Postgres + Redis and is what compose's healthcheck
+#    uses internally. Run either of these from your workstation:
+curl -sS https://api.autoconnecto.in/healthz
+curl -sS https://api.autoconnecto.in/health
+```
+
+> Caveat: if a release contains **no source changes that affect the image** (e.g. only `docs/`, `.github/`, or other build-context-excluded paths), `docker compose up --build` will rebuild but the resulting image digest can equal the previous one, in which case compose does **not** recreate the container. The container will keep running the prior image (which is functionally identical). This is why "container `.Created` timestamp" alone is not a reliable "what version is running?" signal — see **Version visibility (gap)** above.
+
+**Migrations:** SQL migrations under `backend/migrations/*.sql` are applied automatically on backend container startup (see `backend/src/common/migration.runner.ts`). A failed migration aborts startup; the container exits non-zero and is restarted by compose's restart policy until the migration succeeds.
+
+**Configuration:** production secrets and env live **on the server** in `~/autoconnecto/backend/.env.production` (loaded by compose via `env_file`; not committed). See `backend/ENVIRONMENT.md` for the full variable list, including **self-serve signup OTP** (`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `SIGNUP_OTP_HMAC_SECRET`), Cognito pool config, and AWS region.
+
+**IAM:** the runtime identity (EC2 instance role) must include Cognito **admin** actions required by `CognitoSignupAdminService` (scoped to the user pool ARN). Confirmed working on the current EC2 instance role as of v0.1.4. See `backend/ENVIRONMENT.md` for the policy shape.
+
+**Rollback (backend):** `git checkout` the previous known-good tag on the host, then `docker compose up -d --build --no-deps backend`. Run forward migrations only if the prior tag actually had unmigrated changes; otherwise prefer pure code rollback that matches the DB schema already in place.
 
 ### Documentation site (separate pipeline)
 
@@ -192,11 +252,32 @@ Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts u
 
 ## Current Status
 
-- Core platform functionality exists across backend/frontend/sdk, with realtime dashboards and MQTT ingest flows.
-- Documentation exists in `docs/` but platform continuity docs at the repo root were missing until now.
+**Production release (as of 2026-05-12):** all three halves of `v0.1.4` (backend, frontend, SDK) are live and verified.
+
+- Backend `api.autoconnecto.in` — container rebuilt from tag `v0.1.4`, reported `healthy`, no new SQL migrations in this release (schema unchanged from v0.1.3).
+- Frontend `app.autoconnecto.in` — built from tag `v0.1.4`, synced to `s3://app.autoconnecto.in/`, CloudFront `E21R9QJBLA5QZB` invalidation `I6IUNTL51XASM8XK5IRHQ9O6UC` issued and edge confirmed serving fresh bundles.
+- SDK `autoconnecto-sdk` — tagged `v0.1.4`. SDK has no continuous deploy; in-field devices keep running whatever firmware they were last flashed with. Reflash to `v0.1.4` example sketches to pick up the X1 + X2 multi-CA trust bundle (otherwise existing devices keep working on the X1-only bundle they were flashed with).
+- Self-serve signup (Brevo OTP + Cognito Admin) and login flows continue to function end-to-end in production.
+- In-app documentation pipeline (Swagger + developer + user docs) operational; runs nightly at 02:30 UTC and on demand via `repository_dispatch` from backend/frontend pushes.
+- Public documentation site `docs.autoconnecto.in` operational with CloudFront SPA-rewrite function deployed via CI (`infra/cloudfront/deploy-spa-rewrite.sh`).
+
+**What v0.1.4 actually shipped** (delta against v0.1.3):
+
+- **Backend** — two commits under the same tag:
+  - `fix(infra)`: certbot deploy-hook now writes `privkey.pem` at mode `0644` (was `0640`) so the in-container `emqx` user (uid 1000) can read it after every auto-renewal. Without this, the silent failure mode was: renewal succeeds, hook copies the new file, `emqx ctl listeners restart` fails to bind, broker keeps serving the cached cert until restart. See `backend/ops/letsencrypt/README.md` for full rationale.
+  - `feat(solutions)`: new `PATCH /api/solutions/:id` endpoint accepting `{ title?, description? }`. Allow-listed against `PLATFORM_ADMIN_EMAILS` using the same inline check as the existing `POST`/`DELETE`. No schema migration.
+- **Frontend** — single commit: Solutions page now exposes an `Edit` button on each card (gated on `canPublishSolutions()` like Delete already is); admin actions row was restructured from a single `flex-wrap` row to a deterministic two-row vertical container so the per-card action layout is no longer viewport-width-dependent.
+- **SDK** — single commit: `AUTOCONNECTO_ROOT_CA` raw-string literal in all four example sketches (`AllFunctionTest`, `BasicTelemetry`, `RPCCommands`, `SwitchControl`) now contains BOTH `ISRG Root X1` (RSA, → 2035) and `ISRG Root X2` (ECDSA, → 2040). `mbedtls` validates if the broker chain terminates at any root in the bundle. No transport-layer code change required.
+
+**Known gaps (tracked):**
+
+- No runtime version reporting on `/health` — "what's deployed" is verified by SSH + git tag, not via HTTP. See **Version visibility (gap)** above; was scoped for `v0.1.4` but did not ship in that release. Carried forward as a future release item.
+- First-login UX on tenants with zero dashboards/devices may transiently show "failed to load resources" splash errors (observation pending field reports — defer until reproduced).
+- Several GitHub Actions workflows still on Node.js 20 (deprecation warning, not blocking).
 
 ## Next Priorities (recommended)
 
+- Version-self-reporting on `/health` and in the frontend footer (deferred from `v0.1.4`; carried into the next release).
 - Define a single authoritative transport contract (MQTT topics + Socket.IO events + payload shapes) and keep backend/frontend/sdk aligned.
 - Introduce explicit backend readiness phases so realtime/mqtt consumers do not run before dependencies are ready.
 - Consolidate frontend realtime connection lifecycle.
