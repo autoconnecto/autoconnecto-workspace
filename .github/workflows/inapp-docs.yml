@@ -1,0 +1,241 @@
+# Required Actions secrets on autoconnecto-workspace (Settings → Secrets → Actions):
+#   GIT_READ_TOKEN     Fine-grained PAT with Contents: READ on autoconnecto-backend +
+#                      autoconnecto-frontend (used by actions/checkout).
+#   AWS_ACCESS_KEY_ID  CI IAM user with s3:PutObject/DeleteObject on
+#   AWS_SECRET_ACCESS_KEY  s3://autoconnecto-docs-site/backend-generated/*
+#   EC2_HOST           Public hostname or IPv4 of the backend (api.autoconnecto.in).
+#   EC2_SSH_KEY        OpenSSH private key matching the EC2 key pair.
+#   EC2_USER           (optional) Remote user; defaults to "ubuntu".
+#
+# Contract owned by this workflow (in-app docs delivery):
+#   1. Generate backend/docs/generated/ from backend + frontend sources (Node, no DB/Redis/MQTT).
+#   2. aws s3 sync to s3://autoconnecto-docs-site/backend-generated/.
+#   3. SSH into EC2 and run .github/scripts/ec2-remote-pull-backend-docs.sh which:
+#        aws s3 sync -> /home/ubuntu/autoconnecto/artifacts/backend-generated/
+#        docker compose up -d --no-deps backend
+#   4. Backend container reads the bind-mount /app/docs/generated:ro and serves
+#      /api/documentation/navigation + /api/documentation/page.
+#
+# This workflow MUST succeed for in-app docs to refresh in production.
+# It is independent of the public docs site (docs.autoconnecto.in); see
+# public-docs-site.yml.
+
+name: Docs — In-app (generate + deploy to backend)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/src/**"
+      - "backend/src/**"
+      - "backend/scripts/**"
+      - ".github/workflows/inapp-docs.yml"
+      - ".github/scripts/ec2-remote-pull-backend-docs.sh"
+  workflow_dispatch:
+
+concurrency:
+  group: inapp-docs
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  generate-and-deploy:
+    name: Generate docs & sync to EC2 backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CHECKOUT_PAT: ${{ secrets.GIT_READ_TOKEN }}
+      EC2_SYNC_HOST: ${{ secrets.EC2_HOST }}
+
+    steps:
+      - name: Verify required secrets
+        env:
+          EC2_HOST_CHK: ${{ secrets.EC2_HOST }}
+          EC2_KEY_CHK: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          missing=0
+          if [ -z "$CHECKOUT_PAT" ]; then
+            echo "::error::GIT_READ_TOKEN is empty or missing."
+            missing=1
+          fi
+          if [ -z "$EC2_HOST_CHK" ]; then
+            echo "::error::EC2_HOST is empty. Set the public hostname or IPv4 of the API host."
+            missing=1
+          fi
+          if [ -z "$EC2_KEY_CHK" ]; then
+            echo "::error::EC2_SSH_KEY is empty. Paste the OpenSSH private key matching the EC2 key pair."
+            missing=1
+          fi
+          exit $missing
+
+      - name: Checkout workspace (helper scripts only)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: autoconnecto/autoconnecto-backend
+          ref: main
+          path: backend
+          token: ${{ env.CHECKOUT_PAT }}
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: autoconnecto/autoconnecto-frontend
+          ref: main
+          path: frontend
+          token: ${{ env.CHECKOUT_PAT }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate documentation
+        working-directory: backend
+        env:
+          DOCS_FRONTEND_ROOT: ${{ github.workspace }}/frontend/src
+          NODE_ENV: production
+        run: npm run docs:generate:standalone
+
+      - name: Verify both backend and frontend sources were checked out
+        run: |
+          set -e
+          if [ ! -d "backend/src" ]; then
+            echo "::error::backend/src missing — backend checkout failed."
+            exit 1
+          fi
+          if [ ! -d "frontend/src" ]; then
+            echo "::error::frontend/src missing — frontend checkout failed."
+            exit 1
+          fi
+          FE_FEATURE_FILES=$(find frontend/src/features -type f 2>/dev/null | wc -l)
+          if [ "$FE_FEATURE_FILES" -lt 50 ]; then
+            echo "::error::frontend/src/features has only $FE_FEATURE_FILES files; checkout likely incomplete (got an empty repo or wrong ref)."
+            exit 1
+          fi
+          BE_SRC_FILES=$(find backend/src -type f -name '*.ts' 2>/dev/null | wc -l)
+          if [ "$BE_SRC_FILES" -lt 50 ]; then
+            echo "::error::backend/src has only $BE_SRC_FILES TypeScript files; checkout likely incomplete."
+            exit 1
+          fi
+          echo "OK — backend/src: $BE_SRC_FILES *.ts files | frontend/src/features: $FE_FEATURE_FILES files"
+
+      - name: Verify generated docs
+        working-directory: backend
+        run: |
+          set -e
+          if [ ! -s docs/generated/navigation.json ]; then
+            echo "::error::navigation.json is missing or empty after generation."
+            exit 1
+          fi
+          echo "=== Generated section folders ==="
+          ls docs/generated/
+          echo "=== navigation.json (head) ==="
+          python3 -m json.tool < docs/generated/navigation.json | head -40
+
+          # The user-guide sections (dashboards, devices, ...) are frontend-derived.
+          # If they are missing pages, the frontend extractors saw an empty tree
+          # even though checkout looked OK — fail loudly rather than ship a
+          # half-empty Documentation menu.
+          python3 - <<'PY'
+          import json, sys
+          REQUIRED_WITH_PAGES = [
+              "dashboards", "devices", "device-profiles", "assets",
+              "users", "alarms", "rulechains", "tenant", "home", "developer",
+          ]
+          data = json.load(open("docs/generated/navigation.json"))
+          sections = { s["key"]: s for s in data.get("sections", []) }
+          missing = []
+          empty = []
+          for key in REQUIRED_WITH_PAGES:
+              s = sections.get(key)
+              if s is None:
+                  missing.append(key)
+              elif not s.get("pages"):
+                  empty.append(key)
+          if missing or empty:
+              if missing:
+                  print(f"::error::Missing sections: {missing}")
+              if empty:
+                  print(f"::error::Sections with zero pages (extractor produced nothing): {empty}")
+              sys.exit(1)
+          print(f"OK — {len(REQUIRED_WITH_PAGES)} required sections present and non-empty.")
+          PY
+
+      - name: Upload generated docs artifact (consumed by public-docs-site workflow)
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-generated-docs
+          path: backend/docs/generated/
+          retention-days: 7
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Upload generated docs to S3 (backend-generated/)
+        run: |
+          aws s3 sync backend/docs/generated/ \
+            s3://autoconnecto-docs-site/backend-generated/ \
+            --delete \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Start ssh-agent (EC2 CI key)
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Sync generated markdown on EC2 and restart backend container
+        env:
+          EC2_REMOTE_USER: ${{ secrets.EC2_USER }}
+        run: |
+          set -euo pipefail
+          REMOTE="${EC2_REMOTE_USER:-ubuntu}"
+          chmod +x .github/scripts/ec2-remote-pull-backend-docs.sh
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa,ecdsa,ed25519 "$EC2_SYNC_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          SCP_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          # shellcheck disable=SC2086
+          scp $SCP_OPTS .github/scripts/ec2-remote-pull-backend-docs.sh \
+            "${REMOTE}@${EC2_SYNC_HOST}:/tmp/ec2-remote-pull-backend-docs.sh"
+          ssh $SCP_OPTS "${REMOTE}@${EC2_SYNC_HOST}" \
+            "chmod +x /tmp/ec2-remote-pull-backend-docs.sh && bash /tmp/ec2-remote-pull-backend-docs.sh"
+
+      - name: Verify navigation served by API
+        run: |
+          set -e
+          sleep 5
+          BODY=$(curl -fsSL https://api.autoconnecto.in/api/documentation/navigation || true)
+          echo "$BODY" | head -c 400
+          echo
+          SECTION_COUNT=$(printf '%s' "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('sections',[])))" 2>/dev/null || echo 0)
+          echo "Sections served by API: $SECTION_COUNT"
+          if [ "$SECTION_COUNT" = "0" ]; then
+            echo "::warning::API still returns 0 sections — backend may be mid-restart; check EC2 logs."
+          fi
+
+      - name: Summary
+        run: |
+          {
+            echo "### In-app docs deployed ✓"
+            echo "- **API**: https://api.autoconnecto.in/api/documentation/navigation"
+            echo "- **S3 prefix**: \`s3://autoconnecto-docs-site/backend-generated/\`"
+            echo "- **EC2 artifact dir**: \`/home/ubuntu/autoconnecto/artifacts/backend-generated/\` (bind-mounted into backend container at \`/app/docs/generated:ro\`)"
+            echo "- **Commit**: ${{ github.sha }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,162 @@
+# Builds & deploys https://docs.autoconnecto.in (VitePress).
+#
+# This workflow is INDEPENDENT of the in-app docs pipeline. The in-app docs API
+# at https://api.autoconnecto.in/api/documentation is owned by inapp-docs.yml.
+# If this workflow fails, the in-app docs are still refreshed. Operators may
+# rebuild and deploy the public site manually (see backend/scripts/sync-docs-to-vitepress.mjs).
+#
+# Required Actions secrets on autoconnecto-workspace:
+#   GIT_READ_TOKEN     Fine-grained PAT (Contents: READ) on backend + frontend.
+#   DOCS_DEPLOY_KEY    SSH private key with access to autoconnecto/autoconnecto-docs.
+#   AWS_ACCESS_KEY_ID  CI IAM user with s3:* on autoconnecto-docs-site (root prefix).
+#   AWS_SECRET_ACCESS_KEY
+#
+# If DOCS_DEPLOY_KEY is rotated, missing, or revoked, this workflow will fail
+# the early secret check and stop — without touching anything else.
+
+name: Docs — Public site (docs.autoconnecto.in)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/src/**"
+      - "backend/src/**"
+      - "backend/scripts/**"
+      - "docs/**"
+      - ".github/workflows/public-docs-site.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: public-docs-site
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish:
+    name: Build VitePress site & deploy to S3 + CloudFront
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CHECKOUT_PAT: ${{ secrets.GIT_READ_TOKEN }}
+
+    steps:
+      - name: Verify required secrets
+        env:
+          DOCS_KEY_CHK: ${{ secrets.DOCS_DEPLOY_KEY }}
+        run: |
+          missing=0
+          if [ -z "$CHECKOUT_PAT" ]; then
+            echo "::error::GIT_READ_TOKEN is empty or missing."
+            missing=1
+          fi
+          if [ -z "$DOCS_KEY_CHK" ]; then
+            echo "::error::DOCS_DEPLOY_KEY is empty. Public docs site cannot be built without it."
+            missing=1
+          fi
+          exit $missing
+
+      - name: Checkout workspace
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: autoconnecto/autoconnecto-backend
+          ref: main
+          path: backend
+          token: ${{ env.CHECKOUT_PAT }}
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: autoconnecto/autoconnecto-frontend
+          ref: main
+          path: frontend
+          token: ${{ env.CHECKOUT_PAT }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate documentation (input to VitePress sync)
+        working-directory: backend
+        env:
+          DOCS_FRONTEND_ROOT: ${{ github.workspace }}/frontend/src
+          NODE_ENV: production
+        run: npm run docs:generate:standalone
+
+      - name: Clone VitePress docs repo (SSH)
+        env:
+          DOCS_DEPLOY_KEY: ${{ secrets.DOCS_DEPLOY_KEY }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # Strip CRLF if key was pasted from Windows.
+          printf '%s\n' "$DOCS_DEPLOY_KEY" | tr -d '\r' > ~/.ssh/docs_deploy_key
+          chmod 600 ~/.ssh/docs_deploy_key
+          ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND='ssh -i ~/.ssh/docs_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes'
+          git clone git@github.com:autoconnecto/autoconnecto-docs.git docs
+
+      - name: Sync generated markdown into VitePress
+        working-directory: backend
+        run: node scripts/sync-docs-to-vitepress.mjs
+
+      - name: Install VitePress dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Build VitePress site
+        working-directory: docs
+        run: npm run docs:build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Deploy docs site to S3 (immutable assets)
+        run: |
+          aws s3 sync docs/docs/.vitepress/dist s3://autoconnecto-docs-site/ \
+            --delete \
+            --exclude "*.html" --exclude "sitemap.xml" \
+            --exclude "backend-generated/*" \
+            --cache-control "public, max-age=31536000, immutable"
+
+      - name: Deploy docs site to S3 (HTML)
+        run: |
+          aws s3 sync docs/docs/.vitepress/dist s3://autoconnecto-docs-site/ \
+            --include "*.html" --include "sitemap.xml" \
+            --exclude "backend-generated/*" \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id E30AD6N6537JGX \
+            --paths "/*"
+
+      - name: Summary
+        run: |
+          {
+            echo "### docs.autoconnecto.in deployed ✓"
+            echo "- **Live**: https://docs.autoconnecto.in"
+            echo "- **Commit**: ${{ github.sha }}"
+            echo
+            echo "_In-app docs (the application Documentation menu) are owned by the separate \`Docs — In-app\` workflow._"
+          } >> "$GITHUB_STEP_SUMMARY"
