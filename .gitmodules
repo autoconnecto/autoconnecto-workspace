@@ -1,7 +1,7 @@
 ; Autoconnecto meta-repo submodule manifest.
 ;
-; The workspace tree records four gitlinks (mode 160000) at backend/,
-; frontend/, sdk/, docs/. Without this manifest, any tool that walks the
+; The workspace tree records five gitlinks (mode 160000) at backend/,
+; frontend/, sdk/, docs/, website/. Without this manifest, any tool that walks the
 ; tree (notably actions/checkout's post-cleanup, `git submodule foreach`,
 ; `git submodule status`) fails with:
 ;   fatal: No url found for submodule path '<path>' in .gitmodules
@@ -23,4 +23,8 @@
 [submodule "docs"]
 	path = docs
 	url = https://github.com/autoconnecto/autoconnecto-docs.git
+	branch = main
+[submodule "website"]
+	path = website
+	url = https://github.com/autoconnecto/website.git
 	branch = main
