@@ -22,7 +22,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').trim().replace(/\/+$/, '');
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: baseUrl,
+    canonical: `${baseUrl}/`,
   },
   icons: {
     icon: [{ url: '/favicon.ico', type: 'image/x-icon' }],
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: baseUrl,
+    url: `${baseUrl}/`,
     siteName: 'Autoconnecto',
     title: 'Autoconnecto — Enterprise IoT Platform',
     description: 'Full-stack IoT platform for enterprise device management and visualization.',
@@ -72,14 +72,13 @@ export const metadata: Metadata = {
     title: 'Autoconnecto — Enterprise IoT Platform',
     description: 'Full-stack IoT platform for enterprise device management and visualization.',
     images: ['/assets/images/app_logo.png'],
-    creator: '@autoconnecto',
   },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${dmSans.variable} ${fraunces.variable}`}>
-      <head>
+      <body className={dmSans.className}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -87,12 +86,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               '@context': 'https://schema.org',
               '@type': 'Organization',
               name: 'Autoconnecto',
-              url: baseUrl,
+              url: `${baseUrl}/`,
               logo: `${baseUrl}/assets/images/app_logo.png`,
               description: 'Enterprise IoT Platform for device management and visualization',
-              sameAs: [
-                'https://docs.autoconnecto.in',
-              ],
+              sameAs: ['https://autoconnecto.in/', 'https://docs.autoconnecto.in/'],
               contactPoint: {
                 '@type': 'ContactPoint',
                 contactType: 'Customer Support',
@@ -109,8 +106,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             }),
           }}
         />
-</head>
-      <body className={dmSans.className}>
         {children}
       </body>
     </html>

@@ -1,31 +1,18 @@
 # Website Environment
 
-This document describes environment variables present in `website/.env` and how the code uses them.
+## Required (used in code today)
 
-## Confirmed env file
+| Variable | Purpose |
+|----------|---------|
+| **`NEXT_PUBLIC_SITE_URL`** | Canonical site origin (no trailing slash), e.g. `https://www.autoconnecto.in`. Baked into `layout.tsx`, `page.tsx`, `sitemap.ts`, and `robots.ts` at **build** time. |
 
-`website/.env` exists and includes placeholders for:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `OPENAI_API_KEY`
-- `GEMINI_API_KEY`
-- `ANTHROPIC_API_KEY`
-- `NEXT_PUBLIC_GA_MEASUREMENT_ID`
-- `NEXT_PUBLIC_ADSENSE_ID`
-- `PERPLEXITY_API_KEY`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `NEXT_PUBLIC_SITE_URL`
+Copy **`website/.env.example`** to **`website/.env`** for local builds, or set the same variable in CI before `npm run build`.
 
-## Confirmed usage in code
+## Not used by this marketing site
 
-- `NEXT_PUBLIC_SITE_URL` is used in:
-  - `src/app/layout.tsx` for `metadataBase` and canonical URLs
-  - `src/app/page.tsx` for OpenGraph/Twitter URLs
-  - `src/app/sitemap.ts` and `src/app/robots.ts`
+Older templates sometimes listed **Supabase, OpenAI, Gemini, Anthropic, GA, AdSense, Perplexity, Stripe** keys. The current **`website/src`** code does **not** read any of those. If you add analytics, payments, or auth to this Next app later, introduce variables then and document them here.
 
-No other env vars are confirmed used by `website/src` in this snapshot.
+## Security
 
-## Security note
-
-Treat `.env` values as secrets. Even if placeholders exist today, real keys should be injected via hosting environment configuration and not committed.
-
+- Do **not** commit real API keys or payment keys to git.
+- Prefer CI/hosting secrets for anything sensitive when you do add integrations.

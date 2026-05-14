@@ -30,6 +30,12 @@ Build ignores:
 - TypeScript build errors (`typescript.ignoreBuildErrors: true`)
 - ESLint during builds (`eslint.ignoreDuringBuilds: true`)
 
+## Production build & SEO (www + apex)
+
+- Set **`NEXT_PUBLIC_SITE_URL`** to your **primary** marketing origin (no trailing slash), e.g. `https://www.autoconnecto.in`, in **CI and local** before `npm run build`. It is baked into `sitemap.xml`, `robots.txt`, canonical tags, and Open Graph. See **`.env.example`**.
+- Upload the full **`out/`** bundle to hosting for **each** hostname that should serve the marketing site. If apex and www both serve the site, use the **same** build so `robots.txt` / `sitemap.xml` match. JSON-LD lists apex and docs as `sameAs` for discovery.
+- If apex still 404s on `robots.txt` / `sitemap.xml` while `www` works, fix **CDN/S3 behaviors or redirects** (outside this repo).
+
 ## Current Status (confirmed)
 
 - Landing page is composed from section components under `src/app/components/*`.
