@@ -9,12 +9,8 @@ const navLinks = [
   { label: 'Platform', href: '#platform' },
   { label: 'Features', href: '#features' },
   { label: 'Scale', href: '#scale' },
+  { label: 'Developers', href: '#developers' },
   { label: 'Docs', href: 'https://docs.autoconnecto.in', external: true },
-  {
-    label: 'Device SDK',
-    href: 'https://github.com/autoconnecto/autoconnecto-sdk',
-    external: true,
-  },
   { label: 'Contact', href: '#contact' },
 ];
 

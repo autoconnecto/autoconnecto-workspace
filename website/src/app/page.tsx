@@ -6,6 +6,7 @@ import HeroSection from '@/app/components/HeroSection';
 import DashboardSection from '@/app/components/DashboardSection';
 import FeaturesSection from '@/app/components/FeaturesSection';
 import ScaleSection from '@/app/components/ScaleSection';
+import DevelopersSection from '@/app/components/DevelopersSection';
 import ContactSection from '@/app/components/ContactSection';
 import TestimonialsSection from '@/app/components/TestimonialsSection';
 
@@ -109,6 +110,7 @@ export default function LandingPage() {
       <DashboardSection />
       <FeaturesSection />
       <ScaleSection />
+      <DevelopersSection />
       <TestimonialsSection />
       <ContactSection />
       <Footer />
