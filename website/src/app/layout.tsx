@@ -24,6 +24,8 @@ export const viewport: Viewport = {
 
 const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').trim().replace(/\/+$/, '');
 
+const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
+
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   title: 'Autoconnecto — Enterprise IoT Platform',
@@ -73,6 +75,9 @@ export const metadata: Metadata = {
     description: 'Full-stack IoT platform for enterprise device management and visualization.',
     images: ['/assets/images/app_logo.png'],
   },
+  ...(googleSiteVerification
+    ? { verification: { google: googleSiteVerification } }
+    : {}),
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
