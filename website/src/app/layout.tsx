@@ -94,7 +94,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               url: `${baseUrl}/`,
               logo: `${baseUrl}/assets/images/app_logo.png`,
               description: 'Enterprise IoT Platform for device management and visualization',
-              sameAs: ['https://autoconnecto.in/', 'https://docs.autoconnecto.in/'],
+              sameAs: [
+                'https://autoconnecto.in/',
+                'https://docs.autoconnecto.in/',
+                'https://github.com/autoconnecto/autoconnecto-sdk',
+              ],
               contactPoint: {
                 '@type': 'ContactPoint',
                 contactType: 'Customer Support',

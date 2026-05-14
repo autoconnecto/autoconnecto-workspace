@@ -7,6 +7,11 @@ const footerLinks = [
   { label: 'Features', href: '#features', external: false },
   { label: 'Scale', href: '#scale', external: false },
   { label: 'Docs', href: 'https://docs.autoconnecto.in', external: true },
+  {
+    label: 'Device SDK',
+    href: 'https://github.com/autoconnecto/autoconnecto-sdk',
+    external: true,
+  },
   { label: 'Privacy', href: '#', external: false },
   { label: 'Terms', href: '#', external: false },
 ];
