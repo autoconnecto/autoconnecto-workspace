@@ -11,9 +11,9 @@
 #   1. Generate backend/docs/generated/ from backend + frontend sources (Node, no DB/Redis/MQTT).
 #   2. aws s3 sync to s3://autoconnecto-docs-site/backend-generated/.
 #   3. SSH into EC2 and run .github/scripts/ec2-remote-pull-backend-docs.sh which:
-#        aws s3 sync -> /home/ubuntu/autoconnecto/artifacts/backend-generated/
+#        aws s3 sync -> /home/ubuntu/autoconnecto/backend/docs/generated/
 #        docker compose up -d --no-deps backend
-#   4. Backend container reads the bind-mount /app/docs/generated:ro and serves
+#   4. Backend container reads ./docs:/app/docs (generated at /app/docs/generated) and serves
 #      /api/documentation/navigation + /api/documentation/page.
 #
 # This workflow MUST succeed for in-app docs to refresh in production.
@@ -239,10 +239,19 @@ jobs:
           while [ $attempt -le $max_attempts ]; do
             echo "::group::EC2 sync attempt $attempt/$max_attempts"
             # shellcheck disable=SC2086
-            if scp $SCP_OPTS .github/scripts/ec2-remote-pull-backend-docs.sh \
-                 "${REMOTE}@${EC2_SYNC_HOST}:/tmp/ec2-remote-pull-backend-docs.sh" \
+            # EC2 usually has only ~/autoconnecto/backend (no workspace monorepo).
+            # Ship the backend sync script from this job's checkout; fall back to workspace helper.
+            SYNC_SCRIPT="backend/scripts/sync-generated-docs-from-s3.sh"
+            REMOTE_SCRIPT="/tmp/autoconnecto-sync-generated-docs.sh"
+            if [ ! -f "$SYNC_SCRIPT" ]; then
+              SYNC_SCRIPT=".github/scripts/ec2-remote-pull-backend-docs.sh"
+              REMOTE_SCRIPT="/tmp/ec2-remote-pull-backend-docs.sh"
+            fi
+            # shellcheck disable=SC2086
+            if scp $SCP_OPTS "$SYNC_SCRIPT" \
+                 "${REMOTE}@${EC2_SYNC_HOST}:${REMOTE_SCRIPT}" \
                && ssh $SCP_OPTS "${REMOTE}@${EC2_SYNC_HOST}" \
-                    "chmod +x /tmp/ec2-remote-pull-backend-docs.sh && bash /tmp/ec2-remote-pull-backend-docs.sh"; then
+                    "chmod +x ${REMOTE_SCRIPT} && BACKEND_DIR=/home/ubuntu/autoconnecto/backend bash ${REMOTE_SCRIPT}"; then
               echo "::endgroup::"
               echo "✓ EC2 sync succeeded on attempt $attempt"
               break
@@ -259,17 +268,15 @@ jobs:
 
           if [ $attempt -gt $max_attempts ]; then
             echo "::error::EC2 sync failed after $max_attempts attempts."
-            echo "::error::Manual recovery: SSH into EC2 and run bash ~/autoconnecto/.github/scripts/ec2-remote-pull-backend-docs.sh"
+            echo "::error::Manual recovery: cd ~/autoconnecto/backend && bash scripts/sync-generated-docs-from-s3.sh"
             exit 1
           fi
 
       - name: Verify navigation served by API
         run: |
-          set -e
+          set -euo pipefail
           # Poll up to 6 times (30s total) to give the backend container a
-          # moment to come back up after `docker compose up -d`. The mount is
-          # read-only so navigation.json is already in place; we just wait for
-          # Nest to be ready.
+          # moment to come back up after `docker compose up -d`.
           attempt=1
           max_attempts=6
           SECTION_COUNT=0
@@ -285,10 +292,12 @@ jobs:
           done
 
           if [ "$SECTION_COUNT" = "0" ]; then
-            echo "::warning::API still returns 0 sections after ${max_attempts} polls. Production may still be serving the previous version (the read-only mount is intact). Inspect backend container logs on EC2."
-          else
-            echo "✓ API serving $SECTION_COUNT sections."
+            echo "::error::API still returns 0 sections after EC2 sync."
+            echo "::error::Check DOCS_GENERATED_DIR=/app/docs/generated in .env.production and docs/generated/navigation.json on the host."
+            echo "::error::Manual: cd ~/autoconnecto/backend && bash scripts/sync-generated-docs-from-s3.sh"
+            exit 1
           fi
+          echo "✓ API serving $SECTION_COUNT sections."
 
       - name: Summary
         run: |
@@ -296,6 +305,6 @@ jobs:
             echo "### In-app docs deployed ✓"
             echo "- **API**: https://api.autoconnecto.in/api/documentation/navigation"
             echo "- **S3 prefix**: \`s3://autoconnecto-docs-site/backend-generated/\`"
-            echo "- **EC2 artifact dir**: \`/home/ubuntu/autoconnecto/artifacts/backend-generated/\` (bind-mounted into backend container at \`/app/docs/generated:ro\`)"
+            echo "- **EC2 generated dir**: \`/home/ubuntu/autoconnecto/backend/docs/generated/\` (via compose bind \`./docs:/app/docs\` → \`/app/docs/generated\` in container)"
             echo "- **Commit**: ${{ github.sha }}"
           } >> "$GITHUB_STEP_SUMMARY"

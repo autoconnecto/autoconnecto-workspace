@@ -194,39 +194,30 @@ curl -sS  https://app.autoconnecto.in/ | grep -E 'index-[A-Za-z0-9_-]+\.(js|css)
 
 **Host:** EC2 instance (Ubuntu) running the backend in **Docker Compose**. Compose project root: `~/autoconnecto/backend/` on the host. Services include `backend`, `timescaledb` (Postgres + Timescale), `redis`, `autoconnecto-emqx` (MQTT broker).
 
-**Confirmed release flow (used for v0.1.3, v0.1.4, and v0.1.5, 2026-05-12):**
+**Confirmed release flow (v1.0.3+, 2026-05-15):** full runbook in `backend/ops/DEPLOYMENT-EC2.md` → **Backend release runbook**.
 
 ```bash
 # On EC2 host (ubuntu@<instance>):
 cd ~/autoconnecto/backend
-git fetch --tags origin
-git checkout v0.1.5                       # or: git pull origin main
-docker compose up -d --build --no-deps backend
+bash scripts/ec2-release-deploy.sh v1.0.3
 ```
 
-`--no-deps backend` is intentional: it rebuilds and recreates only the `backend` container, leaving `timescaledb` / `redis` / `autoconnecto-emqx` untouched so dependencies don't restart on every release.
+Or manually: `git fetch --tags --force origin` → `git checkout -f v1.0.3` → `docker compose up -d migrate` (exit 0) → `docker compose up -d --build --no-deps backend`.
 
-**Verify after deploy (confirmed sequence):**
+`--no-deps backend` is intentional: it rebuilds and recreates only the `backend` container, leaving `timescaledb` / `redis` / `autoconnecto-emqx` untouched.
+
+**Verify after deploy:**
 
 ```bash
-# 1. Source tree is on the tag you intended:
 git -C ~/autoconnecto/backend describe --tags --always --dirty
-
-# 2. Container is up and healthy:
 docker compose ps backend
-
-# 3. API responds. Note: the liveness endpoints are registered at the
-#    application root (no `/api` prefix). `/health` is the cheap
-#    "is the process alive?" check; `/healthz` is the deep check
-#    that pings Postgres + Redis and is what compose's healthcheck
-#    uses internally. Run either of these from your workstation:
 curl -sS https://api.autoconnecto.in/healthz
 curl -sS https://api.autoconnecto.in/health
 ```
 
-> Caveat: if a release contains **no source changes that affect the image** (e.g. only `docs/`, `.github/`, or other build-context-excluded paths), `docker compose up --build` will rebuild but the resulting image digest can equal the previous one, in which case compose does **not** recreate the container. The container will keep running the prior image (which is functionally identical). This is why "container `.Created` timestamp" alone is not a reliable "what version is running?" signal — see **Version visibility (gap)** above.
+> Caveat: if a release contains **no source changes that affect the image**, compose may not recreate the container. Use `git describe` on the host, not container `.Created` time — see **Version visibility (gap)** above.
 
-**Migrations:** SQL migrations under `backend/migrations/*.sql` are applied automatically on backend container startup (see `backend/src/common/migration.runner.ts`). A failed migration aborts startup; the container exits non-zero and is restarted by compose's restart policy until the migration succeeds.
+**Migrations:** applied by the one-shot **`migrate`** compose service (`npm run migrate` → `scripts/run-migrations.mjs`) before `backend` starts (`depends_on: migrate: service_completed_successfully`). Failed migrate blocks backend startup.
 
 **Configuration:** production secrets and env live **on the server** in `~/autoconnecto/backend/.env.production` (loaded by compose via `env_file`; not committed). See `backend/ENVIRONMENT.md` for the full variable list, including **self-serve signup OTP** (`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `SIGNUP_OTP_HMAC_SECRET`), Cognito pool config, and AWS region.
 
@@ -238,7 +229,7 @@ curl -sS https://api.autoconnecto.in/health
 
 Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts under `backend/scripts/publish-docs.mjs`, bucket `autoconnecto-docs-site`, CloudFront **`E30AD6N6537JGX`** for the docs hostname). That path is **not** the same as the browser app bucket above.
 
-**EC2 hygiene:** Generated behaviour markdown consumed by **`DocumentationService`** must **not** be written into **`~/autoconnecto/backend/docs/generated`** on the EC2 host by CI (that overlaps the Git checkout). CI uploads to S3 → SSH syncs **`/home/ubuntu/autoconnecto/artifacts/backend-generated/`** → bind-mount that path into **`backend`'s container** at **`.../docs/generated`**. Detail: **`backend/ENVIRONMENT.md`** (Documentation pipeline section).
+**EC2 delivery:** CI uploads generated markdown to S3; the EC2 pull script syncs into **`~/autoconnecto/backend/docs/generated/`** (output is **`.gitignored`**). **`docker-compose.yml`** uses **`./docs:/app/docs`** so the API serves **`/app/docs/generated`**. Detail: **`backend/ENVIRONMENT.md`** (Documentation pipeline section).
 
 ---
 
@@ -324,7 +315,7 @@ Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts u
   - `fix(infra)`: certbot deploy-hook now writes `privkey.pem` at mode `0644` (was `0640`) so the in-container `emqx` user (uid 1000) can read it after every auto-renewal. Without this, the silent failure mode was: renewal succeeds, hook copies the new file, `emqx ctl listeners restart` fails to bind, broker keeps serving the cached cert until restart. See `backend/ops/letsencrypt/README.md` for full rationale.
   - `feat(solutions)`: new `PATCH /api/solutions/:id` endpoint accepting `{ title?, description? }`. Allow-listed against `PLATFORM_ADMIN_EMAILS` using the same inline check as the existing `POST`/`DELETE`. No schema migration.
 - **Frontend** — single commit: Solutions page now exposes an `Edit` button on each card (gated on `canPublishSolutions()` like Delete already is); admin actions row was restructured from a single `flex-wrap` row to a deterministic two-row vertical container so the per-card action layout is no longer viewport-width-dependent.
-- **SDK** — single commit: `AUTOCONNECTO_ROOT_CA` raw-string literal in all four example sketches (`AllFunctionTest`, `BasicTelemetry`, `RPCCommands`, `SwitchControl`) now contains BOTH `ISRG Root X1` (RSA, → 2035) and `ISRG Root X2` (ECDSA, → 2040). `mbedtls` validates if the broker chain terminates at any root in the bundle. No transport-layer code change required.
+- **SDK** — PEM trust store lives in `sdk/src/AutoconnectoIsrgRoots.h` as the `AUTOCONNECTO_ROOT_CA` macro (ISRG Root X1 + X2). `AutoconnectoSDK.h` includes it; HTTPS-only example sketches include it explicitly. `mbedtls` validates if the server chain terminates at any root in the bundle.
 
 **Known gaps (tracked):**
 

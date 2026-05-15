@@ -34,6 +34,9 @@ on:
   repository_dispatch:
     types: [upstream-source-changed]
   workflow_dispatch:
+  # Daily catch-up (same as inapp-docs.yml). Public site does not auto-refresh from EC2 pull alone.
+  schedule:
+    - cron: "45 2 * * *"
 
 concurrency:
   group: public-docs-site
