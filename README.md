@@ -8,7 +8,7 @@ This repository is a multi-project workspace for the Autoconnecto IoT platform.
 - `frontend/`: React + Vite admin/dashboard UI with a large widget library and realtime subscriptions.
 - `sdk/`: Arduino/ESP32 C++ SDK implementing device telemetry/attributes/RPC over MQTT (WSS).
 - `docs/`: VitePress documentation site.
-- `website/`: Next.js 15 marketing site configured for static export.
+- `website/`: Next.js 15 marketing site configured for static export. **Canonical Git remote:** [`github.com/autoconnecto/website`](https://github.com/autoconnecto/website) (see [`docs/WEBSITE-STANDALONE-REPOSITORY.md`](docs/WEBSITE-STANDALONE-REPOSITORY.md) for submodule migration from this workspace).
 
 ## Confirmed system overview
 
