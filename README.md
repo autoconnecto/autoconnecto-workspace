@@ -9,6 +9,7 @@ This repository is a multi-project workspace for the Autoconnecto IoT platform.
 - `sdk/`: Arduino/ESP32 C++ SDK implementing device telemetry/attributes/RPC over MQTT (WSS).
 - `docs/`: VitePress documentation site.
 - `website/`: Next.js 15 marketing site configured for static export. **Canonical Git remote:** [`github.com/autoconnecto/website`](https://github.com/autoconnecto/website) (see [`docs/WEBSITE-STANDALONE-REPOSITORY.md`](docs/WEBSITE-STANDALONE-REPOSITORY.md) for submodule migration from this workspace).
+- `autoconnecto-mobile/`: React Native (Expo) Android mobile app. **Canonical Git remote:** [`github.com/autoconnecto/autoconnecto-mobile`](https://github.com/autoconnecto/autoconnecto-mobile). See [`MOBILE-SUBMODULE.md`](MOBILE-SUBMODULE.md).
 
 ## Confirmed system overview
 
@@ -17,7 +18,7 @@ Autoconnecto consists of:
 - **Backend**: REST API plus realtime delivery to browsers via Socket.IO. Also hosts device-facing transports (MQTT clients and a raw WebSocket device server).
 - **Frontend**: Operator/admin UI (devices, dashboards, telemetry, alarms, etc.) that consumes REST APIs and Socket.IO realtime events.
 - **Device SDK**: Embedded library used by devices to publish telemetry and attributes and handle RPC.
-- **Docs/Website**: Documentation site (`docs/`) and a separate marketing/landing site (`website/`).
+- **Docs/Website/Mobile**: Documentation (`docs/`), marketing site (`website/`), and operator mobile app (`autoconnecto-mobile/`).
 
 ## Key confirmed transport layers
 

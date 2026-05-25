@@ -8,7 +8,8 @@ This file provides Cursor-native, persistent context for AI-assisted development
 - `frontend/`: Vite/React dashboard/admin UI (widget registry + realtime consumption via Socket.IO).
 - `sdk/`: Arduino/ESP32 SDK (C++) implementing MQTT-over-WSS telemetry/attributes/RPC.
 - `docs/`: VitePress docs site.
-- `website/`: Next.js 15 App Router marketing site, static export (standalone repo: `https://github.com/autoconnecto/website`; workspace may track it as a submodule after migration — see `docs/WEBSITE-STANDALONE-REPOSITORY.md`).
+- `website/`: Next.js 15 App Router marketing site, static export (standalone repo: `https://github.com/autoconnecto/website`; see `docs/WEBSITE-STANDALONE-REPOSITORY.md`).
+- `autoconnecto-mobile/`: React Native (Expo) mobile app (`https://github.com/autoconnecto/autoconnecto-mobile`).
 
 ## Autoconnecto runtime architecture (confirmed)
 
