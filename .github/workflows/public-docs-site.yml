@@ -33,6 +33,9 @@ on:
   # autoconnecto-frontend whenever they push to main under src/**.
   repository_dispatch:
     types: [upstream-source-changed]
+  workflow_run:
+    workflows: ["Docs — In-app (generate + deploy to backend)"]
+    types: [completed]
   workflow_dispatch:
   # Daily catch-up (same as inapp-docs.yml). Public site does not auto-refresh from EC2 pull alone.
   schedule:
@@ -50,6 +53,7 @@ jobs:
     name: Build VitePress site & deploy to S3 + CloudFront
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     env:
       CHECKOUT_PAT: ${{ secrets.GIT_READ_TOKEN }}
 
@@ -94,19 +98,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
 
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm ci
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
 
-      - name: Generate documentation (input to VitePress sync)
-        working-directory: backend
-        env:
-          DOCS_FRONTEND_ROOT: ${{ github.workspace }}/frontend/src
-          NODE_ENV: production
-        run: npm run docs:generate:standalone
+      - name: Download generated docs bundle from S3 (backend-generated/)
+        run: |
+          set -e
+          mkdir -p backend/docs/generated
+          aws s3 sync s3://autoconnecto-docs-site/backend-generated/ backend/docs/generated/ \
+            --delete \
+            --cache-control "public, max-age=0, must-revalidate"
 
       - name: Clone VitePress docs repo (SSH)
         env:
@@ -133,13 +139,6 @@ jobs:
       - name: Build VitePress site
         working-directory: docs
         run: npm run docs:build
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
 
       - name: Deploy docs site to S3 (immutable assets)
         run: |

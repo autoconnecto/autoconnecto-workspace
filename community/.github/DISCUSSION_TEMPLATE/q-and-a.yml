@@ -1,0 +1,47 @@
+title: Q&A
+labels: ["question"]
+body:
+  - type: markdown
+    value: |
+      Search [existing discussions](https://github.com/autoconnecto/community/discussions) first.
+      For **bugs**, open an issue in the product repo (backend / frontend / sdk) and link it here.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Getting started / signup
+        - Devices & connectivity (MQTT, webhook)
+        - Dashboards & widgets
+        - Alarms & rules
+        - Billing & plans
+        - ESP32 / Arduino SDK
+        - Mobile app
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried
+      description: Steps, docs links, error messages (redact tokens).
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, firmware version, plan tier if relevant.
+    validations:
+      required: false

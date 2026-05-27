@@ -13,8 +13,10 @@ set -euo pipefail
 
 BACKEND_DIR="${BACKEND_DIR:-/home/ubuntu/autoconnecto/backend}"
 DOCS_GENERATED="${DOCS_GENERATED_DIR:-${BACKEND_DIR}/docs/generated}"
+DOCS_MANUAL="${DOCS_MANUAL_DIR:-${BACKEND_DIR}/docs/manual}"
 CACHE="${BACKEND_DIR}/docs/cache"
 BUCKET_URI="s3://autoconnecto-docs-site/backend-generated/"
+MANUAL_URI="s3://autoconnecto-docs-site/manual-inapp/"
 REGION="${AWS_REGION:-ap-south-1}"
 
 sudo mkdir -p "$DOCS_GENERATED" "$CACHE"
@@ -23,6 +25,11 @@ sudo chown -R ubuntu:ubuntu "${BACKEND_DIR}/docs"
 aws s3 sync "$BUCKET_URI" "$DOCS_GENERATED/" --delete --region "$REGION"
 FILE_COUNT="$(find "$DOCS_GENERATED" -type f 2>/dev/null | wc -l)"
 echo "[ec2-remote-pull-backend-docs] S3 markdown -> ${DOCS_GENERATED} (${FILE_COUNT} files)"
+
+sudo mkdir -p "$DOCS_MANUAL"
+aws s3 sync "$MANUAL_URI" "$DOCS_MANUAL/" --delete --region "$REGION"
+MANUAL_COUNT="$(find "$DOCS_MANUAL" -type f 2>/dev/null | wc -l)"
+echo "[ec2-remote-pull-backend-docs] S3 manual -> ${DOCS_MANUAL} (${MANUAL_COUNT} files)"
 
 if [ -f "${DOCS_GENERATED}/navigation.json" ]; then
   DOCS_GENERATED="$DOCS_GENERATED" python3 - <<'PY'

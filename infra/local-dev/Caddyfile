@@ -1,0 +1,17 @@
+# Local HTTPS for https://app.local.autoconnecto
+# Prereqs: hosts entry 127.0.0.1 app.local.autoconnecto, certs in ../../certs/
+# Run from repo root: caddy run --config infra/local-dev/Caddyfile
+
+app.local.autoconnecto {
+	tls ../../certs/app.local.autoconnecto+1.pem ../../certs/app.local.autoconnecto+1-key.pem
+
+	@api path /api/*
+	@socket path /socket.io*
+	handle @api {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle @socket {
+		reverse_proxy 127.0.0.1:3000
+	}
+	reverse_proxy 127.0.0.1:5173
+}

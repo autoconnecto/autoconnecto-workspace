@@ -1,0 +1,11 @@
+name: Community / meta
+description: Something wrong with this community repo (templates, Discord links, CoC)
+title: "[community] "
+labels: ["meta"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What should we fix or add?
+    validations:
+      required: true

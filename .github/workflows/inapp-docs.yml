@@ -106,6 +106,14 @@ jobs:
           path: frontend
           token: ${{ env.CHECKOUT_PAT }}
 
+      - name: Checkout docs repo (manual in-app pages)
+        uses: actions/checkout@v4
+        with:
+          repository: autoconnecto/autoconnecto-docs
+          ref: main
+          path: docs-repo
+          token: ${{ env.CHECKOUT_PAT }}
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -207,6 +215,18 @@ jobs:
         run: |
           aws s3 sync backend/docs/generated/ \
             s3://autoconnecto-docs-site/backend-generated/ \
+            --delete \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Upload manual in-app docs bundle to S3 (manual-inapp/)
+        run: |
+          set -e
+          if [ ! -d "docs-repo/docs/manual-inapp" ]; then
+            echo "::error::docs-repo/docs/manual-inapp missing. Add manual pages there (see autoconnecto-docs/CONTRIBUTING.md)."
+            exit 1
+          fi
+          aws s3 sync docs-repo/docs/manual-inapp/ \
+            s3://autoconnecto-docs-site/manual-inapp/ \
             --delete \
             --cache-control "public, max-age=0, must-revalidate"
 

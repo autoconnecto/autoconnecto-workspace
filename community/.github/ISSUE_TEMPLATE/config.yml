@@ -1,0 +1,20 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Q&A (Discussions)
+    url: https://github.com/autoconnecto/community/discussions/new?category=q-a
+    about: Ask how-to questions — searchable and community-visible
+  - name: Show and tell
+    url: https://github.com/autoconnecto/community/discussions/new?category=show-and-tell
+    about: Share a project or dashboard you built
+  - name: Bug in backend API
+    url: https://github.com/autoconnecto/autoconnecto-backend/issues/new
+    about: Platform API, billing, MQTT ingest, alarms engine
+  - name: Bug in web app
+    url: https://github.com/autoconnecto/autoconnecto-frontend/issues/new
+    about: Dashboard UI, signup, tenant admin
+  - name: Bug in ESP32 SDK
+    url: https://github.com/autoconnecto/autoconnecto-sdk/issues/new
+    about: Arduino library and device examples
+  - name: Email support
+    url: mailto:support@autoconnecto.in
+    about: Account or production incidents (include tenant id if safe)

@@ -1,0 +1,46 @@
+title: Show and tell
+labels: ["showcase"]
+body:
+  - type: markdown
+    value: |
+      Share what you built with Autoconnecto — dashboards, fleets, integrations. Photos and links welcome.
+
+  - type: input
+    id: title
+    attributes:
+      label: Project title
+      placeholder: e.g. Cold-chain monitoring for 12 trucks
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What did you build?
+      description: 2–4 sentences for visitors skimming Discussions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: stack
+    attributes:
+      label: Stack
+      description: Devices, ingest (MQTT/HTTP/webhook), widgets you used.
+    validations:
+      required: true
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Links
+      description: Demo video, screenshots, repo (no secrets).
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Permission
+      options:
+        - label: Autoconnecto may link or feature this project in docs/marketing (with credit)
+          required: false
