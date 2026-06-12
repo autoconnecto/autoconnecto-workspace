@@ -37,10 +37,14 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": false,
-          "modes": ["central"],
+          "modes": [
+            "central"
+          ],
           "bluetoothAlwaysPermission": "Allow Autoconnecto Worker to connect to machines via Bluetooth."
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font"
     ]
   }
 }
