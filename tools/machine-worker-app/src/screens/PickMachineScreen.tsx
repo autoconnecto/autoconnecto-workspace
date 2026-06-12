@@ -18,10 +18,11 @@ export function PickMachineScreen() {
   const [error, setError] = useState("");
 
   const scan = useCallback(async () => {
+    if (scanning) return;
     setScanning(true);
     setError("");
     try {
-      const rows = await scanNearbyMachines(12000);
+      const rows = await scanNearbyMachines(15000);
       setMachines(rows);
       if (!rows.length) {
         setError(
@@ -34,7 +35,7 @@ export function PickMachineScreen() {
     } finally {
       setScanning(false);
     }
-  }, []);
+  }, [scanning]);
 
   useEffect(() => {
     scan();

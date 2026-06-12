@@ -107,6 +107,7 @@ static bool sharedAttrsReceived = false;
 static bool bleAdvertRestartPending = false;
 static unsigned long lastBleWatchdogMs = 0;
 static unsigned long lastBleStatusLogMs = 0;
+static unsigned long lastAdvCheckMs = 0;
 static bool pendingSlotClientAttr = false;
 static bool pendingSessionEnd = false;
 static const char* pendingSessionEndReason = "";
@@ -704,6 +705,7 @@ unsigned long lastSharedSyncMs = 0;
 unsigned long lastClientPushMs = 0;
 
 void loop() {
+  const unsigned long nowMs = millis();
   sdk.loop();
 
   if (pendingSessionEnd) {
@@ -732,18 +734,24 @@ void loop() {
   processBleAdvertRestart();
   ensureBleWatchdog();
 
+  if (bleInited && !bleClientConnected && (nowMs - lastAdvCheckMs) >= 30000UL) {
+    lastAdvCheckMs = nowMs;
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    if (adv && !adv->isAdvertising()) {
+      Serial.println("[BLE] advertising stopped — restarting");
+      adv->start();
+    }
+  }
+
   if (bleStartPending && !bleInited && sdk.connected()) {
-    const unsigned long now = millis();
-    if (now < mqttConnectedAtMs + BLE_MIN_AFTER_MQTT_MS) {
+    if (nowMs < mqttConnectedAtMs + BLE_MIN_AFTER_MQTT_MS) {
       // wait — attrs/BLE must not run inside MQTT event task
-    } else if (sharedAttrsReceived || now >= bleStartAtMs) {
+    } else if (sharedAttrsReceived || nowMs >= bleStartAtMs) {
       bleStartPending = false;
       Serial.println("[BLE] starting (deferred from loop)");
       ensureBleStarted();
     }
   }
-
-  const unsigned long nowMs = millis();
 
   if (sessionActive && bleClientConnected &&
       (nowMs - lastBleHeartbeatMs) > BLE_HEARTBEAT_TIMEOUT_MS) {

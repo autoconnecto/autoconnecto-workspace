@@ -1,5 +1,10 @@
 import { PermissionsAndroid, Platform } from "react-native";
-import { BleManager, type Characteristic, type Device } from "react-native-ble-plx";
+import {
+  BleManager,
+  ScanMode,
+  type Characteristic,
+  type Device,
+} from "react-native-ble-plx";
 import {
   BLE_CMD_CHAR_UUID,
   BLE_SCAN_TIMEOUT_MS,
@@ -61,8 +66,32 @@ export function deviceAdvertisesWorkerService(device: Device) {
 export function machineBleNameFromDevice(device: Device): string | null {
   const direct = normalizeBleName(device.localName || device.name);
   if (isMachineAdvertName(direct)) return direct;
-  if (deviceAdvertisesWorkerService(device) && direct) return direct;
   return null;
+}
+
+/** Stop scans and drop stale GATT links so Android can discover peripherals again. */
+export async function prepareBleForScan() {
+  await requestBlePermissions();
+  const ble = getBleManager();
+  try {
+    await ble.stopDeviceScan();
+  } catch {
+    /* no active scan */
+  }
+  try {
+    const connected = await ble.connectedDevices([BLE_SERVICE_UUID]);
+    await Promise.all(
+      connected.map(async (device) => {
+        try {
+          await device.cancelConnection();
+        } catch {
+          /* ignore */
+        }
+      })
+    );
+  } catch {
+    /* ignore */
+  }
 }
 
 async function requestAndroidBlePermissions() {
@@ -127,29 +156,75 @@ export async function requestBlePermissions() {
 }
 
 export async function scanNearbyMachines(timeoutMs = BLE_SCAN_TIMEOUT_MS): Promise<ScannedMachine[]> {
-  await requestBlePermissions();
+  await prepareBleForScan();
   const ble = getBleManager();
   const found = new Map<string, ScannedMachine>();
+  let scanError: Error | null = null;
 
   await new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
-      ble.stopDeviceScan();
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      ble.stopDeviceScan().catch(() => {});
       resolve();
-    }, timeoutMs);
+    };
 
-    ble.startDeviceScan(null, { allowDuplicates: true }, (error, device) => {
-      if (error || !device) return;
-      const bleAdvertName = machineBleNameFromDevice(device);
-      if (!bleAdvertName || !isMachineAdvertName(bleAdvertName)) return;
-      const prev = found.get(bleAdvertName);
-      const rssi = device.rssi ?? null;
-      if (!prev || (rssi !== null && (prev.rssi === null || rssi > prev.rssi))) {
-        found.set(bleAdvertName, { deviceId: device.id, bleAdvertName, rssi });
+    const timer = setTimeout(finish, timeoutMs);
+
+    const onDevice = (error: Error | null, device: Device | null) => {
+      if (error) {
+        scanError = error;
+        clearTimeout(timer);
+        finish();
+        return;
       }
-    });
+      if (!device) return;
+
+      const bleAdvertName = machineBleNameFromDevice(device);
+      const hasService = deviceAdvertisesWorkerService(device);
+
+      if (bleAdvertName && isMachineAdvertName(bleAdvertName)) {
+        const prev = found.get(bleAdvertName);
+        const rssi = device.rssi ?? null;
+        if (!prev || (rssi !== null && (prev.rssi === null || rssi > prev.rssi))) {
+          found.set(bleAdvertName, { deviceId: device.id, bleAdvertName, rssi });
+        }
+        return;
+      }
+
+      // Service UUID seen but name not in this packet yet — keep device id for a later duplicate.
+      if (hasService) {
+        const pendingKey = `pending:${device.id}`;
+        const prev = found.get(pendingKey);
+        const rssi = device.rssi ?? null;
+        if (!prev) {
+          found.set(pendingKey, {
+            deviceId: device.id,
+            bleAdvertName: "",
+            rssi,
+          });
+        } else if (rssi !== null && (prev.rssi === null || rssi > prev.rssi)) {
+          found.set(pendingKey, { ...prev, rssi });
+        }
+      }
+    };
+
+    const scanOptions = { allowDuplicates: true, scanMode: ScanMode.LowLatency };
+    try {
+      ble.startDeviceScan([BLE_SERVICE_UUID], scanOptions, onDevice);
+    } catch {
+      ble.startDeviceScan(null, scanOptions, onDevice);
+    }
   });
 
-  return Array.from(found.values()).sort((a, b) => a.bleAdvertName.localeCompare(b.bleAdvertName));
+  if (scanError) {
+    throw scanError;
+  }
+
+  return Array.from(found.values())
+    .filter((row) => row.bleAdvertName && isMachineAdvertName(row.bleAdvertName))
+    .sort((a, b) => a.bleAdvertName.localeCompare(b.bleAdvertName));
 }
 
 async function connectDevice(device: Device): Promise<Device> {
@@ -169,7 +244,7 @@ export async function scanAndConnect(bleAdvertName: string): Promise<Device> {
   const target = normalizeBleName(bleAdvertName);
   if (!target) throw new Error("Invalid machine BLE name.");
 
-  await requestBlePermissions();
+  await prepareBleForScan();
   const ble = getBleManager();
 
   return new Promise((resolve, reject) => {
