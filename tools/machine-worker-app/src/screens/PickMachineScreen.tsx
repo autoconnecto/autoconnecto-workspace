@@ -24,7 +24,9 @@ export function PickMachineScreen() {
       const rows = await scanNearbyMachines(12000);
       setMachines(rows);
       if (!rows.length) {
-        setError("No AC-### machines found nearby. Check the label on your press.");
+        setError(
+          "No AC-### machines found nearby. Check: (1) phone Bluetooth on, (2) app permissions (Nearby devices + Location), (3) ESP serial shows [BLE] advertising as AC-001, (4) floor label matches slot (slot 1 → AC-001)."
+        );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Scan failed");

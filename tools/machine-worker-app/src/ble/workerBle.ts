@@ -1,3 +1,4 @@
+import { PermissionsAndroid, Platform } from "react-native";
 import { BleManager, type Characteristic, type Device } from "react-native-ble-plx";
 import {
   BLE_CMD_CHAR_UUID,
@@ -47,7 +48,64 @@ export function isMachineAdvertName(name: string | null | undefined) {
   return MACHINE_BLE_NAME_RE.test(normalizeBleName(name));
 }
 
+function uuidCompact(uuid: string) {
+  return uuid.toLowerCase().replace(/-/g, "");
+}
+
+export function deviceAdvertisesWorkerService(device: Device) {
+  const target = uuidCompact(BLE_SERVICE_UUID);
+  return (device.serviceUUIDs ?? []).some((uuid) => uuidCompact(uuid) === target);
+}
+
+/** Best-effort BLE advert name from scan result (name may arrive in a later duplicate). */
+export function machineBleNameFromDevice(device: Device): string | null {
+  const direct = normalizeBleName(device.localName || device.name);
+  if (isMachineAdvertName(direct)) return direct;
+  if (deviceAdvertisesWorkerService(device) && direct) return direct;
+  return null;
+}
+
+async function requestAndroidBlePermissions() {
+  if (Platform.OS !== "android") return;
+
+  const api = typeof Platform.Version === "number" ? Platform.Version : parseInt(String(Platform.Version), 10);
+
+  if (api >= 31) {
+    const result = await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN!,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT!,
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION!,
+    ]);
+    const scan = result["android.permission.BLUETOOTH_SCAN"];
+    const connect = result["android.permission.BLUETOOTH_CONNECT"];
+    if (
+      scan !== PermissionsAndroid.RESULTS.GRANTED ||
+      connect !== PermissionsAndroid.RESULTS.GRANTED
+    ) {
+      throw new Error(
+        "Bluetooth permissions required. Open Settings → Apps → Autoconnecto Worker → Permissions and allow Nearby devices + Location."
+      );
+    }
+    return;
+  }
+
+  const location = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION!,
+    {
+      title: "Location for Bluetooth scan",
+      message:
+        "Android needs location permission to discover nearby machines (AC-001, etc.) over Bluetooth.",
+      buttonPositive: "Allow",
+    }
+  );
+  if (location !== PermissionsAndroid.RESULTS.GRANTED) {
+    throw new Error("Location permission is required to scan for machines over Bluetooth.");
+  }
+}
+
 export async function requestBlePermissions() {
+  await requestAndroidBlePermissions();
+
   const ble = getBleManager();
   const state = await ble.state();
   if (state === "PoweredOn") return;
@@ -58,7 +116,11 @@ export async function requestBlePermissions() {
         resolve();
       } else if (next === "Unauthorized" || next === "Unsupported") {
         sub.remove();
-        reject(new Error(`Bluetooth unavailable (${next})`));
+        reject(
+          new Error(
+            `Bluetooth unavailable (${next}). Turn Bluetooth on in phone settings.`
+          )
+        );
       }
     }, true);
   });
@@ -77,8 +139,8 @@ export async function scanNearbyMachines(timeoutMs = BLE_SCAN_TIMEOUT_MS): Promi
 
     ble.startDeviceScan(null, { allowDuplicates: true }, (error, device) => {
       if (error || !device) return;
-      const bleAdvertName = normalizeBleName(device.localName || device.name);
-      if (!isMachineAdvertName(bleAdvertName)) return;
+      const bleAdvertName = machineBleNameFromDevice(device);
+      if (!bleAdvertName || !isMachineAdvertName(bleAdvertName)) return;
       const prev = found.get(bleAdvertName);
       const rssi = device.rssi ?? null;
       if (!prev || (rssi !== null && (prev.rssi === null || rssi > prev.rssi))) {
@@ -128,7 +190,7 @@ export async function scanAndConnect(bleAdvertName: string): Promise<Device> {
         reject(error);
         return;
       }
-      const seen = normalizeBleName(device?.localName || device?.name);
+      const seen = device ? machineBleNameFromDevice(device) : null;
       if (!device || seen !== target) return;
 
       settled = true;
