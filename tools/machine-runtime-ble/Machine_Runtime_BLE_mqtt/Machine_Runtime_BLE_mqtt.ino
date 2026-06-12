@@ -22,6 +22,7 @@
 #include <HTTPClient.h>
 #include <time.h>
 #include <esp_bt.h>
+#include <esp_coexist.h>
 #include <NimBLEDevice.h>
 #include <Preferences.h>
 #include <AutoconnectoSDK.h>
@@ -58,6 +59,13 @@ const char* ATTR_TOOL_USED = "machine_tool_cycles_used";
 
 // 1 = laptop/backend on LAN (EMQX :1883, Nest :3000). 0 = production.
 #define LOCAL_DEV 1
+
+// Blocking HTTP in loop() starves MQTT keepalive — only use when MQTT attrs are unavailable.
+#if LOCAL_DEV
+#define HTTP_ATTR_FALLBACK 0
+#else
+#define HTTP_ATTR_FALLBACK 1
+#endif
 
 #if LOCAL_DEV
 static const char* API_HOST = "192.168.68.107";
@@ -540,9 +548,13 @@ static void onConnect(bool connected) {
   if (connected) {
     mqttConnectedAtMs = millis();
     sharedAttrsReceived = false;
-    scheduleBleStart();
+    if (!bleInited) {
+      scheduleBleStart();
+    }
+#if HTTP_ATTR_FALLBACK
     httpAttrFetchPending = true;
     httpAttrFetchAtMs = millis() + HTTP_ATTR_FETCH_DELAY_MS;
+#endif
     pendingClientMirrorOnConnect = true;
   }
 }
@@ -579,6 +591,7 @@ static bool modbusReadInputRegs(uint8_t slave, uint16_t startReg, uint16_t count
   uint8_t resp[128];
   const size_t expected = 5 + count * 2;
   while (millis() < deadline && idx < expected && idx < sizeof(resp)) {
+    sdk.loop();
     if (PzemSerial.available()) resp[idx++] = (uint8_t)PzemSerial.read();
   }
   if (idx < 5 || resp[0] != slave || resp[1] != 0x04) return false;
@@ -635,6 +648,8 @@ void setup() {
     Serial.println("[BLE] classic BT mem release failed");
   }
   WiFi.setSleep(WIFI_PS_NONE);
+  // BLE + WiFi share the radio — bias slightly toward WiFi so MQTT pings are not starved.
+  esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
 
   PzemSerial.begin(PZEM_BAUD, SERIAL_8N1, PZEM_UART_RX, PZEM_UART_TX);
   delay(100);
@@ -718,6 +733,7 @@ void loop() {
     pushClientMirror(false);
   }
 
+#if HTTP_ATTR_FALLBACK
   if (
     httpAttrFetchPending && sdk.connected() &&
     !sharedAttrsReceived && millis() >= httpAttrFetchAtMs
@@ -725,6 +741,7 @@ void loop() {
     httpAttrFetchPending = false;
     fetchSharedAttrsViaHttp();
   }
+#endif
 
   if (pendingSlotClientAttr && sdk.connected()) {
     pendingSlotClientAttr = false;
@@ -789,5 +806,5 @@ void loop() {
     sdk.sendTelemetry(tel);
   }
 
-  delay(10);
+  delay(1);
 }

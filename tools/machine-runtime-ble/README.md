@@ -39,6 +39,14 @@ Without Huge APP, BLE + WiFi + MQTT exceeds default 1.3 MB flash.
    - `machine_code` = `PRESS07` (string)  
 3. ESP advertises **`AC-007`**.
 
+## MQTT `errno=119` / ping timeout
+
+Occasional `mqtt_client: Writing didn't complete` / `errno=119` after long uptime is usually **WiFi + BLE sharing the radio** or the **PC broker sleeping** — the SDK reconnects automatically (`Reconnecting MQTT…` → `MQTT CONNECTED`). Not a corrupt sketch if attrs/telemetry resume.
+
+Mitigations: keep dev PC awake, ESP on stable WiFi, reflash latest sketch (WiFi coexist preference + faster `loop()`). Reflash after edits.
+
+`machine_allow_run = false` with `machine_tool_remaining = 0` is **tool life exhausted** — reset tool life in dashboard Setup, not an MQTT bug.
+
 ## Serial — BLE must be on
 
 After boot you should see:
