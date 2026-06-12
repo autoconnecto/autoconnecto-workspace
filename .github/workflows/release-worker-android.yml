@@ -40,6 +40,9 @@ jobs:
       - name: Generate Android project (Expo prebuild)
         run: npx expo prebuild --platform android --no-install
 
+      - name: Pin Kotlin version (Compose compiler compatibility)
+        run: echo "android.kotlinVersion=1.9.25" >> android/gradle.properties
+
       - name: Build release APK
         working-directory: tools/machine-worker-app/android
         run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
