@@ -105,6 +105,8 @@ static unsigned long bleStartAtMs = 0;
 static unsigned long mqttConnectedAtMs = 0;
 static bool sharedAttrsReceived = false;
 static bool bleAdvertRestartPending = false;
+static unsigned long lastBleWatchdogMs = 0;
+static unsigned long lastBleStatusLogMs = 0;
 static bool pendingSlotClientAttr = false;
 static bool pendingSessionEnd = false;
 static const char* pendingSessionEndReason = "";
@@ -333,7 +335,8 @@ static void ensureBleStarted() {
   if (bleInited) return;
   Serial.print("[MEM] heap before BLE ");
   Serial.println(ESP.getFreeHeap());
-  if (ESP.getFreeHeap() < 45000) {
+  // After MQTT connects, free heap is often ~35–42 KB; 45 KB gate blocked BLE forever.
+  if (ESP.getFreeHeap() < 32000) {
     Serial.println("[BLE] low heap — retry in 5s");
     bleStartPending = true;
     bleStartAtMs = millis() + 5000;
@@ -342,6 +345,26 @@ static void ensureBleStarted() {
   initBle();
   Serial.print("[MEM] heap after BLE ");
   Serial.println(ESP.getFreeHeap());
+}
+
+static void logBleStatus(const char* reason) {
+  Serial.print("[BLE] status (");
+  Serial.print(reason);
+  Serial.print(") inited=");
+  Serial.print(bleInited ? "yes" : "no");
+  Serial.print(" name=");
+  Serial.print(bleAdvertName());
+  Serial.print(" heap=");
+  Serial.println(ESP.getFreeHeap());
+}
+
+static void ensureBleWatchdog() {
+  const unsigned long now = millis();
+  if (bleInited) return;
+  if (now - lastBleWatchdogMs < 15000UL) return;
+  lastBleWatchdogMs = now;
+  logBleStatus("watchdog");
+  ensureBleStarted();
 }
 
 static void processBleAdvertRestart() {
@@ -652,16 +675,28 @@ void setup() {
   // WiFi+NTP done — SDK will skip re-connecting WiFi (see NetworkConnect.cpp).
   delay(1000);
 
-  Serial.print("[MEM] heap before MQTT ");
-  Serial.println(ESP.getFreeHeap());
-
   sdk.onAttributeUpdate(onSharedAttribute);
   sdk.onConnect(onConnect);
+
+  // BLE needs contiguous heap — start before MQTT TLS buffers are allocated.
+  Serial.print("[MEM] heap before BLE ");
+  Serial.println(ESP.getFreeHeap());
+  Serial.println("[BLE] starting early (pre-MQTT)");
+  ensureBleStarted();
+  logBleStatus("boot");
+
+  Serial.print("[MEM] heap before MQTT ");
+  Serial.println(ESP.getFreeHeap());
   sdk.begin(config);
 
   applySsrOutput();
 
   Serial.println("[SDK] Machine_Runtime_BLE — worker app + MQTT");
+  if (!bleInited) {
+    Serial.println("[BLE] warn — not advertising at boot; watchdog will retry");
+    bleStartPending = true;
+    bleStartAtMs = millis() + 5000;
+  }
 }
 
 unsigned long lastTelemetryMs = 0;
@@ -695,6 +730,7 @@ void loop() {
   }
 
   processBleAdvertRestart();
+  ensureBleWatchdog();
 
   if (bleStartPending && !bleInited && sdk.connected()) {
     const unsigned long now = millis();
@@ -717,6 +753,10 @@ void loop() {
   if (nowMs - lastSharedSyncMs >= SHARED_SYNC_MS) {
     lastSharedSyncMs = nowMs;
     requestPlatformSync("periodic");
+    if (nowMs - lastBleStatusLogMs >= SHARED_SYNC_MS) {
+      lastBleStatusLogMs = nowMs;
+      logBleStatus("periodic");
+    }
   }
 
   if (nowMs - lastClientPushMs >= CLIENT_PUSH_MS) {

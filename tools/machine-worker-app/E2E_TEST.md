@@ -9,7 +9,7 @@
 
 - `tools/machine-runtime-ble/Machine_Runtime_BLE_mqtt/`
 - `LOCAL_DEV 1`, WiFi, token
-- Serial: `[BLE] advertising as AC-001`
+- Serial after reset: `[BLE] advertising as AC-001` and `[BLE] status (periodic) inited=yes`
 
 ## 3. Worker app
 
