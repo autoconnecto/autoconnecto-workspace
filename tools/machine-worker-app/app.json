@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Autoconnecto Worker",
+    "slug": "autoconnecto-worker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "autoconnecto-worker",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "in.autoconnecto.worker",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Connect to machines on the factory floor.",
+        "NSBluetoothPeripheralUsageDescription": "Connect to machines on the factory floor.",
+        "NSLocationWhenInUseUsageDescription": "Required for Bluetooth scanning on Android."
+      }
+    },
+    "android": {
+      "package": "in.autoconnecto.worker",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["central"],
+          "bluetoothAlwaysPermission": "Allow Autoconnecto Worker to connect to machines via Bluetooth."
+        }
+      ]
+    ]
+  }
+}

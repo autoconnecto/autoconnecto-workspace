@@ -1,0 +1,84 @@
+# Build Autoconnecto Worker APK (BLE-only operator app).
+# Trigger: push tag worker-v* or manual workflow_dispatch.
+# Output: autoconnecto-worker.apk (sideload; release signed with debug keystore).
+
+name: Android APK — Worker (release)
+
+on:
+  push:
+    tags:
+      - "worker-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/machine-worker-app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: tools/machine-worker-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Generate Android project (Expo prebuild)
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build release APK
+        working-directory: tools/machine-worker-app/android
+        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+
+      - name: Package APK for release
+        working-directory: tools/machine-worker-app
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            autoconnecto-worker.apk
+          cp autoconnecto-worker.apk \
+            "autoconnecto-worker-${GITHUB_REF_NAME}.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: autoconnecto-worker-release-apk
+          path: |
+            tools/machine-worker-app/autoconnecto-worker.apk
+            tools/machine-worker-app/autoconnecto-worker-*.apk
+
+      - name: Create GitHub Release (tag pushes)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            tools/machine-worker-app/autoconnecto-worker.apk
+            tools/machine-worker-app/autoconnecto-worker-*.apk
+          name: Autoconnecto Worker ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: false
+          body: |
+            ## Autoconnecto Worker ${{ github.ref_name }}
+
+            BLE-only operator app: pin a machine (`AC-###`), start shift, record jobs. No cloud login on the phone.
+
+            ### Install on your phone
+            1. Download **`autoconnecto-worker.apk`**.
+            2. Open **Files** or **Downloads** and tap the APK.
+            3. Allow **Install unknown apps** if prompted.
+            4. If Play Protect warns, tap **Install anyway**.
+
+            See `tools/machine-worker-app/E2E_TEST.md` for factory-floor testing.
