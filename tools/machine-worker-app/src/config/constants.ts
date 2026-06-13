@@ -4,8 +4,10 @@ export const BLE_CMD_CHAR_UUID = "a7c50002-0001-4000-8000-ac0000010002";
 export const BLE_STATUS_CHAR_UUID = "a7c50003-0001-4000-8000-ac0000010003";
 
 export const HEARTBEAT_INTERVAL_MS = 60_000;
+export const STATUS_POLL_INTERVAL_MS = 10_000;
 export const BLE_SCAN_TIMEOUT_MS = 8_000;
 export const BLE_SCAN_EXTENDED_MS = 6_000;
-export const RECONNECT_INTERVAL_MS = 4_000;
+export const RECONNECT_BASE_MS = 2_000;
+export const RECONNECT_MAX_MS = 20_000;
 
 export const MACHINE_BLE_NAME_RE = /^AC-\d{3}$/i;

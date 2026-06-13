@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Device } from "react-native-ble-plx";
 import type { PinnedMachine } from "../config/storage";
-import { HEARTBEAT_INTERVAL_MS, RECONNECT_INTERVAL_MS } from "../config/constants";
+import {
+  HEARTBEAT_INTERVAL_MS,
+  RECONNECT_BASE_MS,
+  RECONNECT_MAX_MS,
+  STATUS_POLL_INTERVAL_MS,
+} from "../config/constants";
 import {
   connectPinnedMachine,
   disconnectBle,
@@ -19,14 +24,22 @@ type Options = {
   onDeviceId?: (deviceId: string) => void;
 };
 
+function reconnectDelayMs(attempt: number) {
+  const exp = Math.min(attempt, 4);
+  return Math.min(RECONNECT_BASE_MS * 2 ** exp, RECONNECT_MAX_MS);
+}
+
 export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Options) {
   const [phase, setPhase] = useState<ConnectionPhase>("idle");
   const [status, setStatus] = useState<BleMachineStatus | null>(null);
   const [error, setError] = useState("");
   const deviceRef = useRef<Device | null>(null);
   const monitorRef = useRef<{ remove: () => void } | null>(null);
+  const disconnectSubRef = useRef<{ remove: () => void } | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
   const connectingRef = useRef(false);
   const enabledRef = useRef(enabled);
   const pinnedRef = useRef(pinned);
@@ -36,16 +49,29 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
   pinnedRef.current = pinned;
   onDeviceIdRef.current = onDeviceId;
 
+  const clearReconnectTimer = useCallback(() => {
+    if (!reconnectTimerRef.current) return;
+    clearTimeout(reconnectTimerRef.current);
+    reconnectTimerRef.current = null;
+  }, []);
+
   const cleanupLink = useCallback(async () => {
+    clearReconnectTimer();
     if (heartbeatRef.current) {
       clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
     }
+    if (statusPollRef.current) {
+      clearInterval(statusPollRef.current);
+      statusPollRef.current = null;
+    }
     monitorRef.current?.remove();
     monitorRef.current = null;
+    disconnectSubRef.current?.remove();
+    disconnectSubRef.current = null;
     await disconnectBle(deviceRef.current);
     deviceRef.current = null;
-  }, []);
+  }, [clearReconnectTimer]);
 
   const scheduleReconnectRef = useRef<() => void>(() => {});
 
@@ -53,7 +79,21 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
     const pin = pinnedRef.current;
     if (!enabledRef.current || !pin || connectingRef.current) return;
 
+    if (deviceRef.current) {
+      try {
+        if (await deviceRef.current.isConnected()) {
+          setPhase("connected");
+          clearReconnectTimer();
+          reconnectAttemptRef.current = 0;
+          return;
+        }
+      } catch {
+        /* fall through to full reconnect */
+      }
+    }
+
     connectingRef.current = true;
+    clearReconnectTimer();
     setError("");
     setPhase((p) => (p === "reconnecting" ? "reconnecting" : "connecting"));
 
@@ -63,13 +103,19 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
       deviceRef.current = device;
       onDeviceIdRef.current?.(device.id);
 
-      device.onDisconnected(() => {
+      disconnectSubRef.current = device.onDisconnected(() => {
         deviceRef.current = null;
         monitorRef.current?.remove();
         monitorRef.current = null;
+        disconnectSubRef.current?.remove();
+        disconnectSubRef.current = null;
         if (heartbeatRef.current) {
           clearInterval(heartbeatRef.current);
           heartbeatRef.current = null;
+        }
+        if (statusPollRef.current) {
+          clearInterval(statusPollRef.current);
+          statusPollRef.current = null;
         }
         if (enabledRef.current && pinnedRef.current) {
           scheduleReconnectRef.current();
@@ -81,33 +127,34 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
       monitorRef.current = monitorBleStatus(device, setStatus);
       const initial = await readBleStatus(device);
       if (initial) setStatus(initial);
+      reconnectAttemptRef.current = 0;
       setPhase("connected");
     } catch (err) {
-      setPhase("error");
+      setPhase("reconnecting");
+      setStatus(null);
       setError(err instanceof Error ? err.message : "Connection failed");
       scheduleReconnectRef.current();
     } finally {
       connectingRef.current = false;
     }
-  }, [cleanupLink]);
+  }, [cleanupLink, clearReconnectTimer]);
 
   scheduleReconnectRef.current = () => {
     if (!enabledRef.current || !pinnedRef.current) return;
-    if (reconnectTimerRef.current) return;
+    if (reconnectTimerRef.current || connectingRef.current) return;
     setPhase("reconnecting");
+    const delay = reconnectDelayMs(reconnectAttemptRef.current);
+    reconnectAttemptRef.current += 1;
     reconnectTimerRef.current = setTimeout(() => {
       reconnectTimerRef.current = null;
       void connectNow();
-    }, RECONNECT_INTERVAL_MS);
+    }, delay);
   };
 
   useEffect(() => {
     if (!enabled || !pinned) {
+      reconnectAttemptRef.current = 0;
       void cleanupLink();
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
       setPhase("idle");
       setStatus(null);
       return;
@@ -116,13 +163,40 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
     void connectNow();
 
     return () => {
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
+      reconnectAttemptRef.current = 0;
       void cleanupLink();
     };
-  }, [enabled, pinned?.bleAdvertName, pinned?.deviceId, connectNow, cleanupLink]);
+  }, [enabled, pinned?.bleAdvertName, connectNow, cleanupLink]);
+
+  useEffect(() => {
+    if (phase !== "connected" || !deviceRef.current) {
+      if (statusPollRef.current) {
+        clearInterval(statusPollRef.current);
+        statusPollRef.current = null;
+      }
+      return;
+    }
+    if (statusPollRef.current) return;
+
+    statusPollRef.current = setInterval(async () => {
+      const device = deviceRef.current;
+      if (!device) return;
+      try {
+        if (!(await device.isConnected())) return;
+        const latest = await readBleStatus(device);
+        if (latest) setStatus(latest);
+      } catch {
+        /* onDisconnected handles link loss */
+      }
+    }, STATUS_POLL_INTERVAL_MS);
+
+    return () => {
+      if (statusPollRef.current) {
+        clearInterval(statusPollRef.current);
+        statusPollRef.current = null;
+      }
+    };
+  }, [phase]);
 
   useEffect(() => {
     if (!status?.session || phase !== "connected" || !deviceRef.current) {
@@ -138,9 +212,10 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
       const device = deviceRef.current;
       if (!device) return;
       try {
+        if (!(await device.isConnected())) return;
         await writeBleCommand(device, { cmd: "heartbeat" });
       } catch {
-        /* reconnect handles */
+        /* onDisconnected handles link loss */
       }
     }, HEARTBEAT_INTERVAL_MS);
 
@@ -156,9 +231,13 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
     async (command: Parameters<typeof writeBleCommand>[1]) => {
       const device = deviceRef.current;
       if (!device) throw new Error("Not connected to machine.");
+      if (!(await device.isConnected())) {
+        throw new Error("Not connected to machine.");
+      }
       await writeBleCommand(device, command);
       const latest = await readBleStatus(device);
       if (latest) setStatus(latest);
+      return latest;
     },
     []
   );

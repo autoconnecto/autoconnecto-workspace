@@ -8,66 +8,91 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { scanNearbyMachinesDetailed, type ScannedMachine } from "../ble/workerBle";
+import {
+  friendlyBleError,
+  scanNearbyMachinesDetailed,
+  type ScannedMachine,
+} from "../ble/workerBle";
 import { colors, spacing } from "../config/theme";
 import { useWorker } from "../context/WorkerContext";
 
 export function PickMachineScreen() {
-  const { profile, pinMachine, startProfileEdit } = useWorker();
+  const { profile, pinMachine, startProfileEdit, machinePickNonce } = useWorker();
   const [machines, setMachines] = useState<ScannedMachine[]>([]);
   const [scanning, setScanning] = useState(false);
   const [scanPhase, setScanPhase] = useState<"idle" | "scanning" | "resolving" | "done">("idle");
   const [pinning, setPinning] = useState<string | null>(null);
   const [error, setError] = useState("");
   const failStreakRef = useRef(0);
+  const scanGenerationRef = useRef(0);
 
-  const scan = useCallback(async () => {
-    if (scanning) return;
-    setScanning(true);
-    setScanPhase("scanning");
-    setError("");
-    const resetManager = failStreakRef.current >= 1;
+  const scan = useCallback(
+    async (options?: { resetManager?: boolean }) => {
+      if (scanning) return;
+      const generation = ++scanGenerationRef.current;
+      setScanning(true);
+      setScanPhase("scanning");
+      setError("");
 
-    try {
-      const { machines: rows, serviceHits } = await scanNearbyMachinesDetailed({
-        resetManager,
-        onProgress: (progress) => {
-          setScanPhase(progress.phase);
-          if (progress.machines.length) {
-            setMachines(progress.machines);
-          }
-        },
-      });
+      const resetManager = options?.resetManager ?? failStreakRef.current >= 1;
 
-      setMachines(rows);
-      setScanPhase("done");
+      try {
+        const { machines: rows, serviceHits } = await scanNearbyMachinesDetailed({
+          resetManager,
+          onProgress: (progress) => {
+            if (generation !== scanGenerationRef.current) return;
+            setScanPhase(progress.phase);
+            if (progress.machines.length) {
+              setMachines(progress.machines);
+            }
+          },
+        });
 
-      if (!rows.length) {
+        if (generation !== scanGenerationRef.current) return;
+
+        setMachines(rows);
+        setScanPhase("done");
+
+        if (!rows.length) {
+          failStreakRef.current += 1;
+          const serviceHint =
+            serviceHits > 0
+              ? ` Detected ${serviceHits} machine radio(s) but could not read AC-### — move closer and tap Scan again.`
+              : "";
+          setError(
+            `No machines found.${serviceHint} Check Bluetooth + Location ON, ESP serial shows [BLE] advertising AC-001, stand within 2 m.`
+          );
+        } else {
+          failStreakRef.current = 0;
+        }
+      } catch (err) {
+        if (generation !== scanGenerationRef.current) return;
         failStreakRef.current += 1;
-        const serviceHint =
-          serviceHits > 0
-            ? ` Detected ${serviceHits} machine radio(s) but could not read AC-### — move closer and tap Scan again.`
-            : "";
-        setError(
-          `No machines found.${serviceHint} Check Bluetooth + Location ON, ESP shows [BLE] advertising as AC-001, then reset ESP if needed.`
-        );
-      } else {
-        failStreakRef.current = 0;
+        setError(friendlyBleError(err, "Scan failed"));
+        setMachines([]);
+        setScanPhase("done");
+      } finally {
+        if (generation === scanGenerationRef.current) {
+          setScanning(false);
+        }
       }
-    } catch (err) {
-      failStreakRef.current += 1;
-      setError(err instanceof Error ? err.message : "Scan failed");
-      setMachines([]);
-      setScanPhase("done");
-    } finally {
-      setScanning(false);
-    }
-  }, [scanning]);
+    },
+    [scanning]
+  );
 
   useEffect(() => {
-    void scan();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- scan once on mount
-  }, []);
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        void scan({ resetManager: true });
+      }
+    }, 700);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      scanGenerationRef.current += 1;
+    };
+  }, [machinePickNonce]);
 
   async function onPick(item: ScannedMachine) {
     setPinning(item.bleAdvertName);
@@ -99,13 +124,17 @@ export function PickMachineScreen() {
           <Text style={styles.brand}>Autoconnecto Worker</Text>
           <Text style={styles.title}>Select your machine</Text>
           <Text style={styles.subtitle}>
-            {profile?.workerName} ({profile?.workerId}) — choose the press matching the floor label.
-            Your choice is saved on this phone until you change it.
+            {profile?.workerName} ({profile?.workerId}) — pick the floor label on the press (AC-001,
+            AC-002…). Saved on this phone until you change machine.
           </Text>
         </View>
 
         <View style={styles.actions}>
-          <Pressable style={[styles.scanBtn, scanning && styles.scanBtnActive]} onPress={scan} disabled={scanning}>
+          <Pressable
+            style={[styles.scanBtn, scanning && styles.scanBtnActive]}
+            onPress={() => scan({ resetManager: failStreakRef.current >= 1 })}
+            disabled={scanning}
+          >
             {scanning ? <ActivityIndicator color={colors.primary} size="small" /> : null}
             <Text style={styles.scanBtnText}>{scanLabel}</Text>
           </Pressable>

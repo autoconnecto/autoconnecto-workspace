@@ -9,7 +9,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { JobCounter } from "../components/JobCounter";
-import { isMachineBusyForWorker, isSessionOwnedByWorker } from "../ble/workerBle";
+import {
+  friendlyBleError,
+  isMachineBusyForWorker,
+  isSessionOwnedByWorker,
+} from "../ble/workerBle";
 import { colors, spacing } from "../config/theme";
 import { savePinnedMachine } from "../config/storage";
 import { useWorker } from "../context/WorkerContext";
@@ -42,19 +46,31 @@ export function ShiftScreen() {
   const sessionOn = Boolean(status?.session && sessionMine);
   const jobCount = status?.jobs ?? 0;
   const allowBlocked = status?.allow_run === false;
+  const connected = phase === "connected";
 
   async function onStartOrResume() {
     if (!profile) return;
     setBusy(true);
     setActionError("");
     try {
-      await sendCommand({
+      const latest = await sendCommand({
         cmd: "start",
         operator_id: profile.workerId,
         operator_name: profile.workerName,
       });
+      if (!isSessionOwnedByWorker(latest, profile.workerId)) {
+        if (latest?.allow_run === false) {
+          setActionError("Machine blocked (allow-run off). Ask supervisor in dashboard Setup.");
+        } else if (latest?.session_busy || latest?.session) {
+          setActionError(
+            `In use by ${latest?.operator_name || latest?.operator_id || "another worker"}.`
+          );
+        } else {
+          setActionError("Session did not start. Check ESP is powered and serial log shows BLE ready.");
+        }
+      }
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Start failed");
+      setActionError(friendlyBleError(err, "Start failed"));
     } finally {
       setBusy(false);
     }
@@ -66,7 +82,7 @@ export function ShiftScreen() {
     try {
       await sendCommand({ cmd: "job_add" });
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Could not add job");
+      setActionError(friendlyBleError(err, "Could not add job"));
     } finally {
       setBusy(false);
     }
@@ -79,25 +95,27 @@ export function ShiftScreen() {
     try {
       await sendCommand({ cmd: "job_remove" });
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Could not remove job");
+      setActionError(friendlyBleError(err, "Could not remove job"));
     } finally {
       setBusy(false);
     }
   }
 
   async function stopSessionOnDevice() {
-    if (!sessionOn) return;
-    try {
-      await sendCommand({ cmd: "stop" });
-    } catch {
-      /* best effort */
+    if (!connected) {
+      throw new Error("Not connected yet. Wait for Connected (green dot) or tap Retry.");
+    }
+    if (!status?.session && !sessionOn) return;
+    const latest = await sendCommand({ cmd: "stop" });
+    if (latest?.session) {
+      throw new Error("Session still active on machine. Tap Retry, then End shift again.");
     }
   }
 
   async function onEndShift() {
     Alert.alert(
       "End shift?",
-      "Stops your session on the machine. Your assigned press stays saved on this phone.",
+      "Stops your session on the machine. Your assigned press (AC-###) stays saved on this phone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -105,8 +123,14 @@ export function ShiftScreen() {
           style: "destructive",
           onPress: async () => {
             setBusy(true);
-            await stopSessionOnDevice();
-            setBusy(false);
+            setActionError("");
+            try {
+              await stopSessionOnDevice();
+            } catch (err) {
+              setActionError(friendlyBleError(err, "Could not end shift"));
+            } finally {
+              setBusy(false);
+            }
           },
         },
       ]
@@ -116,14 +140,21 @@ export function ShiftScreen() {
   async function onChangeMachine() {
     Alert.alert(
       "Change machine?",
-      "Stops the current session and lets you pick a different press. Use this only when you move to another machine.",
+      "Stops the current session and opens machine scan. Use when you move to another press.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Change machine",
           onPress: async () => {
             setBusy(true);
-            await stopSessionOnDevice();
+            setActionError("");
+            try {
+              if (connected && (status?.session || sessionOn)) {
+                await sendCommand({ cmd: "stop" });
+              }
+            } catch {
+              /* continue — changeMachine resets BLE anyway */
+            }
             await changeMachine();
             setBusy(false);
           },
@@ -143,6 +174,14 @@ export function ShiftScreen() {
             ? "Reconnecting…"
             : "Connecting…";
 
+  const stepHint = !connected
+    ? "Step 1: Wait for Connected (green dot). Stand within 2 m of the ESP. Tap Retry if stuck."
+    : !sessionOn && !machineBusy
+      ? "Step 2: Tap START SESSION below. Step 3: Use + / − to count jobs."
+      : sessionOn
+        ? "Session active — tap + after each job."
+        : null;
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.root}>
@@ -156,17 +195,17 @@ export function ShiftScreen() {
             <View
               style={[
                 styles.linkDot,
-                phase === "connected" ? styles.linkOk : styles.linkPending,
+                connected ? styles.linkOk : styles.linkPending,
               ]}
             />
             <Text style={styles.linkText}>{linkLabel}</Text>
-            {phase !== "connected" ? (
+            {!connected ? (
               <Pressable onPress={() => reconnect()}>
                 <Text style={styles.linkAction}>Retry</Text>
               </Pressable>
             ) : null}
           </View>
-          {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
+          {error ? <Text style={styles.errorBanner}>{friendlyBleError(error)}</Text> : null}
         </View>
 
         <View style={styles.panel}>
@@ -179,6 +218,8 @@ export function ShiftScreen() {
             />
             <StatusTile label="Jobs" value={String(jobCount)} tone="neutral" />
           </View>
+
+          {stepHint ? <Text style={styles.hint}>{stepHint}</Text> : null}
 
           {allowBlocked ? (
             <Text style={styles.blockedHint}>
@@ -194,13 +235,7 @@ export function ShiftScreen() {
 
           {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
 
-          {phase !== "connected" ? (
-            <Text style={styles.hint}>
-              Linking to your saved machine automatically — no need to scan again.
-            </Text>
-          ) : null}
-
-          {phase === "connected" && !sessionOn && !machineBusy ? (
+          {connected && !sessionOn && !machineBusy ? (
             <Pressable
               style={[styles.primaryBtn, (busy || allowBlocked) && styles.btnDisabled]}
               onPress={onStartOrResume}
@@ -212,7 +247,7 @@ export function ShiftScreen() {
             </Pressable>
           ) : null}
 
-          {phase === "connected" && sessionOn ? (
+          {connected && sessionOn ? (
             <JobCounter
               count={jobCount}
               onIncrement={onJobAdd}
@@ -223,7 +258,11 @@ export function ShiftScreen() {
           ) : null}
 
           <View style={styles.footerActions}>
-            <Pressable style={styles.footerBtn} onPress={onEndShift} disabled={busy}>
+            <Pressable
+              style={[styles.footerBtn, (!connected || busy) && styles.footerBtnDisabled]}
+              onPress={onEndShift}
+              disabled={busy}
+            >
               <Text style={styles.footerBtnText}>End shift</Text>
             </Pressable>
             <Pressable style={styles.footerBtn} onPress={onChangeMachine} disabled={busy}>
@@ -315,7 +354,15 @@ const styles = StyleSheet.create({
   },
   busy: { color: colors.danger, marginBottom: spacing.sm, fontWeight: "700" },
   actionError: { color: colors.danger, marginBottom: spacing.sm, fontWeight: "600" },
-  hint: { color: colors.textMuted, fontSize: 13, marginBottom: spacing.md, lineHeight: 20 },
+  hint: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginBottom: spacing.md,
+    lineHeight: 20,
+    backgroundColor: colors.bgMuted,
+    padding: spacing.sm,
+    borderRadius: 10,
+  },
   primaryBtn: {
     backgroundColor: colors.success,
     borderRadius: 14,
@@ -338,5 +385,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.bgMuted,
   },
+  footerBtnDisabled: { opacity: 0.6 },
   footerBtnText: { color: colors.text, fontWeight: "700", fontSize: 14 },
 });

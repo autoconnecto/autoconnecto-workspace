@@ -105,6 +105,21 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+/** Map native BLE errors to operator-friendly text. */
+export function friendlyBleError(err: unknown, fallback = "Bluetooth error"): string {
+  const msg = err instanceof Error ? err.message : String(err || fallback);
+  if (/cancel/i.test(msg)) {
+    return "Bluetooth was busy. Wait a second, then tap Scan again.";
+  }
+  if (/timeout/i.test(msg)) {
+    return "Could not reach the machine in time. Move closer and try again.";
+  }
+  if (/permission|unauthorized/i.test(msg)) {
+    return msg;
+  }
+  return msg || fallback;
+}
+
 /** Stop scans and drop stale GATT links so Android can discover peripherals again. */
 export async function prepareBleForScan() {
   await requestBlePermissions();
@@ -312,12 +327,18 @@ export async function scanNearbyMachinesDetailed(
       ingestDevice(device);
     };
 
-    ble.startDeviceScan(null, { allowDuplicates: true, scanMode: ScanMode.LowLatency }, onDevice);
+    ble.startDeviceScan(
+      [BLE_SERVICE_UUID],
+      { allowDuplicates: true, scanMode: ScanMode.LowLatency },
+      onDevice
+    );
   });
 
   if (scanError) {
     throw scanError;
   }
+
+  const scanServiceFilter = [BLE_SERVICE_UUID];
 
   let machines = Array.from(named.values());
 
@@ -332,15 +353,19 @@ export async function scanNearbyMachinesDetailed(
         resolve();
       };
       const timer = setTimeout(finish, extendedMs);
-      ble.startDeviceScan(null, { allowDuplicates: true, scanMode: ScanMode.LowLatency }, (error, device) => {
-        if (error) {
-          scanError = error;
-          clearTimeout(timer);
-          finish();
-          return;
+      ble.startDeviceScan(
+        scanServiceFilter,
+        { allowDuplicates: true, scanMode: ScanMode.LowLatency },
+        (error, device) => {
+          if (error) {
+            scanError = error;
+            clearTimeout(timer);
+            finish();
+            return;
+          }
+          if (device) ingestDevice(device);
         }
-        if (device) ingestDevice(device);
-      });
+      );
     });
     machines = Array.from(named.values());
   }
@@ -396,7 +421,7 @@ export async function scanAndConnect(bleAdvertName: string): Promise<Device> {
       reject(new Error(`Could not find ${target}. Move closer to the machine.`));
     }, BLE_SCAN_TIMEOUT_MS);
 
-    ble.startDeviceScan(null, { allowDuplicates: false }, (error, device) => {
+    ble.startDeviceScan([BLE_SERVICE_UUID], { allowDuplicates: false }, (error, device) => {
       if (settled) return;
       if (error) {
         settled = true;
