@@ -7,7 +7,11 @@ export const HEARTBEAT_INTERVAL_MS = 60_000;
 export const STATUS_POLL_INTERVAL_MS = 10_000;
 export const BLE_SCAN_TIMEOUT_MS = 8_000;
 export const BLE_SCAN_EXTENDED_MS = 6_000;
+export const BLE_RECONNECT_SCAN_TIMEOUT_MS = 12_000;
+export const BLE_RECONNECT_SCAN_EXTENDED_MS = 10_000;
 export const RECONNECT_BASE_MS = 2_000;
-export const RECONNECT_MAX_MS = 20_000;
+export const RECONNECT_SESSION_BASE_MS = 800;
+export const RECONNECT_MAX_MS = 12_000;
+export const RECONNECT_STUCK_MS = 45_000;
 
 export const MACHINE_BLE_NAME_RE = /^AC-\d{3}$/i;

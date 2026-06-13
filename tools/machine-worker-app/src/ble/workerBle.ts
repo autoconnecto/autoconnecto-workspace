@@ -7,6 +7,8 @@ import {
 } from "react-native-ble-plx";
 import {
   BLE_CMD_CHAR_UUID,
+  BLE_RECONNECT_SCAN_EXTENDED_MS,
+  BLE_RECONNECT_SCAN_TIMEOUT_MS,
   BLE_SCAN_EXTENDED_MS,
   BLE_SCAN_TIMEOUT_MS,
   BLE_SERVICE_UUID,
@@ -24,6 +26,10 @@ export type BleMachineStatus = {
   operator_name?: string;
   ble_linked?: boolean;
   session_busy?: boolean;
+  /** Unix seconds (ESP NTP) when current/last session started */
+  session_start_ts?: number;
+  /** Unix seconds when last session ended; 0/omitted while session active */
+  session_end_ts?: number;
 };
 
 export type BleCommand =
@@ -405,54 +411,63 @@ export async function connectByDeviceId(deviceId: string): Promise<Device> {
   return connectDevice(device);
 }
 
-export async function scanAndConnect(bleAdvertName: string): Promise<Device> {
+export type ConnectPinnedOptions = {
+  /** Recover from a wedged phone BLE stack (after repeated failures). */
+  resetBle?: boolean;
+  /** Skip cached deviceId — force service/name scan (stale MAC on Android). */
+  skipCachedDeviceId?: boolean;
+};
+
+export async function scanAndConnect(
+  bleAdvertName: string,
+  options?: { timeoutMs?: number; extendedMs?: number; resetManager?: boolean }
+): Promise<Device> {
   const target = normalizeBleName(bleAdvertName);
   if (!target) throw new Error("Invalid machine BLE name.");
 
-  await prepareBleForScan();
-  const ble = getBleManager();
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      ble.stopDeviceScan();
-      reject(new Error(`Could not find ${target}. Move closer to the machine.`));
-    }, BLE_SCAN_TIMEOUT_MS);
-
-    ble.startDeviceScan([BLE_SERVICE_UUID], { allowDuplicates: false }, (error, device) => {
-      if (settled) return;
-      if (error) {
-        settled = true;
-        clearTimeout(timer);
-        ble.stopDeviceScan();
-        reject(error);
-        return;
-      }
-      const seen = device ? machineBleNameFromDevice(device) : null;
-      if (!device || seen !== target) return;
-
-      settled = true;
-      clearTimeout(timer);
-      ble.stopDeviceScan();
-      connectDevice(device).then(resolve).catch(reject);
-    });
+  const { machines } = await scanNearbyMachinesDetailed({
+    timeoutMs: options?.timeoutMs ?? BLE_SCAN_TIMEOUT_MS,
+    extendedMs: options?.extendedMs ?? BLE_SCAN_EXTENDED_MS,
+    resetManager: options?.resetManager,
   });
+
+  const hit = machines.find((m) => m.bleAdvertName === target);
+  if (!hit) {
+    throw new Error(`Could not find ${target}. Move closer to the machine.`);
+  }
+
+  return connectByDeviceId(hit.deviceId);
 }
 
-export async function connectPinnedMachine(pin: {
-  bleAdvertName: string;
-  deviceId?: string;
-}): Promise<Device> {
-  if (pin.deviceId) {
+export async function connectPinnedMachine(
+  pin: {
+    bleAdvertName: string;
+    deviceId?: string;
+  },
+  options: ConnectPinnedOptions = {}
+): Promise<Device> {
+  const target = normalizeBleName(pin.bleAdvertName);
+  if (!target) throw new Error("Invalid machine BLE name.");
+
+  if (!options.skipCachedDeviceId && pin.deviceId) {
     try {
-      return await connectByDeviceId(pin.deviceId);
+      const device = await connectByDeviceId(pin.deviceId);
+      const status = await readBleStatus(device);
+      const seen = bleAdvertNameFromSlot(status?.slot ?? null);
+      if (seen === target) {
+        return device;
+      }
+      await device.cancelConnection();
     } catch {
-      /* fall through to name scan */
+      /* fall through to full scan */
     }
   }
-  return scanAndConnect(pin.bleAdvertName);
+
+  return scanAndConnect(target, {
+    timeoutMs: BLE_RECONNECT_SCAN_TIMEOUT_MS,
+    extendedMs: BLE_RECONNECT_SCAN_EXTENDED_MS,
+    resetManager: options.resetBle,
+  });
 }
 
 export async function writeBleCommand(device: Device, command: BleCommand) {
@@ -494,6 +509,30 @@ export async function readBleStatus(device: Device): Promise<BleMachineStatus | 
     BLE_STATUS_CHAR_UUID
   );
   return parseStatusCharacteristic(char);
+}
+
+function sleepMs(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+export async function readBleStatusWithRetry(
+  device: Device,
+  attempts = 4,
+  delayMs = 250
+): Promise<BleMachineStatus | null> {
+  let last: BleMachineStatus | null = null;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      last = await readBleStatus(device);
+      if (last && (last.session !== undefined || last.jobs !== undefined || last.slot !== undefined)) {
+        return last;
+      }
+    } catch {
+      /* retry */
+    }
+    if (i < attempts - 1) await sleepMs(delayMs);
+  }
+  return last;
 }
 
 export async function disconnectBle(device: Device | null) {

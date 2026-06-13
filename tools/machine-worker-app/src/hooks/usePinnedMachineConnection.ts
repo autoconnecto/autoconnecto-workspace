@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 import type { Device } from "react-native-ble-plx";
-import type { PinnedMachine } from "../config/storage";
+import type { PinnedMachine, WorkerProfile } from "../config/storage";
 import {
   HEARTBEAT_INTERVAL_MS,
   RECONNECT_BASE_MS,
   RECONNECT_MAX_MS,
+  RECONNECT_SESSION_BASE_MS,
   STATUS_POLL_INTERVAL_MS,
 } from "../config/constants";
 import {
   connectPinnedMachine,
   disconnectBle,
+  isSessionOwnedByWorker,
   monitorBleStatus,
   readBleStatus,
+  readBleStatusWithRetry,
   writeBleCommand,
   type BleMachineStatus,
 } from "../ble/workerBle";
@@ -21,15 +25,47 @@ export type ConnectionPhase = "idle" | "connecting" | "connected" | "reconnectin
 type Options = {
   pinned: PinnedMachine | null;
   enabled: boolean;
+  profile: WorkerProfile | null;
   onDeviceId?: (deviceId: string) => void;
 };
 
-function reconnectDelayMs(attempt: number) {
+function reconnectDelayMs(attempt: number, sessionWasActive: boolean) {
+  const base = sessionWasActive ? RECONNECT_SESSION_BASE_MS : RECONNECT_BASE_MS;
   const exp = Math.min(attempt, 4);
-  return Math.min(RECONNECT_BASE_MS * 2 ** exp, RECONNECT_MAX_MS);
+  return Math.min(base * 2 ** exp, RECONNECT_MAX_MS);
 }
 
-export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Options) {
+async function hydrateStatusAfterConnect(
+  device: Device,
+  profile: WorkerProfile | null,
+  prior: BleMachineStatus | null
+): Promise<BleMachineStatus | null> {
+  let latest = await readBleStatusWithRetry(device);
+  if (!latest) return null;
+
+  const shouldResume =
+    profile &&
+    prior?.session &&
+    !latest.session &&
+    isSessionOwnedByWorker(prior, profile.workerId);
+
+  if (shouldResume) {
+    try {
+      await writeBleCommand(device, {
+        cmd: "start",
+        operator_id: profile.workerId,
+        operator_name: profile.workerName,
+      });
+      latest = (await readBleStatusWithRetry(device, 3)) ?? latest;
+    } catch {
+      /* show START SESSION if resume fails */
+    }
+  }
+
+  return latest;
+}
+
+export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceId }: Options) {
   const [phase, setPhase] = useState<ConnectionPhase>("idle");
   const [status, setStatus] = useState<BleMachineStatus | null>(null);
   const [error, setError] = useState("");
@@ -41,12 +77,15 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const connectingRef = useRef(false);
+  const lastStatusRef = useRef<BleMachineStatus | null>(null);
   const enabledRef = useRef(enabled);
   const pinnedRef = useRef(pinned);
+  const profileRef = useRef(profile);
   const onDeviceIdRef = useRef(onDeviceId);
 
   enabledRef.current = enabled;
   pinnedRef.current = pinned;
+  profileRef.current = profile;
   onDeviceIdRef.current = onDeviceId;
 
   const clearReconnectTimer = useCallback(() => {
@@ -73,7 +112,7 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
     deviceRef.current = null;
   }, [clearReconnectTimer]);
 
-  const scheduleReconnectRef = useRef<() => void>(() => {});
+  const scheduleReconnectRef = useRef<(urgent?: boolean) => void>(() => {});
 
   const connectNow = useCallback(async () => {
     const pin = pinnedRef.current;
@@ -97,9 +136,15 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
     setError("");
     setPhase((p) => (p === "reconnecting" ? "reconnecting" : "connecting"));
 
+    const priorStatus = lastStatusRef.current;
+
     try {
       await cleanupLink();
-      const device = await connectPinnedMachine(pin);
+      const attempt = reconnectAttemptRef.current;
+      const device = await connectPinnedMachine(pin, {
+        resetBle: attempt >= 2,
+        skipCachedDeviceId: attempt >= 3,
+      });
       deviceRef.current = device;
       onDeviceIdRef.current?.(device.id);
 
@@ -118,20 +163,32 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
           statusPollRef.current = null;
         }
         if (enabledRef.current && pinnedRef.current) {
-          scheduleReconnectRef.current();
+          reconnectAttemptRef.current = 0;
+          scheduleReconnectRef.current(true);
         } else {
           setPhase("idle");
         }
       });
 
-      monitorRef.current = monitorBleStatus(device, setStatus);
-      const initial = await readBleStatus(device);
-      if (initial) setStatus(initial);
+      monitorRef.current = monitorBleStatus(device, (next) => {
+        lastStatusRef.current = next;
+        setStatus(next);
+      });
+
+      const initial = await hydrateStatusAfterConnect(
+        device,
+        profileRef.current,
+        priorStatus
+      );
+      if (initial) {
+        lastStatusRef.current = initial;
+        setStatus(initial);
+      }
+
       reconnectAttemptRef.current = 0;
       setPhase("connected");
     } catch (err) {
       setPhase("reconnecting");
-      setStatus(null);
       setError(err instanceof Error ? err.message : "Connection failed");
       scheduleReconnectRef.current();
     } finally {
@@ -139,21 +196,46 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
     }
   }, [cleanupLink, clearReconnectTimer]);
 
-  scheduleReconnectRef.current = () => {
+  scheduleReconnectRef.current = (urgent = false) => {
     if (!enabledRef.current || !pinnedRef.current) return;
-    if (reconnectTimerRef.current || connectingRef.current) return;
+    if (connectingRef.current) return;
+    if (reconnectTimerRef.current && !urgent) return;
+
+    if (urgent && reconnectTimerRef.current) {
+      clearReconnectTimer();
+    }
+
     setPhase("reconnecting");
-    const delay = reconnectDelayMs(reconnectAttemptRef.current);
-    reconnectAttemptRef.current += 1;
+    const sessionWasActive = Boolean(lastStatusRef.current?.session);
+    const attempt = urgent ? 0 : reconnectAttemptRef.current;
+    const delay = urgent ? RECONNECT_SESSION_BASE_MS : reconnectDelayMs(attempt, sessionWasActive);
+    if (!urgent) reconnectAttemptRef.current += 1;
+
     reconnectTimerRef.current = setTimeout(() => {
       reconnectTimerRef.current = null;
       void connectNow();
     }, delay);
   };
 
+  const connectNowRef = useRef(connectNow);
+  connectNowRef.current = connectNow;
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") return;
+      if (!enabledRef.current || !pinnedRef.current) return;
+      if (deviceRef.current) return;
+      reconnectAttemptRef.current = 0;
+      clearReconnectTimer();
+      void connectNowRef.current();
+    });
+    return () => sub.remove();
+  }, [clearReconnectTimer]);
+
   useEffect(() => {
     if (!enabled || !pinned) {
       reconnectAttemptRef.current = 0;
+      lastStatusRef.current = null;
       void cleanupLink();
       setPhase("idle");
       setStatus(null);
@@ -184,7 +266,10 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
       try {
         if (!(await device.isConnected())) return;
         const latest = await readBleStatus(device);
-        if (latest) setStatus(latest);
+        if (latest) {
+          lastStatusRef.current = latest;
+          setStatus(latest);
+        }
       } catch {
         /* onDisconnected handles link loss */
       }
@@ -236,16 +321,24 @@ export function usePinnedMachineConnection({ pinned, enabled, onDeviceId }: Opti
       }
       await writeBleCommand(device, command);
       const latest = await readBleStatus(device);
-      if (latest) setStatus(latest);
+      if (latest) {
+        lastStatusRef.current = latest;
+        setStatus(latest);
+      }
       return latest;
     },
     []
   );
 
+  const sessionSuspended =
+    phase !== "connected" &&
+    Boolean(lastStatusRef.current?.session && profile?.workerId);
+
   return {
     phase,
     status,
     error,
+    sessionSuspended,
     sendCommand,
     reconnect: connectNow,
   };

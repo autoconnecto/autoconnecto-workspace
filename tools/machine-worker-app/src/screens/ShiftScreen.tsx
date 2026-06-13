@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,7 @@ import {
   isSessionOwnedByWorker,
 } from "../ble/workerBle";
 import { colors, spacing } from "../config/theme";
+import { RECONNECT_STUCK_MS } from "../config/constants";
 import { savePinnedMachine } from "../config/storage";
 import { useWorker } from "../context/WorkerContext";
 import { usePinnedMachineConnection } from "../hooks/usePinnedMachineConnection";
@@ -23,6 +24,8 @@ export function ShiftScreen() {
   const { profile, pinned, changeMachine, startProfileEdit, pinMachine } = useWorker();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [reconnectingSince, setReconnectingSince] = useState<number | null>(null);
+  const [, setReconnectTick] = useState(0);
 
   const onDeviceId = useCallback(
     async (deviceId: string) => {
@@ -34,9 +37,10 @@ export function ShiftScreen() {
     [pinned, pinMachine]
   );
 
-  const { phase, status, error, sendCommand, reconnect } = usePinnedMachineConnection({
+  const { phase, status, error, sessionSuspended, sendCommand, reconnect } = usePinnedMachineConnection({
     pinned,
     enabled: Boolean(pinned),
+    profile,
     onDeviceId,
   });
 
@@ -47,6 +51,31 @@ export function ShiftScreen() {
   const jobCount = status?.jobs ?? 0;
   const allowBlocked = status?.allow_run === false;
   const connected = phase === "connected";
+
+  useEffect(() => {
+    if (phase === "connected" || phase === "idle") return;
+    const id = setInterval(() => setReconnectTick((n) => n + 1), 3000);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase === "connected") {
+      setReconnectingSince(null);
+      return;
+    }
+    if (phase === "reconnecting" || phase === "connecting") {
+      setReconnectingSince((prev) => prev ?? Date.now());
+      return;
+    }
+    setReconnectingSince(null);
+  }, [phase]);
+
+  const reconnectStuck =
+    reconnectingSince !== null && Date.now() - reconnectingSince >= RECONNECT_STUCK_MS;
+
+  const sessionStartLabel = formatSessionTs(status?.session_start_ts);
+  const sessionEndLabel =
+    sessionOn || !status?.session_end_ts ? null : formatSessionTs(status.session_end_ts);
 
   async function onStartOrResume() {
     if (!profile) return;
@@ -103,7 +132,7 @@ export function ShiftScreen() {
 
   async function stopSessionOnDevice() {
     if (!connected) {
-      throw new Error("Not connected yet. Wait for Connected (green dot) or tap Retry.");
+      throw new Error("Not connected yet. Reconnecting automatically — stand near the machine.");
     }
     if (!status?.session && !sessionOn) return;
     const latest = await sendCommand({ cmd: "stop" });
@@ -175,7 +204,11 @@ export function ShiftScreen() {
             : "Connecting…";
 
   const stepHint = !connected
-    ? "Step 1: Wait for Connected (green dot). Stand within 2 m of the ESP. Tap Retry if stuck."
+    ? phase === "reconnecting" || phase === "connecting"
+      ? sessionSuspended
+        ? "Reconnecting automatically… your shift stays active on the machine."
+        : "Reconnecting automatically… stand within 2 m of the press."
+      : "Connecting… stand within 2 m of the ESP."
     : !sessionOn && !machineBusy
       ? "Step 2: Tap START SESSION below. Step 3: Use + / − to count jobs."
       : sessionOn
@@ -199,9 +232,9 @@ export function ShiftScreen() {
               ]}
             />
             <Text style={styles.linkText}>{linkLabel}</Text>
-            {!connected ? (
+            {!connected && reconnectStuck ? (
               <Pressable onPress={() => reconnect()}>
-                <Text style={styles.linkAction}>Retry</Text>
+                <Text style={styles.linkAction}>Retry now</Text>
               </Pressable>
             ) : null}
           </View>
@@ -210,7 +243,17 @@ export function ShiftScreen() {
 
         <View style={styles.panel}>
           <View style={styles.statusGrid}>
-            <StatusTile label="Session" value={sessionOn ? "ON" : "OFF"} tone={sessionOn ? "ok" : "neutral"} />
+            <StatusTile
+              label="Session"
+              value={
+                sessionOn
+                  ? "ON"
+                  : sessionSuspended
+                    ? "PAUSED"
+                    : "OFF"
+              }
+              tone={sessionOn ? "ok" : sessionSuspended ? "neutral" : "neutral"}
+            />
             <StatusTile
               label="Allow run"
               value={allowBlocked ? "BLOCKED" : "OK"}
@@ -220,6 +263,13 @@ export function ShiftScreen() {
           </View>
 
           {stepHint ? <Text style={styles.hint}>{stepHint}</Text> : null}
+
+          {sessionStartLabel ? (
+            <Text style={styles.sessionTime}>
+              {sessionOn ? "Shift started" : "Last shift started"}: {sessionStartLabel}
+              {sessionEndLabel ? ` · Ended: ${sessionEndLabel}` : sessionOn ? " · in progress" : ""}
+            </Text>
+          ) : null}
 
           {allowBlocked ? (
             <Text style={styles.blockedHint}>
@@ -235,7 +285,7 @@ export function ShiftScreen() {
 
           {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
 
-          {connected && !sessionOn && !machineBusy ? (
+          {connected && !sessionOn && !machineBusy && !sessionSuspended ? (
             <Pressable
               style={[styles.primaryBtn, (busy || allowBlocked) && styles.btnDisabled]}
               onPress={onStartOrResume}
@@ -278,6 +328,15 @@ export function ShiftScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+function formatSessionTs(sec?: number) {
+  if (!sec || !Number.isFinite(sec)) return null;
+  return new Date(sec * 1000).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 function StatusTile({
@@ -362,6 +421,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgMuted,
     padding: spacing.sm,
     borderRadius: 10,
+  },
+  sessionTime: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginBottom: spacing.sm,
+    lineHeight: 18,
   },
   primaryBtn: {
     backgroundColor: colors.success,
