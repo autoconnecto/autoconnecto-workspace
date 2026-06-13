@@ -4,10 +4,11 @@ Operator app for machine sessions. **No cloud login** — phone talks to ESP32 o
 
 ## Flow
 
-1. **Worker sign-in** — ID + name (stored on phone).
-2. **Pin machine** — scan nearby `AC-###` devices, tick yours (matches floor label).
-3. **Shift** — auto BLE connect/reconnect to pinned machine; START → jobs → end shift.
-4. **End shift** or **Logout** — clears machine pin (must pick again next shift).
+1. **Worker profile** — ID + name (saved on phone until you tap **Edit profile**).
+2. **Select machine** — scan once, pick your `AC-###` press (saved until you tap **Change machine**).
+3. **Shift** — auto BLE connect/reconnect; **START SESSION** → **+ / −** jobs → **End shift**.
+4. **End shift** — stops session only; machine assignment stays.
+5. **Change machine** — only way to pick a different press.
 
 ## Build
 
@@ -31,14 +32,16 @@ npx expo run:android
 
 Requires a **development build** (not Expo Go) for BLE.
 
-## Pin / reconnect rules
+## Persistence rules
 
-| Action | Pin cleared? |
-|--------|----------------|
-| End shift | Yes |
-| Logout | Yes (+ worker profile) |
-| Change machine | Yes (pick another) |
-| BLE drop (tea break) | **No** — app reconnects automatically |
+| Action | Worker profile | Machine assignment |
+|--------|----------------|-------------------|
+| End shift | Kept | Kept |
+| Edit profile | Updated on save | Kept |
+| Change machine | Kept | Cleared → pick again |
+| BLE drop (tea break) | Kept | Kept — auto-reconnect |
+| App restart | Kept | Kept — opens shift screen |
+| Scan fails twice | — | Tap Scan again (auto-resets BLE stack) |
 
 ## Contract
 

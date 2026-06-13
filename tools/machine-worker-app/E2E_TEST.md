@@ -15,18 +15,21 @@
 
 Install **`autoconnecto-worker.apk`** from GitHub Actions (or build locally).
 
-On first scan, allow **Nearby devices** (Android 12+) and **Location** when prompted.
+On first scan, allow **Nearby devices** (Android 12+) and **Location** when prompted. Enable **system Location** toggle.
 
 | Step | Expected |
 |------|----------|
-| Worker sign-in | ID + name saved |
-| Scan / pin AC-001 | Pin saved for shift |
+| Worker profile | ID + name saved on phone |
+| Select AC-001 | Assignment saved until Change machine |
+| Reopen app next day | Goes straight to shift screen (no rescan) |
 | Auto connect | Status: Connected |
 | START SESSION | Session ON, SSR if allow_run |
 | Walk away 2 min, return | Reconnecting → Connected, session still ON |
-| + ONE MORE JOB | jobs increment |
-| End shift | Pin cleared → pick machine again |
-| Logout | Profile cleared → worker sign-in |
+| Tap **+** | jobs increment |
+| Tap **−** | jobs decrement |
+| End shift | Session OFF; machine assignment **kept** |
+| Edit profile | Change name/ID; assignment kept |
+| Change machine | Pick another press |
 
 ## 4. Second worker blocked
 
@@ -41,7 +44,7 @@ On first scan, allow **Nearby devices** (Android 12+) and **Location** when prom
 
 | Symptom | Check |
 |---------|--------|
-| App scans, no AC-### | Serial must show `[BLE] advertising as AC-00N`. If only MQTT logs, BLE did not start — look for `[BLE] low heap` and power-cycle ESP. |
+| App scans, no AC-### | Serial must show `[BLE] advertising as AC-00N`. Power-cycle ESP. Tap **Scan again** twice (resets BLE stack without reinstall). |
 | Wrong label | `machine_slot` 1 → **AC-001** (not AC-007). |
-| Permissions | Settings → Autoconnecto Worker → Permissions → Nearby devices + Location **Allowed**. |
+| Permissions | Settings → Autoconnecto Worker → Nearby devices + Location **Allowed**; system Location **ON**. |
 | MQTT OK, no BLE | Reflash `Machine_Runtime_BLE_mqtt.ino` (not NFC / non-BLE runtime sketch). |

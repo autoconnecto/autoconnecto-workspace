@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -9,16 +9,31 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import type { WorkerProfile } from "../config/storage";
+import { colors, spacing } from "../config/theme";
 import { useWorker } from "../context/WorkerContext";
 
-export function WorkerSetupScreen() {
-  const { saveProfile } = useWorker();
-  const [workerId, setWorkerId] = useState("");
-  const [workerName, setWorkerName] = useState("");
+type Props = {
+  initialProfile?: WorkerProfile | null;
+};
+
+export function WorkerSetupScreen({ initialProfile = null }: Props) {
+  const { saveProfile, cancelProfileEdit } = useWorker();
+  const isEdit = Boolean(initialProfile);
+  const [workerId, setWorkerId] = useState(initialProfile?.workerId ?? "");
+  const [workerName, setWorkerName] = useState(initialProfile?.workerName ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function onContinue() {
+  useEffect(() => {
+    if (initialProfile) {
+      setWorkerId(initialProfile.workerId);
+      setWorkerName(initialProfile.workerName);
+    }
+  }, [initialProfile]);
+
+  async function onSave() {
     const id = workerId.trim();
     const name = workerName.trim();
     if (!id || !name) {
@@ -37,75 +52,97 @@ export function WorkerSetupScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={styles.card}>
-        <Text style={styles.title}>Worker sign-in</Text>
-        <Text style={styles.subtitle}>
-          Enter once per day. Your name is sent to the machine over Bluetooth when you start a
-          session.
-        </Text>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.card}>
+          <Text style={styles.brand}>Autoconnecto Worker</Text>
+          <Text style={styles.title}>{isEdit ? "Edit profile" : "Worker profile"}</Text>
+          <Text style={styles.subtitle}>
+            {isEdit
+              ? "Update your ID or name. Saved on this phone until you edit again."
+              : "Set once — your name is sent to the machine over Bluetooth when you start a session."}
+          </Text>
 
-        <Text style={styles.label}>Worker ID</Text>
-        <TextInput
-          value={workerId}
-          onChangeText={setWorkerId}
-          style={styles.input}
-          placeholder="e.g. W12"
-          autoCapitalize="characters"
-        />
+          <Text style={styles.label}>Worker ID</Text>
+          <TextInput
+            value={workerId}
+            onChangeText={setWorkerId}
+            style={styles.input}
+            placeholder="e.g. W12"
+            autoCapitalize="characters"
+          />
 
-        <Text style={styles.label}>Full name</Text>
-        <TextInput
-          value={workerName}
-          onChangeText={setWorkerName}
-          style={styles.input}
-          placeholder="Rajesh Kumar"
-        />
+          <Text style={styles.label}>Full name</Text>
+          <TextInput
+            value={workerName}
+            onChangeText={setWorkerName}
+            style={styles.input}
+            placeholder="Rajesh Kumar"
+          />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Pressable
-          style={[styles.button, busy && styles.buttonDisabled]}
-          onPress={onContinue}
-          disabled={busy}
-        >
-          {busy ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Continue</Text>
-          )}
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+          <Pressable
+            style={[styles.button, busy && styles.buttonDisabled]}
+            onPress={onSave}
+            disabled={busy}
+          >
+            {busy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>{isEdit ? "Save changes" : "Continue"}</Text>
+            )}
+          </Pressable>
+
+          {isEdit ? (
+            <Pressable style={styles.cancelBtn} onPress={cancelProfileEdit} disabled={busy}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0f172a", justifyContent: "center", padding: 20 },
-  card: { backgroundColor: "#fff", borderRadius: 16, padding: 20 },
-  title: { fontSize: 22, fontWeight: "700" },
-  subtitle: { marginTop: 6, marginBottom: 16, color: "#64748b", lineHeight: 20 },
-  label: { fontSize: 12, fontWeight: "600", color: "#334155", marginBottom: 4 },
+  safe: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, justifyContent: "center", padding: spacing.lg },
+  card: { backgroundColor: colors.bgCard, borderRadius: 20, padding: spacing.lg },
+  brand: {
+    color: colors.primary,
+    fontWeight: "800",
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginBottom: spacing.sm,
+  },
+  title: { fontSize: 24, fontWeight: "800", color: colors.text },
+  subtitle: { marginTop: spacing.sm, marginBottom: spacing.lg, color: colors.textMuted, lineHeight: 22 },
+  label: { fontSize: 12, fontWeight: "700", color: colors.text, marginBottom: spacing.xs },
   input: {
     borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    marginBottom: spacing.md,
     fontSize: 16,
+    backgroundColor: colors.bgMuted,
   },
   button: {
-    backgroundColor: "#2563eb",
-    borderRadius: 10,
-    paddingVertical: 14,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: "center",
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  error: { color: "#dc2626", marginBottom: 8 },
+  buttonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  cancelBtn: { marginTop: spacing.md, alignItems: "center" },
+  cancelText: { color: colors.textMuted, fontWeight: "600" },
+  error: { color: colors.danger, marginBottom: spacing.sm },
 });

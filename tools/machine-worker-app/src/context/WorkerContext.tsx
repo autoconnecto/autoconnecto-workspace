@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   clearPinnedMachine,
-  clearWorkerProfile,
   loadPinnedMachine,
   loadWorkerProfile,
   savePinnedMachine,
@@ -22,10 +21,12 @@ type WorkerContextValue = {
   loading: boolean;
   profile: WorkerProfile | null;
   pinned: PinnedMachine | null;
+  editingProfile: boolean;
   saveProfile: (profile: WorkerProfile) => Promise<void>;
   pinMachine: (pin: PinnedMachine) => Promise<void>;
-  clearPin: () => Promise<void>;
-  logout: () => Promise<void>;
+  changeMachine: () => Promise<void>;
+  startProfileEdit: () => void;
+  cancelProfileEdit: () => void;
   refresh: () => Promise<void>;
 };
 
@@ -35,6 +36,7 @@ export function WorkerProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<WorkerProfile | null>(null);
   const [pinned, setPinned] = useState<PinnedMachine | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
 
   const refresh = useCallback(async () => {
     const [p, pin] = await Promise.all([loadWorkerProfile(), loadPinnedMachine()]);
@@ -49,6 +51,7 @@ export function WorkerProvider({ children }: { children: ReactNode }) {
   const saveProfile = useCallback(async (next: WorkerProfile) => {
     await saveWorkerProfile(next);
     setProfile(next);
+    setEditingProfile(false);
   }, []);
 
   const pinMachine = useCallback(async (pin: PinnedMachine) => {
@@ -56,16 +59,17 @@ export function WorkerProvider({ children }: { children: ReactNode }) {
     setPinned(pin);
   }, []);
 
-  const clearPin = useCallback(async () => {
+  const changeMachine = useCallback(async () => {
     await clearPinnedMachine();
     setPinned(null);
   }, []);
 
-  const logout = useCallback(async () => {
-    await clearPinnedMachine();
-    await clearWorkerProfile();
-    setPinned(null);
-    setProfile(null);
+  const startProfileEdit = useCallback(() => {
+    setEditingProfile(true);
+  }, []);
+
+  const cancelProfileEdit = useCallback(() => {
+    setEditingProfile(false);
   }, []);
 
   const value = useMemo(
@@ -73,13 +77,26 @@ export function WorkerProvider({ children }: { children: ReactNode }) {
       loading,
       profile,
       pinned,
+      editingProfile,
       saveProfile,
       pinMachine,
-      clearPin,
-      logout,
+      changeMachine,
+      startProfileEdit,
+      cancelProfileEdit,
       refresh,
     }),
-    [loading, profile, pinned, saveProfile, pinMachine, clearPin, logout, refresh]
+    [
+      loading,
+      profile,
+      pinned,
+      editingProfile,
+      saveProfile,
+      pinMachine,
+      changeMachine,
+      startProfileEdit,
+      cancelProfileEdit,
+      refresh,
+    ]
   );
 
   return <WorkerContext.Provider value={value}>{children}</WorkerContext.Provider>;

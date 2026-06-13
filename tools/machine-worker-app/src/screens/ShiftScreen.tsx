@@ -7,13 +7,16 @@ import {
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { JobCounter } from "../components/JobCounter";
+import { isMachineBusyForWorker, isSessionOwnedByWorker } from "../ble/workerBle";
+import { colors, spacing } from "../config/theme";
+import { savePinnedMachine } from "../config/storage";
 import { useWorker } from "../context/WorkerContext";
 import { usePinnedMachineConnection } from "../hooks/usePinnedMachineConnection";
-import { isMachineBusyForWorker, isSessionOwnedByWorker } from "../ble/workerBle";
-import { savePinnedMachine } from "../config/storage";
 
 export function ShiftScreen() {
-  const { profile, pinned, clearPin, logout, pinMachine } = useWorker();
+  const { profile, pinned, changeMachine, startProfileEdit, pinMachine } = useWorker();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
 
@@ -37,6 +40,8 @@ export function ShiftScreen() {
   const sessionMine = isSessionOwnedByWorker(status, workerId);
   const machineBusy = isMachineBusyForWorker(status, workerId);
   const sessionOn = Boolean(status?.session && sessionMine);
+  const jobCount = status?.jobs ?? 0;
+  const allowBlocked = status?.allow_run === false;
 
   async function onStartOrResume() {
     if (!profile) return;
@@ -68,12 +73,13 @@ export function ShiftScreen() {
   }
 
   async function onJobRemove() {
+    if (jobCount <= 0) return;
     setBusy(true);
     setActionError("");
     try {
       await sendCommand({ cmd: "job_remove" });
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Could not undo job");
+      setActionError(err instanceof Error ? err.message : "Could not remove job");
     } finally {
       setBusy(false);
     }
@@ -84,55 +90,46 @@ export function ShiftScreen() {
     try {
       await sendCommand({ cmd: "stop" });
     } catch {
-      /* best effort before end shift */
+      /* best effort */
     }
   }
 
   async function onEndShift() {
-    Alert.alert("End shift?", "This stops your session and unpins the machine.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "End shift",
-        style: "destructive",
-        onPress: async () => {
-          setBusy(true);
-          await stopSessionOnDevice();
-          await clearPin();
-          setBusy(false);
+    Alert.alert(
+      "End shift?",
+      "Stops your session on the machine. Your assigned press stays saved on this phone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "End shift",
+          style: "destructive",
+          onPress: async () => {
+            setBusy(true);
+            await stopSessionOnDevice();
+            setBusy(false);
+          },
         },
-      },
-    ]);
+      ]
+    );
   }
 
   async function onChangeMachine() {
-    Alert.alert("Change machine?", "End this machine pin and pick another press.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Change",
-        onPress: async () => {
-          setBusy(true);
-          await stopSessionOnDevice();
-          await clearPin();
-          setBusy(false);
+    Alert.alert(
+      "Change machine?",
+      "Stops the current session and lets you pick a different press. Use this only when you move to another machine.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Change machine",
+          onPress: async () => {
+            setBusy(true);
+            await stopSessionOnDevice();
+            await changeMachine();
+            setBusy(false);
+          },
         },
-      },
-    ]);
-  }
-
-  function onLogout() {
-    Alert.alert("Logout?", "Clears your worker profile and machine pin.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          setBusy(true);
-          await stopSessionOnDevice();
-          await logout();
-          setBusy(false);
-        },
-      },
-    ]);
+      ]
+    );
   }
 
   const linkLabel =
@@ -143,120 +140,125 @@ export function ShiftScreen() {
         : phase === "reconnecting"
           ? "Reconnecting…"
           : phase === "error"
-            ? "Link lost — retrying"
-            : "Idle";
+            ? "Reconnecting…"
+            : "Connecting…";
 
   return (
-    <View style={styles.root}>
-      <View style={styles.top}>
-        <Text style={styles.machine}>{pinned?.bleAdvertName}</Text>
-        <Text style={styles.worker}>
-          {profile?.workerName} · {profile?.workerId}
-        </Text>
-        <View style={styles.linkRow}>
-          <View
-            style={[
-              styles.linkDot,
-              phase === "connected" ? styles.linkOk : styles.linkPending,
-            ]}
-          />
-          <Text style={styles.linkText}>{linkLabel}</Text>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.root}>
+        <View style={styles.top}>
+          <Text style={styles.brand}>Autoconnecto Worker</Text>
+          <Text style={styles.machine}>{pinned?.bleAdvertName}</Text>
+          <Text style={styles.worker}>
+            {profile?.workerName} · {profile?.workerId}
+          </Text>
+          <View style={styles.linkRow}>
+            <View
+              style={[
+                styles.linkDot,
+                phase === "connected" ? styles.linkOk : styles.linkPending,
+              ]}
+            />
+            <Text style={styles.linkText}>{linkLabel}</Text>
+            {phase !== "connected" ? (
+              <Pressable onPress={() => reconnect()}>
+                <Text style={styles.linkAction}>Retry</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
+        </View>
+
+        <View style={styles.panel}>
+          <View style={styles.statusGrid}>
+            <StatusTile label="Session" value={sessionOn ? "ON" : "OFF"} tone={sessionOn ? "ok" : "neutral"} />
+            <StatusTile
+              label="Allow run"
+              value={allowBlocked ? "BLOCKED" : "OK"}
+              tone={allowBlocked ? "bad" : "ok"}
+            />
+            <StatusTile label="Jobs" value={String(jobCount)} tone="neutral" />
+          </View>
+
+          {allowBlocked ? (
+            <Text style={styles.blockedHint}>
+              Machine blocked by admin (tool life or allow-run). Ask supervisor to reset in dashboard Setup.
+            </Text>
+          ) : null}
+
+          {machineBusy ? (
+            <Text style={styles.busy}>
+              In use by {status?.operator_name || status?.operator_id || "another worker"}
+            </Text>
+          ) : null}
+
+          {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
+
           {phase !== "connected" ? (
-            <Pressable onPress={() => reconnect()}>
-              <Text style={styles.linkAction}>Retry now</Text>
+            <Text style={styles.hint}>
+              Linking to your saved machine automatically — no need to scan again.
+            </Text>
+          ) : null}
+
+          {phase === "connected" && !sessionOn && !machineBusy ? (
+            <Pressable
+              style={[styles.primaryBtn, (busy || allowBlocked) && styles.btnDisabled]}
+              onPress={onStartOrResume}
+              disabled={busy || allowBlocked}
+            >
+              <Text style={styles.primaryBtnText}>
+                {status?.session ? "RESUME SESSION" : "START SESSION"}
+              </Text>
             </Pressable>
           ) : null}
-        </View>
-        {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
-      </View>
 
-      <View style={styles.panel}>
-        <View style={styles.statusGrid}>
-          <Chip label="Session" value={sessionOn ? "ON" : "OFF"} ok={sessionOn} />
-          <Chip label="Jobs" value={String(status?.jobs ?? 0)} />
-          <Chip
-            label="Allow run"
-            value={status?.allow_run === false ? "BLOCKED" : "OK"}
-            ok={status?.allow_run !== false}
-          />
-        </View>
-
-        {machineBusy ? (
-          <Text style={styles.busy}>
-            Machine in use by {status?.operator_name || status?.operator_id || "another worker"}
-          </Text>
-        ) : null}
-
-        {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
-
-        {phase !== "connected" ? (
-          <Text style={styles.hint}>
-            BLE will reconnect automatically — no need to pick the machine again.
-          </Text>
-        ) : null}
-
-        {phase === "connected" && !sessionOn && !machineBusy ? (
-          <Pressable
-            style={[styles.primaryBtn, busy && styles.btnDisabled]}
-            onPress={onStartOrResume}
-            disabled={busy}
-          >
-            <Text style={styles.primaryBtnText}>
-              {status?.session ? "RESUME SESSION" : "START SESSION"}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {phase === "connected" && sessionOn ? (
-          <>
-            <Pressable
-              style={[styles.jobBtn, busy && styles.btnDisabled]}
-              onPress={onJobAdd}
+          {phase === "connected" && sessionOn ? (
+            <JobCounter
+              count={jobCount}
+              onIncrement={onJobAdd}
+              onDecrement={onJobRemove}
               disabled={busy}
-            >
-              <Text style={styles.jobBtnText}>+ ONE MORE JOB</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.secondaryBtn, busy && styles.btnDisabled]}
-              onPress={onJobRemove}
-              disabled={busy}
-            >
-              <Text style={styles.secondaryBtnText}>Undo last job</Text>
-            </Pressable>
-          </>
-        ) : null}
+              busy={busy}
+            />
+          ) : null}
 
-        <View style={styles.footerActions}>
-          <Pressable onPress={onChangeMachine} disabled={busy}>
-            <Text style={styles.footerLink}>Change machine</Text>
-          </Pressable>
-          <Pressable onPress={onEndShift} disabled={busy}>
-            <Text style={styles.footerLinkDanger}>End shift</Text>
-          </Pressable>
-          <Pressable onPress={onLogout} disabled={busy}>
-            <Text style={styles.footerLink}>Logout</Text>
-          </Pressable>
+          <View style={styles.footerActions}>
+            <Pressable style={styles.footerBtn} onPress={onEndShift} disabled={busy}>
+              <Text style={styles.footerBtnText}>End shift</Text>
+            </Pressable>
+            <Pressable style={styles.footerBtn} onPress={onChangeMachine} disabled={busy}>
+              <Text style={styles.footerBtnText}>Change machine</Text>
+            </Pressable>
+            <Pressable style={styles.footerBtn} onPress={startProfileEdit} disabled={busy}>
+              <Text style={styles.footerBtnText}>Edit profile</Text>
+            </Pressable>
+          </View>
+
+          {busy ? <ActivityIndicator style={{ marginTop: spacing.md }} color={colors.primary} /> : null}
         </View>
-
-        {busy ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
-function Chip({
+function StatusTile({
   label,
   value,
-  ok,
+  tone,
 }: {
   label: string;
   value: string;
-  ok?: boolean;
+  tone: "ok" | "bad" | "neutral";
 }) {
   return (
-    <View style={styles.chip}>
-      <Text style={styles.chipLabel}>{label}</Text>
-      <Text style={[styles.chipValue, ok === false ? styles.chipBad : ok ? styles.chipGood : null]}>
+    <View style={styles.tile}>
+      <Text style={styles.tileLabel}>{label}</Text>
+      <Text
+        style={[
+          styles.tileValue,
+          tone === "ok" ? styles.tileOk : tone === "bad" ? styles.tileBad : null,
+        ]}
+      >
         {value}
       </Text>
     </View>
@@ -264,54 +266,77 @@ function Chip({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0f172a", padding: 16 },
-  top: { marginBottom: 16 },
-  machine: { color: "#fff", fontSize: 32, fontWeight: "800" },
-  worker: { color: "#94a3b8", marginTop: 4 },
-  linkRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
+  safe: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, padding: spacing.md },
+  top: { marginBottom: spacing.md },
+  brand: {
+    color: colors.accent,
+    fontWeight: "800",
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: spacing.xs,
+  },
+  machine: { color: colors.textOnDark, fontSize: 34, fontWeight: "800" },
+  worker: { color: "#94a3b8", marginTop: spacing.xs, fontSize: 15 },
+  linkRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
   linkDot: { width: 10, height: 10, borderRadius: 5 },
-  linkOk: { backgroundColor: "#22c55e" },
-  linkPending: { backgroundColor: "#f59e0b" },
-  linkText: { color: "#cbd5e1", fontSize: 13 },
-  linkAction: { color: "#93c5fd", fontWeight: "600", fontSize: 13 },
-  errorBanner: { color: "#fecaca", marginTop: 8, fontSize: 12 },
-  panel: { backgroundColor: "#fff", borderRadius: 16, padding: 16, flex: 1 },
-  statusGrid: { flexDirection: "row", gap: 8, marginBottom: 12 },
-  chip: { flex: 1, backgroundColor: "#f1f5f9", borderRadius: 10, padding: 10 },
-  chipLabel: { fontSize: 11, color: "#64748b", fontWeight: "600" },
-  chipValue: { marginTop: 4, fontSize: 18, fontWeight: "800", color: "#0f172a" },
-  chipGood: { color: "#15803d" },
-  chipBad: { color: "#dc2626" },
-  busy: { color: "#dc2626", marginBottom: 10, fontWeight: "600" },
-  actionError: { color: "#dc2626", marginBottom: 8 },
-  hint: { color: "#64748b", fontSize: 12, marginBottom: 12, lineHeight: 18 },
+  linkOk: { backgroundColor: colors.success },
+  linkPending: { backgroundColor: colors.warning },
+  linkText: { color: "#cbd5e1", fontSize: 13, fontWeight: "600" },
+  linkAction: { color: "#93c5fd", fontWeight: "700", fontSize: 13 },
+  errorBanner: { color: "#fecaca", marginTop: spacing.sm, fontSize: 12, lineHeight: 18 },
+  panel: {
+    backgroundColor: colors.bgCard,
+    borderRadius: 20,
+    padding: spacing.lg,
+    flex: 1,
+  },
+  statusGrid: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  tile: {
+    flex: 1,
+    backgroundColor: colors.bgMuted,
+    borderRadius: 12,
+    padding: spacing.sm,
+    alignItems: "center",
+  },
+  tileLabel: { fontSize: 10, color: colors.textMuted, fontWeight: "700", textTransform: "uppercase" },
+  tileValue: { marginTop: spacing.xs, fontSize: 18, fontWeight: "800", color: colors.text },
+  tileOk: { color: colors.successDark },
+  tileBad: { color: colors.danger },
+  blockedHint: {
+    color: colors.danger,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: spacing.sm,
+    backgroundColor: "#fef2f2",
+    padding: spacing.sm,
+    borderRadius: 10,
+  },
+  busy: { color: colors.danger, marginBottom: spacing.sm, fontWeight: "700" },
+  actionError: { color: colors.danger, marginBottom: spacing.sm, fontWeight: "600" },
+  hint: { color: colors.textMuted, fontSize: 13, marginBottom: spacing.md, lineHeight: 20 },
   primaryBtn: {
-    backgroundColor: "#16a34a",
-    borderRadius: 12,
+    backgroundColor: colors.success,
+    borderRadius: 14,
     paddingVertical: 18,
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
-  primaryBtnText: { color: "#fff", fontWeight: "800", fontSize: 17 },
-  jobBtn: {
-    backgroundColor: "#2563eb",
-    borderRadius: 12,
-    paddingVertical: 18,
+  primaryBtnText: { color: "#fff", fontWeight: "800", fontSize: 17, letterSpacing: 0.3 },
+  btnDisabled: { opacity: 0.55 },
+  footerActions: {
+    marginTop: "auto",
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  footerBtn: {
+    paddingVertical: 12,
     alignItems: "center",
-    marginBottom: 10,
+    borderRadius: 10,
+    backgroundColor: colors.bgMuted,
   },
-  jobBtnText: { color: "#fff", fontWeight: "800", fontSize: 17 },
-  secondaryBtn: {
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  secondaryBtnText: { color: "#334155", fontWeight: "700" },
-  btnDisabled: { opacity: 0.6 },
-  footerActions: { marginTop: 16, gap: 12 },
-  footerLink: { color: "#2563eb", fontWeight: "600", textAlign: "center" },
-  footerLinkDanger: { color: "#dc2626", fontWeight: "700", textAlign: "center" },
+  footerBtnText: { color: colors.text, fontWeight: "700", fontSize: 14 },
 });

@@ -7,6 +7,7 @@ import {
 } from "react-native-ble-plx";
 import {
   BLE_CMD_CHAR_UUID,
+  BLE_SCAN_EXTENDED_MS,
   BLE_SCAN_TIMEOUT_MS,
   BLE_SERVICE_UUID,
   BLE_STATUS_CHAR_UUID,
@@ -45,6 +46,30 @@ export function getBleManager() {
   return manager;
 }
 
+/** Recover from a wedged BLE stack without reinstalling the app. */
+export async function resetBleManager() {
+  const ble = manager;
+  manager = null;
+  if (!ble) return;
+  try {
+    await ble.stopDeviceScan();
+  } catch {
+    /* ignore */
+  }
+  try {
+    const connected = await ble.connectedDevices([BLE_SERVICE_UUID]);
+    await Promise.all(connected.map((d) => d.cancelConnection().catch(() => {})));
+  } catch {
+    /* ignore */
+  }
+  try {
+    await ble.destroy();
+  } catch {
+    /* ignore */
+  }
+  await sleep(500);
+}
+
 export function normalizeBleName(name: string | null | undefined) {
   return String(name || "").trim().toUpperCase();
 }
@@ -67,6 +92,17 @@ export function machineBleNameFromDevice(device: Device): string | null {
   const direct = normalizeBleName(device.localName || device.name);
   if (isMachineAdvertName(direct)) return direct;
   return null;
+}
+
+export function bleAdvertNameFromSlot(slot: number | null | undefined): string | null {
+  if (slot === null || slot === undefined || !Number.isFinite(Number(slot))) return null;
+  const n = Math.max(0, Math.floor(Number(slot)));
+  const name = `AC-${String(n).padStart(3, "0")}`;
+  return isMachineAdvertName(name) ? name : null;
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 /** Stop scans and drop stale GATT links so Android can discover peripherals again. */
@@ -92,6 +128,7 @@ export async function prepareBleForScan() {
   } catch {
     /* ignore */
   }
+  await sleep(400);
 }
 
 async function requestAndroidBlePermissions() {
@@ -155,11 +192,103 @@ export async function requestBlePermissions() {
   });
 }
 
-export async function scanNearbyMachines(timeoutMs = BLE_SCAN_TIMEOUT_MS): Promise<ScannedMachine[]> {
+async function resolveMachineViaConnect(
+  deviceId: string,
+  rssi: number | null
+): Promise<ScannedMachine | null> {
+  try {
+    const ble = getBleManager();
+    const device = await ble.connectToDevice(deviceId, { timeout: 10000 });
+    const linked = await connectDevice(device);
+    const status = await readBleStatus(linked);
+    await linked.cancelConnection();
+    const bleAdvertName = bleAdvertNameFromSlot(status?.slot ?? null);
+    if (!bleAdvertName) return null;
+    return { deviceId, bleAdvertName, rssi };
+  } catch {
+    return null;
+  }
+}
+
+export type ScanNearbyResult = {
+  machines: ScannedMachine[];
+  /** Our GATT service seen in scan but advert name missing (Android quirk). */
+  serviceHits: number;
+};
+
+export type ScanProgress = ScanNearbyResult & {
+  phase: "scanning" | "resolving" | "done";
+};
+
+export type ScanNearbyOptions = {
+  timeoutMs?: number;
+  extendedMs?: number;
+  resetManager?: boolean;
+  onProgress?: (progress: ScanProgress) => void;
+};
+
+export async function scanNearbyMachines(
+  timeoutMs = BLE_SCAN_TIMEOUT_MS
+): Promise<ScannedMachine[]> {
+  const result = await scanNearbyMachinesDetailed({ timeoutMs });
+  return result.machines;
+}
+
+function publishScanProgress(
+  onProgress: ScanNearbyOptions["onProgress"],
+  phase: ScanProgress["phase"],
+  machines: ScannedMachine[],
+  serviceHits: number
+) {
+  onProgress?.({
+    phase,
+    machines: [...machines].sort((a, b) => a.bleAdvertName.localeCompare(b.bleAdvertName)),
+    serviceHits,
+  });
+}
+
+export async function scanNearbyMachinesDetailed(
+  options: ScanNearbyOptions = {}
+): Promise<ScanNearbyResult> {
+  const timeoutMs = options.timeoutMs ?? BLE_SCAN_TIMEOUT_MS;
+  const extendedMs = options.extendedMs ?? BLE_SCAN_EXTENDED_MS;
+  const onProgress = options.onProgress;
+
+  if (options.resetManager) {
+    await resetBleManager();
+  }
+
   await prepareBleForScan();
   const ble = getBleManager();
-  const found = new Map<string, ScannedMachine>();
+  const named = new Map<string, ScannedMachine>();
+  const pendingById = new Map<string, ScannedMachine>();
   let scanError: Error | null = null;
+
+  const ingestDevice = (device: Device) => {
+    const bleAdvertName = machineBleNameFromDevice(device);
+    const hasService = deviceAdvertisesWorkerService(device);
+    const rssi = device.rssi ?? null;
+
+    if (bleAdvertName && isMachineAdvertName(bleAdvertName)) {
+      pendingById.delete(device.id);
+      const prev = named.get(bleAdvertName);
+      if (!prev || (rssi !== null && (prev.rssi === null || rssi > prev.rssi))) {
+        named.set(bleAdvertName, { deviceId: device.id, bleAdvertName, rssi });
+        publishScanProgress(onProgress, "scanning", Array.from(named.values()), pendingById.size);
+      }
+      return;
+    }
+
+    if (hasService) {
+      const prev = pendingById.get(device.id);
+      if (!prev) {
+        pendingById.set(device.id, { deviceId: device.id, bleAdvertName: "", rssi });
+      } else if (rssi !== null && (prev.rssi === null || rssi > prev.rssi)) {
+        pendingById.set(device.id, { ...prev, rssi });
+      }
+      publishScanProgress(onProgress, "scanning", Array.from(named.values()), pendingById.size);
+    }
+  };
 
   await new Promise<void>((resolve) => {
     let settled = false;
@@ -180,51 +309,62 @@ export async function scanNearbyMachines(timeoutMs = BLE_SCAN_TIMEOUT_MS): Promi
         return;
       }
       if (!device) return;
-
-      const bleAdvertName = machineBleNameFromDevice(device);
-      const hasService = deviceAdvertisesWorkerService(device);
-
-      if (bleAdvertName && isMachineAdvertName(bleAdvertName)) {
-        const prev = found.get(bleAdvertName);
-        const rssi = device.rssi ?? null;
-        if (!prev || (rssi !== null && (prev.rssi === null || rssi > prev.rssi))) {
-          found.set(bleAdvertName, { deviceId: device.id, bleAdvertName, rssi });
-        }
-        return;
-      }
-
-      // Service UUID seen but name not in this packet yet — keep device id for a later duplicate.
-      if (hasService) {
-        const pendingKey = `pending:${device.id}`;
-        const prev = found.get(pendingKey);
-        const rssi = device.rssi ?? null;
-        if (!prev) {
-          found.set(pendingKey, {
-            deviceId: device.id,
-            bleAdvertName: "",
-            rssi,
-          });
-        } else if (rssi !== null && (prev.rssi === null || rssi > prev.rssi)) {
-          found.set(pendingKey, { ...prev, rssi });
-        }
-      }
+      ingestDevice(device);
     };
 
-    const scanOptions = { allowDuplicates: true, scanMode: ScanMode.LowLatency };
-    try {
-      ble.startDeviceScan([BLE_SERVICE_UUID], scanOptions, onDevice);
-    } catch {
-      ble.startDeviceScan(null, scanOptions, onDevice);
-    }
+    ble.startDeviceScan(null, { allowDuplicates: true, scanMode: ScanMode.LowLatency }, onDevice);
   });
 
   if (scanError) {
     throw scanError;
   }
 
-  return Array.from(found.values())
-    .filter((row) => row.bleAdvertName && isMachineAdvertName(row.bleAdvertName))
-    .sort((a, b) => a.bleAdvertName.localeCompare(b.bleAdvertName));
+  let machines = Array.from(named.values());
+
+  if (!machines.length) {
+    publishScanProgress(onProgress, "scanning", machines, pendingById.size);
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        ble.stopDeviceScan().catch(() => {});
+        resolve();
+      };
+      const timer = setTimeout(finish, extendedMs);
+      ble.startDeviceScan(null, { allowDuplicates: true, scanMode: ScanMode.LowLatency }, (error, device) => {
+        if (error) {
+          scanError = error;
+          clearTimeout(timer);
+          finish();
+          return;
+        }
+        if (device) ingestDevice(device);
+      });
+    });
+    machines = Array.from(named.values());
+  }
+
+  if (scanError) {
+    throw scanError;
+  }
+
+  let serviceHits = pendingById.size;
+
+  if (!machines.length && pendingById.size > 0) {
+    publishScanProgress(onProgress, "resolving", machines, serviceHits);
+    for (const pending of pendingById.values()) {
+      const resolved = await resolveMachineViaConnect(pending.deviceId, pending.rssi);
+      if (resolved) {
+        machines.push(resolved);
+        publishScanProgress(onProgress, "resolving", machines, serviceHits);
+      }
+    }
+  }
+
+  machines = machines.sort((a, b) => a.bleAdvertName.localeCompare(b.bleAdvertName));
+  publishScanProgress(onProgress, "done", machines, serviceHits);
+  return { machines, serviceHits };
 }
 
 async function connectDevice(device: Device): Promise<Device> {

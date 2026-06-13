@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -7,39 +7,67 @@ import {
   Text,
   View,
 } from "react-native";
-import { scanNearbyMachines, type ScannedMachine } from "../ble/workerBle";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { scanNearbyMachinesDetailed, type ScannedMachine } from "../ble/workerBle";
+import { colors, spacing } from "../config/theme";
 import { useWorker } from "../context/WorkerContext";
 
 export function PickMachineScreen() {
-  const { profile, pinMachine, logout } = useWorker();
+  const { profile, pinMachine, startProfileEdit } = useWorker();
   const [machines, setMachines] = useState<ScannedMachine[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [scanPhase, setScanPhase] = useState<"idle" | "scanning" | "resolving" | "done">("idle");
   const [pinning, setPinning] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const failStreakRef = useRef(0);
 
   const scan = useCallback(async () => {
     if (scanning) return;
     setScanning(true);
+    setScanPhase("scanning");
     setError("");
+    const resetManager = failStreakRef.current >= 1;
+
     try {
-      const rows = await scanNearbyMachines(15000);
+      const { machines: rows, serviceHits } = await scanNearbyMachinesDetailed({
+        resetManager,
+        onProgress: (progress) => {
+          setScanPhase(progress.phase);
+          if (progress.machines.length) {
+            setMachines(progress.machines);
+          }
+        },
+      });
+
       setMachines(rows);
+      setScanPhase("done");
+
       if (!rows.length) {
+        failStreakRef.current += 1;
+        const serviceHint =
+          serviceHits > 0
+            ? ` Detected ${serviceHits} machine radio(s) but could not read AC-### — move closer and tap Scan again.`
+            : "";
         setError(
-          "No AC-### machines found nearby. Check: (1) phone Bluetooth on, (2) app permissions (Nearby devices + Location), (3) ESP serial shows [BLE] advertising as AC-001, (4) floor label matches slot (slot 1 → AC-001)."
+          `No machines found.${serviceHint} Check Bluetooth + Location ON, ESP shows [BLE] advertising as AC-001, then reset ESP if needed.`
         );
+      } else {
+        failStreakRef.current = 0;
       }
     } catch (err) {
+      failStreakRef.current += 1;
       setError(err instanceof Error ? err.message : "Scan failed");
       setMachines([]);
+      setScanPhase("done");
     } finally {
       setScanning(false);
     }
   }, [scanning]);
 
   useEffect(() => {
-    scan();
-  }, [scan]);
+    void scan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scan once on mount
+  }, []);
 
   async function onPick(item: ScannedMachine) {
     setPinning(item.bleAdvertName);
@@ -49,95 +77,151 @@ export function PickMachineScreen() {
         bleAdvertName: item.bleAdvertName,
         deviceId: item.deviceId,
       });
+      failStreakRef.current = 0;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not pin machine");
+      setError(err instanceof Error ? err.message : "Could not select machine");
     } finally {
       setPinning(null);
     }
   }
 
+  const scanLabel =
+    scanPhase === "resolving"
+      ? "Identifying…"
+      : scanning
+        ? "Scanning…"
+        : "Scan again";
+
   return (
-    <View style={styles.root}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My machine</Text>
-        <Text style={styles.subtitle}>
-          {profile?.workerName} ({profile?.workerId}) — tick the machine matching the floor label
-          (e.g. AC-001).
-        </Text>
-      </View>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.root}>
+        <View style={styles.header}>
+          <Text style={styles.brand}>Autoconnecto Worker</Text>
+          <Text style={styles.title}>Select your machine</Text>
+          <Text style={styles.subtitle}>
+            {profile?.workerName} ({profile?.workerId}) — choose the press matching the floor label.
+            Your choice is saved on this phone until you change it.
+          </Text>
+        </View>
 
-      <View style={styles.actions}>
-        <Pressable style={styles.scanBtn} onPress={scan} disabled={scanning}>
-          <Text style={styles.scanBtnText}>{scanning ? "Scanning…" : "Scan again"}</Text>
-        </Pressable>
-        <Pressable onPress={logout}>
-          <Text style={styles.link}>Logout</Text>
-        </Pressable>
-      </View>
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {scanning && !machines.length ? <ActivityIndicator style={{ marginTop: 24 }} /> : null}
-
-      <FlatList
-        data={machines}
-        keyExtractor={(item) => item.bleAdvertName}
-        contentContainerStyle={{ padding: 16, gap: 8 }}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.row}
-            onPress={() => onPick(item)}
-            disabled={pinning === item.bleAdvertName}
-          >
-            <View>
-              <Text style={styles.rowTitle}>{item.bleAdvertName}</Text>
-              <Text style={styles.rowMeta}>
-                Signal {item.rssi ?? "—"} dBm · tap to pin for this shift
-              </Text>
-            </View>
-            {pinning === item.bleAdvertName ? (
-              <ActivityIndicator />
-            ) : (
-              <Text style={styles.tick}>✓</Text>
-            )}
+        <View style={styles.actions}>
+          <Pressable style={[styles.scanBtn, scanning && styles.scanBtnActive]} onPress={scan} disabled={scanning}>
+            {scanning ? <ActivityIndicator color={colors.primary} size="small" /> : null}
+            <Text style={styles.scanBtnText}>{scanLabel}</Text>
           </Pressable>
-        )}
-      />
-    </View>
+          <Pressable onPress={startProfileEdit}>
+            <Text style={styles.link}>Edit profile</Text>
+          </Pressable>
+        </View>
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {scanning && !machines.length ? (
+          <View style={styles.scanningBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.scanningText}>Looking for AC-001, AC-002…</Text>
+          </View>
+        ) : null}
+
+        <FlatList
+          data={machines}
+          keyExtractor={(item) => item.deviceId}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            !scanning ? (
+              <Text style={styles.empty}>No machines yet. Stand near your press and tap Scan again.</Text>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <Pressable
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              onPress={() => onPick(item)}
+              disabled={pinning === item.bleAdvertName}
+            >
+              <View style={styles.rowIcon}>
+                <Text style={styles.rowIconText}>⚙</Text>
+              </View>
+              <View style={styles.rowBody}>
+                <Text style={styles.rowTitle}>{item.bleAdvertName}</Text>
+                <Text style={styles.rowMeta}>
+                  Signal {item.rssi ?? "—"} dBm · tap to assign this press
+                </Text>
+              </View>
+              {pinning === item.bleAdvertName ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <Text style={styles.select}>Select</Text>
+              )}
+            </Pressable>
+          )}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f8fafc" },
-  header: { padding: 16, paddingBottom: 8 },
-  title: { fontSize: 24, fontWeight: "700" },
-  subtitle: { marginTop: 6, color: "#64748b", lineHeight: 20 },
+  safe: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
+  header: { padding: spacing.lg, paddingBottom: spacing.sm },
+  brand: {
+    color: colors.accent,
+    fontWeight: "800",
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: spacing.xs,
+  },
+  title: { fontSize: 26, fontWeight: "800", color: colors.textOnDark },
+  subtitle: { marginTop: spacing.sm, color: "#94a3b8", lineHeight: 22 },
   actions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   scanBtn: {
-    backgroundColor: "#e2e8f0",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  scanBtnText: { fontWeight: "600", color: "#334155" },
-  link: { color: "#2563eb", fontWeight: "600" },
-  error: { color: "#dc2626", paddingHorizontal: 16, marginBottom: 8 },
-  row: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+    gap: spacing.sm,
+    backgroundColor: colors.bgCard,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: 10,
+    minWidth: 130,
+    justifyContent: "center",
   },
-  rowTitle: { fontSize: 20, fontWeight: "800", color: "#0f172a" },
-  rowMeta: { marginTop: 4, color: "#64748b", fontSize: 12 },
-  tick: { fontSize: 22, color: "#2563eb", fontWeight: "700" },
+  scanBtnActive: { opacity: 0.85 },
+  scanBtnText: { fontWeight: "700", color: colors.text },
+  link: { color: "#93c5fd", fontWeight: "700" },
+  error: { color: "#fecaca", paddingHorizontal: spacing.lg, marginBottom: spacing.sm, lineHeight: 20 },
+  scanningBox: { alignItems: "center", marginTop: spacing.xl, gap: spacing.md },
+  scanningText: { color: "#94a3b8" },
+  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
+  empty: { color: "#94a3b8", textAlign: "center", marginTop: spacing.lg, lineHeight: 22 },
+  row: {
+    backgroundColor: colors.bgCard,
+    borderRadius: 16,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  rowPressed: { opacity: 0.92 },
+  rowIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.bgMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowIconText: { fontSize: 22 },
+  rowBody: { flex: 1 },
+  rowTitle: { fontSize: 22, fontWeight: "800", color: colors.text },
+  rowMeta: { marginTop: 2, color: colors.textMuted, fontSize: 12 },
+  select: { color: colors.primary, fontWeight: "800", fontSize: 14 },
 });

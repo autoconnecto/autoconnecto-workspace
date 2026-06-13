@@ -65,7 +65,7 @@ export async function savePinnedMachine(pin: PinnedMachine) {
   await Promise.all(ops);
 }
 
-/** Cleared on end of shift and logout. */
+/** Cleared only when the worker explicitly chooses another machine. */
 export async function clearPinnedMachine() {
   await Promise.all([
     AsyncStorage.removeItem(KEYS.pinnedBleName),
