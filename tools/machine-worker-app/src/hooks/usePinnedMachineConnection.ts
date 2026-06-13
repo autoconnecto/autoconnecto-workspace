@@ -138,12 +138,14 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
 
     const priorStatus = lastStatusRef.current;
 
+    let scheduleAfterFail = false;
+
     try {
       await cleanupLink();
       const attempt = reconnectAttemptRef.current;
       const device = await connectPinnedMachine(pin, {
-        resetBle: attempt >= 2,
-        skipCachedDeviceId: attempt >= 3,
+        resetBle: attempt >= 1,
+        skipCachedDeviceId: attempt >= 4,
       });
       deviceRef.current = device;
       onDeviceIdRef.current?.(device.id);
@@ -190,15 +192,17 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
     } catch (err) {
       setPhase("reconnecting");
       setError(err instanceof Error ? err.message : "Connection failed");
-      scheduleReconnectRef.current();
+      scheduleAfterFail = true;
     } finally {
       connectingRef.current = false;
+      if (scheduleAfterFail) {
+        scheduleReconnectRef.current();
+      }
     }
   }, [cleanupLink, clearReconnectTimer]);
 
   scheduleReconnectRef.current = (urgent = false) => {
     if (!enabledRef.current || !pinnedRef.current) return;
-    if (connectingRef.current) return;
     if (reconnectTimerRef.current && !urgent) return;
 
     if (urgent && reconnectTimerRef.current) {
@@ -213,7 +217,7 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
 
     reconnectTimerRef.current = setTimeout(() => {
       reconnectTimerRef.current = null;
-      void connectNow();
+      void connectNowRef.current();
     }, delay);
   };
 
@@ -231,6 +235,21 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
     });
     return () => sub.remove();
   }, [clearReconnectTimer]);
+
+  /** Safety net: keep trying while shift screen is open and link is down. */
+  useEffect(() => {
+    if (!enabled || !pinned) return;
+
+    const id = setInterval(() => {
+      if (!enabledRef.current || !pinnedRef.current) return;
+      if (connectingRef.current) return;
+      if (deviceRef.current) return;
+      if (reconnectTimerRef.current) return;
+      scheduleReconnectRef.current(true);
+    }, 5000);
+
+    return () => clearInterval(id);
+  }, [enabled, pinned?.bleAdvertName]);
 
   useEffect(() => {
     if (!enabled || !pinned) {

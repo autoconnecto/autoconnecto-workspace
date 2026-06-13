@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import Constants from "expo-constants";
 import {
   ActivityIndicator,
   Alert,
@@ -203,6 +204,8 @@ export function ShiftScreen() {
             ? "Reconnecting…"
             : "Connecting…";
 
+  const appVersion = Constants.expoConfig?.version ?? "dev";
+
   const stepHint = !connected
     ? phase === "reconnecting" || phase === "connecting"
       ? sessionSuspended
@@ -220,6 +223,7 @@ export function ShiftScreen() {
       <View style={styles.root}>
         <View style={styles.top}>
           <Text style={styles.brand}>Autoconnecto Worker</Text>
+          <Text style={styles.version}>v{appVersion}</Text>
           <Text style={styles.machine}>{pinned?.bleAdvertName}</Text>
           <Text style={styles.worker}>
             {profile?.workerName} · {profile?.workerId}
@@ -373,8 +377,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
+  version: { color: "#64748b", fontSize: 10, fontWeight: "600", marginBottom: spacing.xs },
   machine: { color: colors.textOnDark, fontSize: 34, fontWeight: "800" },
   worker: { color: "#94a3b8", marginTop: spacing.xs, fontSize: 15 },
   linkRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },

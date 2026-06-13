@@ -439,6 +439,65 @@ export async function scanAndConnect(
   return connectByDeviceId(hit.deviceId);
 }
 
+/** Android often omits the name in filtered scans — last resort for reconnect. */
+async function scanAndConnectUnfiltered(
+  bleAdvertName: string,
+  timeoutMs = 10_000
+): Promise<Device> {
+  const target = normalizeBleName(bleAdvertName);
+  if (!target) throw new Error("Invalid machine BLE name.");
+
+  await prepareBleForScan();
+  const ble = getBleManager();
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      ble.stopDeviceScan().catch(() => {});
+      reject(new Error(`Could not find ${target}. Move closer to the machine.`));
+    }, timeoutMs);
+
+    ble.startDeviceScan(null, { allowDuplicates: true, scanMode: ScanMode.LowLatency }, (error, device) => {
+      if (settled) return;
+      if (error) {
+        settled = true;
+        clearTimeout(timer);
+        ble.stopDeviceScan().catch(() => {});
+        reject(error);
+        return;
+      }
+      if (!device) return;
+
+      const seen = machineBleNameFromDevice(device);
+      if (seen === target) {
+        settled = true;
+        clearTimeout(timer);
+        ble.stopDeviceScan().catch(() => {});
+        connectDevice(device).then(resolve).catch(reject);
+        return;
+      }
+
+      if (deviceAdvertisesWorkerService(device)) {
+        settled = true;
+        clearTimeout(timer);
+        ble.stopDeviceScan().catch(() => {});
+        connectDevice(device)
+          .then(async (linked) => {
+            const status = await readBleStatus(linked);
+            const name = bleAdvertNameFromSlot(status?.slot ?? null);
+            if (name === target) return linked;
+            await linked.cancelConnection();
+            throw new Error(`Could not find ${target}. Move closer to the machine.`);
+          })
+          .then(resolve)
+          .catch(reject);
+      }
+    });
+  });
+}
+
 export async function connectPinnedMachine(
   pin: {
     bleAdvertName: string;
@@ -463,11 +522,15 @@ export async function connectPinnedMachine(
     }
   }
 
-  return scanAndConnect(target, {
-    timeoutMs: BLE_RECONNECT_SCAN_TIMEOUT_MS,
-    extendedMs: BLE_RECONNECT_SCAN_EXTENDED_MS,
-    resetManager: options.resetBle,
-  });
+  try {
+    return await scanAndConnect(target, {
+      timeoutMs: BLE_RECONNECT_SCAN_TIMEOUT_MS,
+      extendedMs: BLE_RECONNECT_SCAN_EXTENDED_MS,
+      resetManager: options.resetBle,
+    });
+  } catch (first) {
+    return scanAndConnectUnfiltered(target, BLE_RECONNECT_SCAN_EXTENDED_MS);
+  }
 }
 
 export async function writeBleCommand(device: Device, command: BleCommand) {
