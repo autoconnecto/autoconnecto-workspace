@@ -10,16 +10,30 @@ Operator app for machine sessions. **No cloud login** — phone talks to ESP32 o
 4. **End shift** — stops session only; machine assignment stays.
 5. **Change machine** — only way to pick a different press.
 
-## Build
+## Download (recommended)
 
-### CI APK (no Android SDK on your PC)
+**Latest APK:** https://github.com/autoconnecto/autoconnecto-workspace/releases/latest/download/autoconnecto-worker.apk
 
-GitHub Actions builds a sideload APK on tag `worker-v*` or **Actions → Android APK — Worker (release) → Run workflow**.
+All releases: https://github.com/autoconnecto/autoconnecto-workspace/releases
 
-1. Push this repo (or merge the workflow on `main`).
-2. Either:
-   - **Manual:** GitHub → Actions → *Android APK — Worker (release)* → *Run workflow*, then download the artifact `autoconnecto-worker-release-apk`.
-   - **Release:** `git tag worker-v1.0.0 && git push origin worker-v1.0.0` — APK attached to the GitHub Release.
+## Build / release
+
+### Ship a new version (GitHub Release + APK)
+
+1. Bump `version` in `package.json` and `app.json`.
+2. Commit and push to `main`.
+3. Tag and push (CI builds the APK and attaches it to the release):
+
+```bash
+git tag worker-v1.2.1
+git push origin worker-v1.2.1
+```
+
+Use tag prefix **`worker-v`** (e.g. `worker-v1.2.1`). Match the app version in `package.json`.
+
+### CI only (no Release page)
+
+**Actions → Android APK — Worker (release) → Run workflow** — download artifact `autoconnecto-worker-release-apk` (for testing before tagging).
 
 ### Local (requires Android SDK)
 

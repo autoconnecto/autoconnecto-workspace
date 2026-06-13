@@ -23,6 +23,7 @@ Welcome to the **community-first** home for Autoconnecto builders, makers, and I
 |----------|-----|
 | ESP32 SDK | https://github.com/autoconnecto/autoconnecto-sdk |
 | Mobile app | https://github.com/autoconnecto/autoconnecto-mobile/releases/latest |
+| Worker app (factory BLE) | https://github.com/autoconnecto/autoconnecto-workspace/releases/latest/download/autoconnecto-worker.apk |
 | API | https://api.autoconnecto.in |
 | Support email | support@autoconnecto.in |
 | Enterprise | founder@autoconnecto.in |
