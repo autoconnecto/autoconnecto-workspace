@@ -23,6 +23,9 @@
 #include <time.h>
 #include <esp_bt.h>
 #include <esp_coexist.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
 #include <NimBLEDevice.h>
 #include <Preferences.h>
 #include <AutoconnectoSDK.h>
@@ -60,6 +63,13 @@ const char* ATTR_TOOL_USED = "machine_tool_cycles_used";
 #define BLE_START_MAX_WAIT_MS 20000UL
 #define BLE_MIN_AFTER_MQTT_MS 4000UL
 #define HTTP_ATTR_FETCH_DELAY_MS 5000UL
+
+/** PRO_CPU — WiFi stack + dedicated MQTT pump task. */
+#define CORE_NET 0
+/** APP_CPU — Arduino loop, BLE watchdog, PZEM, session logic. */
+#define CORE_APP 1
+#define MQTT_TASK_STACK_WORDS 8192
+#define MQTT_TASK_PRIORITY 2
 
 // 1 = laptop/backend on LAN (EMQX :1883, Nest :3000). 0 = production.
 #define LOCAL_DEV 1
@@ -132,6 +142,73 @@ static bool pendingSessionEnd = false;
 static const char* pendingSessionEndReason = "";
 static bool pendingClientMirrorOnConnect = false;
 
+static SemaphoreHandle_t sdkMutex = nullptr;
+static TaskHandle_t mqttTaskHandle = nullptr;
+static volatile bool mqttUp = false;
+static unsigned long lastCoexUpdateMs = 0;
+
+static bool sdkLock(TickType_t timeout = pdMS_TO_TICKS(300)) {
+  if (!sdkMutex) return true;
+  return xSemaphoreTake(sdkMutex, timeout) == pdTRUE;
+}
+
+static void sdkUnlock() {
+  if (sdkMutex) xSemaphoreGive(sdkMutex);
+}
+
+static bool isMqttUp() {
+  return mqttUp;
+}
+
+static void mqttPumpTask(void* /*param*/) {
+  for (;;) {
+    if (sdkLock(pdMS_TO_TICKS(50))) {
+      sdk.loop();
+      mqttUp = sdk.connected();
+      sdkUnlock();
+    }
+    vTaskDelay(1);
+  }
+}
+
+static void startMqttPumpTask() {
+  if (mqttTaskHandle) return;
+  sdkMutex = xSemaphoreCreateMutex();
+  if (!sdkMutex) {
+    Serial.println("[CPU] warn — sdk mutex create failed; MQTT stays on app loop");
+    return;
+  }
+  const BaseType_t ok = xTaskCreatePinnedToCore(
+    mqttPumpTask,
+    "mqtt_pump",
+    MQTT_TASK_STACK_WORDS,
+    nullptr,
+    MQTT_TASK_PRIORITY,
+    &mqttTaskHandle,
+    CORE_NET
+  );
+  if (ok != pdPASS) {
+    Serial.println("[CPU] warn — mqtt_pump task create failed");
+    mqttTaskHandle = nullptr;
+    return;
+  }
+  Serial.print("[CPU] mqtt pump pinned core ");
+  Serial.println(CORE_NET);
+}
+
+/** WiFi and BLE share one 2.4 GHz radio — cores only separate CPU work. */
+static void updateCoexPreference() {
+  const bool blePeer =
+    bleClientConnected || (bleServer && bleServer->getConnectedCount() > 0);
+  if (blePeer) {
+    esp_coex_preference_set(ESP_COEX_PREFER_BT);
+  } else if (sessionActive) {
+    esp_coex_preference_set(ESP_COEX_PREFER_BALANCE);
+  } else {
+    esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
+  }
+}
+
 static void applySsrOutput() {
   digitalWrite(PIN_SSR_ALLOW, (allowRun && sessionActive) ? HIGH : LOW);
 }
@@ -194,17 +271,19 @@ static void pushClientMirror(bool pushOperatorTelemetry = false) {
   if (toolRemaining >= 0) attrs[ATTR_TOOL_REMAINING] = toolRemaining;
   if (toolLimit >= 0) attrs[ATTR_TOOL_LIMIT] = toolLimit;
   if (toolUsed >= 0) attrs[ATTR_TOOL_USED] = toolUsed;
-  sdk.sendClientAttributes(attrs);
-
-  if (pushOperatorTelemetry) {
-    StaticJsonDocument<320> tel;
-    tel[KEY_OPERATOR_ID] = operatorId;
-    tel[KEY_OPERATOR_NAME] = operatorName;
-    tel[KEY_SESSION_ACTIVE] = sessionActive;
-    tel[KEY_CYCLE_COUNT] = cycleCount;
-    tel[KEY_SESSION_START_TS] = sessionStartTs > 0 ? sessionStartTs : 0;
-    tel[KEY_SESSION_END_TS] = sessionEndTs > 0 ? sessionEndTs : 0;
-    sdk.sendTelemetry(tel);
+  if (sdkLock()) {
+    sdk.sendClientAttributes(attrs);
+    if (pushOperatorTelemetry) {
+      StaticJsonDocument<320> tel;
+      tel[KEY_OPERATOR_ID] = operatorId;
+      tel[KEY_OPERATOR_NAME] = operatorName;
+      tel[KEY_SESSION_ACTIVE] = sessionActive;
+      tel[KEY_CYCLE_COUNT] = cycleCount;
+      tel[KEY_SESSION_START_TS] = sessionStartTs > 0 ? sessionStartTs : 0;
+      tel[KEY_SESSION_END_TS] = sessionEndTs > 0 ? sessionEndTs : 0;
+      sdk.sendTelemetry(tel);
+    }
+    sdkUnlock();
   }
 }
 
@@ -355,6 +434,7 @@ class BleServerCallbacks : public NimBLEServerCallbacks {
     lastBleHeartbeatMs = millis();
     touchGattActivity();
     syncStatusCharacteristic(true);
+    updateCoexPreference();
     Serial.print("[BLE] client connected handle=");
     Serial.println(bleConnHandle);
   }
@@ -364,6 +444,7 @@ class BleServerCallbacks : public NimBLEServerCallbacks {
     touchGattActivity();
     Serial.print("[BLE] client disconnected reason=");
     Serial.println(reason);
+    updateCoexPreference();
     restartBleAdvertising("on_disconnect");
   }
 };
@@ -473,10 +554,12 @@ static void reconcileBleAdvertising() {
     bleClientConnected = false;
     bleConnHandle = 0xFFFF;
     restartBleAdvertising("no_peers");
+    updateCoexPreference();
     return;
   }
 
   bleClientConnected = true;
+  updateCoexPreference();
   if (now - lastGattActivityMs > BLE_STALE_GATT_MS) {
     dropAllBlePeers("stale_gatt");
     restartBleAdvertising("after_stale_drop");
@@ -534,12 +617,15 @@ static void processBleAdvertRestart() {
 static void requestPlatformSync(const char* reason) {
   Serial.print("[SYNC] ");
   Serial.print(reason);
-  if (!sdk.connected()) {
+  if (!isMqttUp()) {
     Serial.println(" — skip (MQTT not up)");
     return;
   }
   Serial.println(" — pull shared attrs");
-  sdk.requestSharedAttributes(SHARED_ATTR_KEYS);
+  if (sdkLock()) {
+    sdk.requestSharedAttributes(SHARED_ATTR_KEYS);
+    sdkUnlock();
+  }
 }
 
 /** TLS to mqtt.autoconnecto.in fails without valid clock (SNTP). */
@@ -735,7 +821,7 @@ static bool modbusReadInputRegs(uint8_t slave, uint16_t startReg, uint16_t count
   uint8_t resp[128];
   const size_t expected = 5 + count * 2;
   while (millis() < deadline && idx < expected && idx < sizeof(resp)) {
-    sdk.loop();
+    vTaskDelay(1);
     if (PzemSerial.available()) resp[idx++] = (uint8_t)PzemSerial.read();
   }
   if (idx < 5 || resp[0] != slave || resp[1] != 0x04) return false;
@@ -792,8 +878,6 @@ void setup() {
     Serial.println("[BLE] classic BT mem release failed");
   }
   WiFi.setSleep(WIFI_PS_NONE);
-  // BLE + WiFi share the radio — bias slightly toward WiFi so MQTT pings are not starved.
-  esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
 
   PzemSerial.begin(PZEM_BAUD, SERIAL_8N1, PZEM_UART_RX, PZEM_UART_TX);
   delay(100);
@@ -860,6 +944,11 @@ void setup() {
   Serial.print("[MEM] heap before MQTT ");
   Serial.println(ESP.getFreeHeap());
   sdk.begin(config);
+  startMqttPumpTask();
+  updateCoexPreference();
+
+  Serial.print("[CPU] setup running on core ");
+  Serial.println(xPortGetCoreID());
 
   applySsrOutput();
 
@@ -877,21 +966,33 @@ unsigned long lastClientPushMs = 0;
 
 void loop() {
   const unsigned long nowMs = millis();
-  sdk.loop();
+
+  if (!mqttTaskHandle) {
+    if (sdkLock(pdMS_TO_TICKS(10))) {
+      sdk.loop();
+      mqttUp = sdk.connected();
+      sdkUnlock();
+    }
+  }
+
+  if (nowMs - lastCoexUpdateMs >= 10000UL) {
+    lastCoexUpdateMs = nowMs;
+    updateCoexPreference();
+  }
 
   if (pendingSessionEnd) {
     pendingSessionEnd = false;
     endSession(pendingSessionEndReason);
   }
 
-  if (pendingClientMirrorOnConnect && sdk.connected()) {
+  if (pendingClientMirrorOnConnect && isMqttUp()) {
     pendingClientMirrorOnConnect = false;
     pushClientMirror(false);
   }
 
 #if HTTP_ATTR_FALLBACK
   if (
-    httpAttrFetchPending && sdk.connected() &&
+    httpAttrFetchPending && isMqttUp() &&
     !sharedAttrsReceived && millis() >= httpAttrFetchAtMs
   ) {
     httpAttrFetchPending = false;
@@ -899,9 +1000,12 @@ void loop() {
   }
 #endif
 
-  if (pendingSlotClientAttr && sdk.connected()) {
+  if (pendingSlotClientAttr && isMqttUp()) {
     pendingSlotClientAttr = false;
-    sdk.sendClientAttribute(ATTR_MACHINE_SLOT, (float)machineSlot);
+    if (sdkLock()) {
+      sdk.sendClientAttribute(ATTR_MACHINE_SLOT, (float)machineSlot);
+      sdkUnlock();
+    }
   }
 
   processBleAdvertRestart();
@@ -912,7 +1016,7 @@ void loop() {
     reconcileBleAdvertising();
   }
 
-  if (bleStartPending && !bleInited && sdk.connected()) {
+  if (bleStartPending && !bleInited && isMqttUp()) {
     if (nowMs < mqttConnectedAtMs + BLE_MIN_AFTER_MQTT_MS) {
       // wait — attrs/BLE must not run inside MQTT event task
     } else if (sharedAttrsReceived || nowMs >= bleStartAtMs) {
@@ -965,15 +1069,18 @@ void loop() {
       tel[KEY_OPERATOR_ID] = operatorId;
       tel[KEY_OPERATOR_NAME] = operatorName;
     }
-    sdk.sendTelemetry(tel);
+    if (sdkLock()) {
+      sdk.sendTelemetry(tel);
+      sdkUnlock();
+    }
 
     Serial.print("[PZEM] I=");
     Serial.print(amps, 3);
     Serial.print("A sensor_ok=");
     Serial.print(sensorOk ? "1" : "0");
     Serial.print(" mqtt=");
-    Serial.println(sdk.connected() ? "up" : "down");
+    Serial.println(isMqttUp() ? "up" : "down");
   }
 
-  delay(1);
+  vTaskDelay(1);
 }

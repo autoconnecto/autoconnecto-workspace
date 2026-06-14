@@ -48,6 +48,31 @@ Without Huge APP, BLE + WiFi + MQTT exceeds default 1.3 MB flash.
    - `machine_code` = `PRESS07` (string)  
 3. ESP advertises **`AC-007`**.
 
+## CPU cores + radio coexistence
+
+ESP32 is **dual-core**, but WiFi and BLE share **one 2.4 GHz radio** — separate cores do **not** mean separate antennas. Cores only help when one stack was starving the other for CPU time.
+
+**Firmware layout (latest sketch):**
+
+| Workload | Core | Notes |
+|----------|------|--------|
+| WiFi + MQTT pump (`sdk.loop`) | **Core 0** (PRO_CPU) | Dedicated FreeRTOS task |
+| BLE watchdog, PZEM, session, `loop()` | **Core 1** (APP_CPU) | Arduino default |
+| NimBLE / WiFi controller tasks | ESP-IDF defaults | Usually Core 0 |
+
+**Coexistence preference** (time-slicing the radio):
+
+- Phone connected over BLE → `ESP_COEX_PREFER_BT`
+- Session active, phone away → `ESP_COEX_PREFER_BALANCE`
+- Idle → `ESP_COEX_PREFER_WIFI` (MQTT keepalive)
+
+Serial after boot should include:
+
+```
+[CPU] mqtt pump pinned core 0
+[CPU] setup running on core 1
+```
+
 ## MQTT `errno=119` / ping timeout
 
 Occasional `mqtt_client: Writing didn't complete` / `errno=119` after long uptime is usually **WiFi + BLE sharing the radio** or the **PC broker sleeping** — the SDK reconnects automatically (`Reconnecting MQTT…` → `MQTT CONNECTED`). Not a corrupt sketch if attrs/telemetry resume.
