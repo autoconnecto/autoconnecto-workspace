@@ -2,7 +2,7 @@
   "expo": {
     "name": "Autoconnecto Worker",
     "slug": "autoconnecto-worker",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "orientation": "portrait",
     "scheme": "autoconnecto-worker",
     "userInterfaceStyle": "light",

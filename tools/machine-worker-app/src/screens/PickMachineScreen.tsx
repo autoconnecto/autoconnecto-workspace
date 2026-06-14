@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import Constants from "expo-constants";
 import {
   ActivityIndicator,
   FlatList,
@@ -84,9 +85,9 @@ export function PickMachineScreen() {
     let cancelled = false;
     const timer = setTimeout(() => {
       if (!cancelled) {
-        void scan({ resetManager: true });
+        void scan({ resetManager: false });
       }
-    }, 700);
+    }, 1200);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -117,11 +118,14 @@ export function PickMachineScreen() {
         ? "Scanning…"
         : "Scan again";
 
+  const appVersion = Constants.expoConfig?.version ?? "dev";
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.root}>
         <View style={styles.header}>
           <Text style={styles.brand}>Autoconnecto Worker</Text>
+          <Text style={styles.version}>v{appVersion}</Text>
           <Text style={styles.title}>Select your machine</Text>
           <Text style={styles.subtitle}>
             {profile?.workerName} ({profile?.workerId}) — pick the floor label on the press (AC-001,
@@ -199,8 +203,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
+  version: { color: "#64748b", fontSize: 10, fontWeight: "600", marginBottom: spacing.xs },
   title: { fontSize: 26, fontWeight: "800", color: colors.textOnDark },
   subtitle: { marginTop: spacing.sm, color: "#94a3b8", lineHeight: 22 },
   actions: {

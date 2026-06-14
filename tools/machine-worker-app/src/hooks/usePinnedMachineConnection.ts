@@ -144,7 +144,7 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
       await cleanupLink();
       const attempt = reconnectAttemptRef.current;
       const device = await connectPinnedMachine(pin, {
-        resetBle: attempt >= 1,
+        resetBle: attempt >= 2,
         skipCachedDeviceId: attempt >= 4,
       });
       deviceRef.current = device;
