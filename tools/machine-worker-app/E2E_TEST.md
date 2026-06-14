@@ -40,11 +40,21 @@ On first scan, allow **Nearby devices** (Android 12+) and **Location** when prom
 
 - Fleet widget shows operator name, jobs, session (via ESP MQTT)
 
+## BLE advertising recovery (no power cycle)
+
+If the phone walked away and scan finds nothing, open ESP serial (115200). Within **~5 s** you should see one of:
+
+- `[BLE] ghost link cleared — no GATT peers`
+- `[BLE] advertising restart (no_peers)`
+- `[BLE] drop 1 peer(s): stale_gatt`
+
+If you never see those lines, reflash the latest `Machine_Runtime_BLE_mqtt.ino` (advertising reconcile watchdog).
+
 ## Troubleshooting scan
 
 | Symptom | Check |
 |---------|--------|
-| App scans, no AC-### | Serial must show `[BLE] advertising as AC-00N`. Power-cycle ESP. Tap **Scan again** twice (resets BLE stack without reinstall). |
+| App scans, no AC-### | Check serial for `[BLE] advertising restart` every ~5 s. Reflash latest firmware if missing. Stand within 2 m; tap **Scan again** on phone. |
 | Wrong label | `machine_slot` 1 → **AC-001** (not AC-007). |
 | Permissions | Settings → Autoconnecto Worker → Nearby devices + Location **Allowed**; system Location **ON**. |
 | MQTT OK, no BLE | Reflash `Machine_Runtime_BLE_mqtt.ino` (not NFC / non-BLE runtime sketch). |

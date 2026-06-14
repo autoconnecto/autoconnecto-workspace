@@ -4,6 +4,7 @@ import type { Device } from "react-native-ble-plx";
 import type { PinnedMachine, WorkerProfile } from "../config/storage";
 import {
   HEARTBEAT_INTERVAL_MS,
+  RECONNECT_AFTER_DISCONNECT_MS,
   RECONNECT_BASE_MS,
   RECONNECT_MAX_MS,
   RECONNECT_SESSION_BASE_MS,
@@ -166,7 +167,10 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
         }
         if (enabledRef.current && pinnedRef.current) {
           reconnectAttemptRef.current = 0;
-          scheduleReconnectRef.current(true);
+          setTimeout(() => {
+            if (!enabledRef.current || !pinnedRef.current || deviceRef.current) return;
+            scheduleReconnectRef.current(true);
+          }, RECONNECT_AFTER_DISCONNECT_MS);
         } else {
           setPhase("idle");
         }

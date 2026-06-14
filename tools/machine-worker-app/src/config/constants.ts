@@ -13,5 +13,6 @@ export const RECONNECT_BASE_MS = 2_000;
 export const RECONNECT_SESSION_BASE_MS = 800;
 export const RECONNECT_MAX_MS = 12_000;
 export const RECONNECT_STUCK_MS = 45_000;
+export const RECONNECT_AFTER_DISCONNECT_MS = 1500;
 
 export const MACHINE_BLE_NAME_RE = /^AC-\d{3}$/i;

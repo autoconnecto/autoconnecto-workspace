@@ -35,6 +35,8 @@ const char* KEY_SENSOR_OK = "machine_sensor_ok";
 const char* KEY_OPERATOR_ID = "machine_operator_id";
 const char* KEY_OPERATOR_NAME = "machine_operator_name";
 const char* KEY_SESSION_ACTIVE = "machine_session_active";
+const char* KEY_SESSION_START_TS = "machine_session_start_ts";
+const char* KEY_SESSION_END_TS = "machine_session_end_ts";
 const char* KEY_CYCLE_COUNT = "machine_cycle_count";
 const char* ATTR_ALLOW_RUN = "machine_allow_run";
 const char* ATTR_MACHINE_SLOT = "machine_slot";
@@ -53,6 +55,8 @@ const char* ATTR_TOOL_USED = "machine_tool_cycles_used";
 #define CLIENT_PUSH_MS 30000UL
 #define TELEMETRY_MS 10000UL
 #define BLE_HEARTBEAT_TIMEOUT_MS 900000UL
+#define BLE_STALE_GATT_MS 45000UL
+#define BLE_ADV_RECONCILE_MS 5000UL
 #define BLE_START_MAX_WAIT_MS 20000UL
 #define BLE_MIN_AFTER_MQTT_MS 4000UL
 #define HTTP_ATTR_FETCH_DELAY_MS 5000UL
@@ -60,12 +64,15 @@ const char* ATTR_TOOL_USED = "machine_tool_cycles_used";
 // 1 = laptop/backend on LAN (EMQX :1883, Nest :3000). 0 = production.
 #define LOCAL_DEV 1
 
-// Blocking HTTP in loop() starves MQTT keepalive — only use when MQTT attrs are unavailable.
-#if LOCAL_DEV
-#define HTTP_ATTR_FALLBACK 0
-#else
+// ---------------------------------------------------------------------------
+// DEVICE CREDENTIAL — MQTT + HTTP use **device token** only (never device ID).
+// Dashboard → Fleet Setup → Edit machine → "Copy token"
+// Do NOT use "Device ID" at the bottom of the edit drawer (different UUID).
+// ---------------------------------------------------------------------------
+static const char* DEVICE_TOKEN = "1047388e-d0d7-44a3-98c7-9258ba977add";
+
+// HTTP backup for SHARED attrs when MQTT snapshot/response is slow or missing.
 #define HTTP_ATTR_FALLBACK 1
-#endif
 
 #if LOCAL_DEV
 static const char* API_HOST = "192.168.68.107";
@@ -99,6 +106,8 @@ static String operatorId = "";
 static String operatorName = "";
 static int machineSlot = 0;
 static int cycleCount = 0;
+static long sessionStartTs = 0;
+static long sessionEndTs = 0;
 static int toolRemaining = -1;
 static int toolLimit = -1;
 static int toolUsed = -1;
@@ -107,6 +116,8 @@ static NimBLEServer* bleServer = nullptr;
 static NimBLECharacteristic* statusChar = nullptr;
 static unsigned long lastBleHeartbeatMs = 0;
 static bool bleClientConnected = false;
+static uint16_t bleConnHandle = 0xFFFF;
+static unsigned long lastGattActivityMs = 0;
 static bool bleInited = false;
 static bool bleStartPending = false;
 static unsigned long bleStartAtMs = 0;
@@ -135,54 +146,94 @@ static String bleAdvertName() {
   return String(buf);
 }
 
-static void pushStatusNotify() {
-  if (!statusChar || !bleClientConnected) return;
-  StaticJsonDocument<320> doc;
+static long nowEpochSec() {
+  const time_t t = time(nullptr);
+  return (t > 1700000000L) ? (long)t : 0;
+}
+
+static String buildStatusJson() {
+  StaticJsonDocument<384> doc;
   doc["slot"] = machineSlot;
   doc["session"] = sessionActive;
   doc["jobs"] = cycleCount;
   doc["allow_run"] = allowRun;
-  doc["ble_linked"] = true;
+  doc["ble_linked"] = bleClientConnected;
+  if (sessionStartTs > 0) doc["session_start_ts"] = sessionStartTs;
+  if (sessionEndTs > 0) doc["session_end_ts"] = sessionEndTs;
   if (operatorId.length()) doc["operator_id"] = operatorId;
   if (operatorName.length()) doc["operator_name"] = operatorName;
   String out;
   serializeJson(doc, out);
+  return out;
+}
+
+/** Always mirror RAM session state into the GATT value (READ on reconnect). */
+static void syncStatusCharacteristic(bool notify) {
+  if (!statusChar) return;
+  const String out = buildStatusJson();
   statusChar->setValue(out.c_str());
-  statusChar->notify();
+  if (notify && bleClientConnected) {
+    statusChar->notify();
+  }
+}
+
+static void pushStatusNotify() {
+  syncStatusCharacteristic(true);
 }
 
 static void pushClientMirror(bool pushOperatorTelemetry = false) {
-  StaticJsonDocument<384> attrs;
+  StaticJsonDocument<448> attrs;
   attrs[ATTR_ALLOW_RUN] = allowRun;
   attrs[KEY_SESSION_ACTIVE] = sessionActive;
   if (operatorId.length()) attrs[KEY_OPERATOR_ID] = operatorId;
   if (operatorName.length()) attrs[KEY_OPERATOR_NAME] = operatorName;
   if (machineSlot > 0) attrs[ATTR_MACHINE_SLOT] = machineSlot;
   attrs[KEY_CYCLE_COUNT] = cycleCount;
+  attrs[KEY_SESSION_START_TS] = sessionStartTs > 0 ? sessionStartTs : 0;
+  attrs[KEY_SESSION_END_TS] = sessionEndTs > 0 ? sessionEndTs : 0;
   if (toolRemaining >= 0) attrs[ATTR_TOOL_REMAINING] = toolRemaining;
   if (toolLimit >= 0) attrs[ATTR_TOOL_LIMIT] = toolLimit;
   if (toolUsed >= 0) attrs[ATTR_TOOL_USED] = toolUsed;
   sdk.sendClientAttributes(attrs);
 
   if (pushOperatorTelemetry) {
-    StaticJsonDocument<256> tel;
+    StaticJsonDocument<320> tel;
     tel[KEY_OPERATOR_ID] = operatorId;
     tel[KEY_OPERATOR_NAME] = operatorName;
     tel[KEY_SESSION_ACTIVE] = sessionActive;
     tel[KEY_CYCLE_COUNT] = cycleCount;
+    tel[KEY_SESSION_START_TS] = sessionStartTs > 0 ? sessionStartTs : 0;
+    tel[KEY_SESSION_END_TS] = sessionEndTs > 0 ? sessionEndTs : 0;
     sdk.sendTelemetry(tel);
   }
+}
+
+static void resetSessionJobs() {
+  cycleCount = 0;
+  prefs.putInt("cycle_count", 0);
 }
 
 static void endSession(const char* reason) {
   sessionActive = false;
   operatorId = "";
   operatorName = "";
+  resetSessionJobs();
+  const long endedAt = nowEpochSec();
+  if (endedAt > 0) {
+    sessionEndTs = endedAt;
+  }
   applySsrOutput();
   pushClientMirror(true);
   pushStatusNotify();
   Serial.print("[BLE] session end: ");
-  Serial.println(reason);
+  Serial.print(reason);
+  if (sessionStartTs > 0 && sessionEndTs > 0) {
+    Serial.print(" start_ts=");
+    Serial.print(sessionStartTs);
+    Serial.print(" end_ts=");
+    Serial.print(sessionEndTs);
+  }
+  Serial.println();
 }
 
 static void startSession(const String& id, const String& name) {
@@ -217,15 +268,28 @@ static void startSession(const String& id, const String& name) {
     Serial.println("[BLE] session resume (same operator)");
     return;
   }
+  resetSessionJobs();
   operatorId = id;
   operatorName = name.length() ? name : id;
   sessionActive = true;
+  sessionEndTs = 0;
+  const long startedAt = nowEpochSec();
+  if (startedAt > 0) {
+    sessionStartTs = startedAt;
+  } else {
+    Serial.println("[BLE] warn — NTP not synced; session_start_ts unavailable");
+  }
   lastBleHeartbeatMs = millis();
   applySsrOutput();
   pushClientMirror(true);
   pushStatusNotify();
   Serial.print("[BLE] session start ");
-  Serial.println(operatorId);
+  Serial.print(operatorId);
+  if (sessionStartTs > 0) {
+    Serial.print(" start_ts=");
+    Serial.print(sessionStartTs);
+  }
+  Serial.println();
 }
 
 static void adjustJobCount(int delta) {
@@ -287,18 +351,26 @@ static void handleBleCommand(const String& raw) {
 class BleServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
     bleClientConnected = true;
+    bleConnHandle = connInfo.getConnHandle();
     lastBleHeartbeatMs = millis();
-    Serial.println("[BLE] client connected");
+    touchGattActivity();
+    syncStatusCharacteristic(true);
+    Serial.print("[BLE] client connected handle=");
+    Serial.println(bleConnHandle);
   }
   void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
     bleClientConnected = false;
-    Serial.println("[BLE] client disconnected");
-    NimBLEDevice::startAdvertising();
+    bleConnHandle = 0xFFFF;
+    touchGattActivity();
+    Serial.print("[BLE] client disconnected reason=");
+    Serial.println(reason);
+    restartBleAdvertising("on_disconnect");
   }
 };
 
 class BleCmdCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
+    touchGattActivity();
     const std::string& v = pCharacteristic->getValue();
     handleBleCommand(String(v.c_str()));
   }
@@ -336,6 +408,7 @@ static void initBle() {
   adv->start();
 
   bleInited = true;
+  touchGattActivity();
   Serial.print("[BLE] advertising as ");
   Serial.println(name);
 }
@@ -356,11 +429,78 @@ static void ensureBleStarted() {
   Serial.println(ESP.getFreeHeap());
 }
 
+static void restartBleAdvertising(const char* reason) {
+  if (!bleInited) return;
+  NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+  if (!adv) return;
+  if (!adv->isAdvertising()) {
+    Serial.print("[BLE] advertising restart (");
+    Serial.print(reason);
+    Serial.println(")");
+  }
+  adv->start();
+}
+
+static void dropAllBlePeers(const char* reason) {
+  if (!bleServer) return;
+  const uint8_t peerCount = bleServer->getConnectedCount();
+  if (!peerCount) return;
+  Serial.print("[BLE] drop ");
+  Serial.print(peerCount);
+  Serial.print(" peer(s): ");
+  Serial.println(reason);
+  for (uint8_t i = 0; i < peerCount; i++) {
+    const NimBLEConnInfo peer = bleServer->getPeerInfo(i);
+    if (peer.getConnHandle() != 0xFFFF && peer.getConnHandle() != 0) {
+      bleServer->disconnect(peer);
+    }
+  }
+  bleConnHandle = 0xFFFF;
+  bleClientConnected = false;
+}
+
+/** Use GATT peer count as source of truth — onDisconnect can be skipped on Android. */
+static void reconcileBleAdvertising() {
+  if (!bleInited || !bleServer) return;
+
+  const unsigned long now = millis();
+  const uint8_t peerCount = bleServer->getConnectedCount();
+
+  if (peerCount == 0) {
+    if (bleClientConnected) {
+      Serial.println("[BLE] ghost link cleared — no GATT peers");
+    }
+    bleClientConnected = false;
+    bleConnHandle = 0xFFFF;
+    restartBleAdvertising("no_peers");
+    return;
+  }
+
+  bleClientConnected = true;
+  if (now - lastGattActivityMs > BLE_STALE_GATT_MS) {
+    dropAllBlePeers("stale_gatt");
+    restartBleAdvertising("after_stale_drop");
+  }
+}
+
+static void touchGattActivity() {
+  lastGattActivityMs = millis();
+}
+
 static void logBleStatus(const char* reason) {
   Serial.print("[BLE] status (");
   Serial.print(reason);
   Serial.print(") inited=");
   Serial.print(bleInited ? "yes" : "no");
+  Serial.print(" peers=");
+  Serial.print(bleServer ? bleServer->getConnectedCount() : 0);
+  Serial.print(" adv=");
+  Serial.print(
+    bleInited && NimBLEDevice::getAdvertising() &&
+      NimBLEDevice::getAdvertising()->isAdvertising()
+      ? "yes"
+      : "no"
+  );
   Serial.print(" name=");
   Serial.print(bleAdvertName());
   Serial.print(" heap=");
@@ -450,6 +590,7 @@ static void onSharedAttribute(const String& key, float value) {
       pendingSessionEndReason = "allow_run_false";
     }
     applySsrOutput();
+    pushStatusNotify();
     return;
   }
   if (key == ATTR_MACHINE_SLOT) {
@@ -464,12 +605,15 @@ static void onSharedAttribute(const String& key, float value) {
         bleAdvertRestartPending = true;
       }
     }
+    pushStatusNotify();
     return;
   }
   if (key == ATTR_TOOL_REMAINING) {
     toolRemaining = (int)value;
-    if (toolRemaining <= 0) allowRun = false;
+    // machine_allow_run (SHARED) is authoritative — stale remaining=0 must not
+    // override platform when tool counter is disabled.
     applySsrOutput();
+    pushStatusNotify();
     return;
   }
   if (key == ATTR_TOOL_LIMIT) toolLimit = (int)value;
@@ -658,11 +802,23 @@ void setup() {
   config.wifiSSID = "71";
   config.wifiPassword = "90946062";
   config.mqttHost = MQTT_HOST;
-  config.deviceToken = "88d6da44-3a99-4373-94c7-9d1d1aa40be7";  // copy from local Device Details
+  config.deviceToken = DEVICE_TOKEN;
   gDeviceToken = config.deviceToken;
   config.enableMQTT = true;
   config.sharedAttributeKeys = SHARED_ATTR_KEYS;
   config.enableSerialLogs = true;
+
+  if (
+    strcmp(DEVICE_TOKEN, "PASTE_DEVICE_TOKEN_HERE") == 0 ||
+    strlen(DEVICE_TOKEN) < 8
+  ) {
+    Serial.println("[CFG] FATAL: Set DEVICE_TOKEN at top of .ino");
+    Serial.println("[CFG] Use Copy token from dashboard — NOT Device ID");
+  } else {
+    Serial.print("[CFG] device token len=");
+    Serial.println(strlen(DEVICE_TOKEN));
+    Serial.println("[CFG] MQTT topic prefix: devices/<token>/...");
+  }
 
 #if LOCAL_DEV
   // Plain MQTT to local EMQX (docker 1883) + HTTP API :3000
@@ -751,13 +907,9 @@ void loop() {
   processBleAdvertRestart();
   ensureBleWatchdog();
 
-  if (bleInited && !bleClientConnected && (nowMs - lastAdvCheckMs) >= 30000UL) {
+  if (bleInited && (nowMs - lastAdvCheckMs) >= BLE_ADV_RECONCILE_MS) {
     lastAdvCheckMs = nowMs;
-    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
-    if (adv && !adv->isAdvertising()) {
-      Serial.println("[BLE] advertising stopped — restarting");
-      adv->start();
-    }
+    reconcileBleAdvertising();
   }
 
   if (bleStartPending && !bleInited && sdk.connected()) {
@@ -789,6 +941,14 @@ void loop() {
     pushClientMirror(false);
   }
 
+  if (sessionActive && bleInited && !bleClientConnected) {
+    static unsigned long lastOfflineStatusSyncMs = 0;
+    if (nowMs - lastOfflineStatusSyncMs >= 5000UL) {
+      lastOfflineStatusSyncMs = nowMs;
+      syncStatusCharacteristic(false);
+    }
+  }
+
   if (nowMs - lastTelemetryMs >= TELEMETRY_MS) {
     lastTelemetryMs = nowMs;
     bool sensorOk = true;
@@ -799,11 +959,20 @@ void loop() {
     tel[KEY_SENSOR_OK] = sensorOk;
     tel[KEY_SESSION_ACTIVE] = sessionActive;
     tel[KEY_CYCLE_COUNT] = cycleCount;
+    tel[KEY_SESSION_START_TS] = sessionStartTs > 0 ? sessionStartTs : 0;
+    tel[KEY_SESSION_END_TS] = sessionEndTs > 0 ? sessionEndTs : 0;
     if (sessionActive) {
       tel[KEY_OPERATOR_ID] = operatorId;
       tel[KEY_OPERATOR_NAME] = operatorName;
     }
     sdk.sendTelemetry(tel);
+
+    Serial.print("[PZEM] I=");
+    Serial.print(amps, 3);
+    Serial.print("A sensor_ok=");
+    Serial.print(sensorOk ? "1" : "0");
+    Serial.print(" mqtt=");
+    Serial.println(sdk.connected() ? "up" : "down");
   }
 
   delay(1);

@@ -14,9 +14,18 @@ In the `.ino`, set `#define LOCAL_DEV 1` and edit `192.168.68.107` if your PC IP
 |---------|-----------|
 | MQTT | `mqtt://<PC-IP>:1883` (EMQX docker) |
 | HTTP API | `http://<PC-IP>:3000` |
-| Device token | Copy from **local** Device Details (not production) |
+| Device token | **Copy token** from Fleet Setup → Edit machine (or Device Details). **Not** the Device ID. |
 
 Set `#define LOCAL_DEV 0` for production (`mqtt.autoconnecto.in`).
+
+### Wrong token symptoms (backend logs)
+
+If the sketch uses **Device ID** instead of **device token**, you will see:
+
+- `Invalid device token` on telemetry
+- `Device not found for token <uuid>`
+- ESP serial: `[SYNC]` requests but **no** `[ATTR] machine_allow_run = ...` lines
+- Worker app: **ALLOW RUN BLOCKED** forever (attrs never reach ESP)
 
 **Libraries:** AutoconnectoSDK, ArduinoJson, **NimBLE-Arduino** (Library Manager → search `NimBLE-Arduino` by h2zero)
 
@@ -58,6 +67,8 @@ After boot you should see:
 ```
 
 If you only see MQTT/`[SYNC]` lines and `inited=no`, open Serial Monitor **before** reset, confirm **Huge APP** partition and **NimBLE-Arduino** installed, then reflash.
+
+**Scan finds nothing after phone disconnect:** firmware now reconciles advertising every 5 s using real GATT peer count (Android often skips `onDisconnect`). Reflash latest sketch; serial should log `advertising restart (no_peers)` without power-cycling the ESP.
 
 ## Test without Android app
 
