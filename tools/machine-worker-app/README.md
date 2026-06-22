@@ -12,9 +12,15 @@ Operator app for machine sessions. **No cloud login** — phone talks to ESP32 o
 
 ## Download (recommended)
 
-**Latest APK:** https://github.com/autoconnecto/autoconnecto-workspace/releases/latest/download/autoconnecto-worker.apk
+| Where | Link |
+|-------|------|
+| **Platform (logged in)** | Top bar → **Worker app** |
+| **This repo** | [`autoconnecto-worker.apk`](./autoconnecto-worker.apk) (v1.2.7) |
+| **GitHub Release** | https://github.com/autoconnecto/autoconnecto-workspace/releases/latest/download/autoconnecto-worker.apk |
 
 All releases: https://github.com/autoconnecto/autoconnecto-workspace/releases
+
+See also [`../README.md`](../README.md) (tools index).
 
 ## Build / release
 

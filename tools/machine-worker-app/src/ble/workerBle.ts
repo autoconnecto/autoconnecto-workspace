@@ -16,12 +16,17 @@ import {
   MACHINE_BLE_NAME_RE,
 } from "../config/constants";
 import { base64ToUtf8, utf8ToBase64 } from "./encoding";
+import { ensureBluetoothPoweredOn } from "./bleReadiness";
 
 export type BleMachineStatus = {
   slot?: number;
   session?: boolean;
   jobs?: number;
   allow_run?: boolean;
+  /** Jobs left before tool change (from ESP SHARED sync). -1 or omitted = not tracked. */
+  tool_remaining?: number;
+  tool_limit?: number;
+  tool_life_enabled?: boolean;
   operator_id?: string;
   operator_name?: string;
   ble_linked?: boolean;
@@ -37,7 +42,8 @@ export type BleCommand =
   | { cmd: "stop" }
   | { cmd: "job_add" }
   | { cmd: "job_remove" }
-  | { cmd: "heartbeat" };
+  | { cmd: "heartbeat" }
+  | { cmd: "sync_attrs" };
 
 export type ScannedMachine = {
   deviceId: string;
@@ -192,25 +198,7 @@ async function requestAndroidBlePermissions() {
 
 export async function requestBlePermissions() {
   await requestAndroidBlePermissions();
-
-  const ble = getBleManager();
-  const state = await ble.state();
-  if (state === "PoweredOn") return;
-  await new Promise<void>((resolve, reject) => {
-    const sub = ble.onStateChange((next) => {
-      if (next === "PoweredOn") {
-        sub.remove();
-        resolve();
-      } else if (next === "Unauthorized" || next === "Unsupported") {
-        sub.remove();
-        reject(
-          new Error(
-            `Bluetooth unavailable (${next}). Turn Bluetooth on in phone settings.`
-          )
-        );
-      }
-    }, true);
-  });
+  await ensureBluetoothPoweredOn();
 }
 
 async function resolveMachineViaConnect(
@@ -340,13 +328,23 @@ export async function scanNearbyMachinesDetailed(
       );
     });
 
-  await runScan([BLE_SERVICE_UUID], timeoutMs);
+  // Name is often in scan response only — unfiltered pass first (ESP split advert).
+  if (options.includeUnfilteredPass !== false) {
+    await runScan(null, timeoutMs);
+  }
+
+  let machines = Array.from(named.values());
+
+  if (!machines.length) {
+    publishScanProgress(onProgress, "scanning", machines, pendingById.size);
+    await sleep(300);
+    await runScan([BLE_SERVICE_UUID], timeoutMs);
+    machines = Array.from(named.values());
+  }
 
   if (scanError) {
     throw scanError;
   }
-
-  let machines = Array.from(named.values());
 
   if (!machines.length) {
     publishScanProgress(onProgress, "scanning", machines, pendingById.size);
@@ -388,17 +386,23 @@ export async function scanNearbyMachinesDetailed(
   return { machines, serviceHits };
 }
 
-async function connectDevice(device: Device): Promise<Device> {
-  const connected = await device.connect({ timeout: 12000 });
-  await connected.discoverAllServicesAndCharacteristics();
-  return connected;
+async function connectDevice(device: Device, timeoutMs = 12000): Promise<Device> {
+  if (!(await device.isConnected())) {
+    await device.connect({ timeout: timeoutMs });
+  }
+  await device.discoverAllServicesAndCharacteristics();
+  return device;
 }
 
-export async function connectByDeviceId(deviceId: string): Promise<Device> {
+export async function connectByDeviceId(
+  deviceId: string,
+  options?: { timeoutMs?: number }
+): Promise<Device> {
   await requestBlePermissions();
   const ble = getBleManager();
-  const device = await ble.connectToDevice(deviceId, { timeout: 12000 });
-  return connectDevice(device);
+  const timeoutMs = options?.timeoutMs ?? 12000;
+  const device = await ble.connectToDevice(deviceId, { timeout: timeoutMs });
+  return connectDevice(device, timeoutMs);
 }
 
 export type ConnectPinnedOptions = {
@@ -442,7 +446,7 @@ export async function connectPinnedMachine(
 
   if (!options.skipCachedDeviceId && pin.deviceId) {
     try {
-      const device = await connectByDeviceId(pin.deviceId);
+      const device = await connectByDeviceId(pin.deviceId, { timeoutMs: 5000 });
       const status = await readBleStatus(device);
       const seen = bleAdvertNameFromSlot(status?.slot ?? null);
       if (seen === target) {
@@ -450,7 +454,7 @@ export async function connectPinnedMachine(
       }
       await device.cancelConnection();
     } catch {
-      /* fall through to full scan */
+      /* stale MAC after reflash — fall through to scan */
     }
   }
 

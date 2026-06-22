@@ -145,8 +145,8 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
       await cleanupLink();
       const attempt = reconnectAttemptRef.current;
       const device = await connectPinnedMachine(pin, {
-        resetBle: attempt >= 2,
-        skipCachedDeviceId: attempt >= 4,
+        resetBle: attempt >= 1,
+        skipCachedDeviceId: attempt >= 1,
       });
       deviceRef.current = device;
       onDeviceIdRef.current?.(device.id);
@@ -189,6 +189,17 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
       if (initial) {
         lastStatusRef.current = initial;
         setStatus(initial);
+      }
+
+      try {
+        await writeBleCommand(device, { cmd: "sync_attrs" });
+        const afterSync = await readBleStatusWithRetry(device, 3, 200);
+        if (afterSync) {
+          lastStatusRef.current = afterSync;
+          setStatus(afterSync);
+        }
+      } catch {
+        /* MQTT sync is best-effort; backend hook still refreshes */
       }
 
       reconnectAttemptRef.current = 0;

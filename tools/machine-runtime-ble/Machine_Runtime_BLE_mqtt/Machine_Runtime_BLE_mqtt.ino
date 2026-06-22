@@ -6,6 +6,9 @@
 //
 // Owner sets on platform (SHARED):
 //   machine_slot  (number, e.g. 7) — ESP syncs via MQTT, BLE name AC-007
+//
+// Power cycle: session + jobs + SSR state persisted in NVS (ac_mach); boot restores
+// before MQTT. See MACHINE_RUNTIME_BLE.md § Power cycle survival.
 //   machine_code  (string, e.g. PRESS07) — app list only (SDK string TBD)
 //
 // PZEM UART2: RX=16 TX=17 | SSR GPIO 2
@@ -34,6 +37,8 @@ AutoconnectoSDK sdk;
 
 // --- Telemetry / attribute keys (same as MACHINE_RUNTIME.md) ---
 const char* KEY_CURRENT = "machine_current_a";
+const char* KEY_VOLTAGE = "machine_voltage_v";
+const char* KEY_POWER = "machine_power_w";
 const char* KEY_SENSOR_OK = "machine_sensor_ok";
 const char* KEY_OPERATOR_ID = "machine_operator_id";
 const char* KEY_OPERATOR_NAME = "machine_operator_name";
@@ -52,7 +57,23 @@ const char* ATTR_TOOL_USED = "machine_tool_cycles_used";
 #define PZEM_BAUD 9600
 #define PZEM_SLAVE_ADDR 0xF8
 #define PZEM_DEMO_FALLBACK 0
+/** PZEM-004T v3/v4: 32-bit current/power = (reg_high << 16) | reg_low (mA / 0.1 W). */
+#define PZEM_RAW_DEBUG 1
 #define PIN_SSR_ALLOW 2
+
+/** PZEM-004T snapshot — must be above any function (Arduino IDE auto-prototypes). */
+struct PzemReading {
+  float voltageV;
+  float currentA;
+  float powerW;
+  float frequencyHz;
+  float powerFactor;
+};
+
+struct PzemRawSnapshot {
+  uint16_t regs[10];
+  uint8_t regCount;
+};
 
 #define SHARED_SYNC_MS 60000UL
 #define CLIENT_PUSH_MS 30000UL
@@ -62,14 +83,9 @@ const char* ATTR_TOOL_USED = "machine_tool_cycles_used";
 #define BLE_ADV_RECONCILE_MS 5000UL
 #define BLE_START_MAX_WAIT_MS 20000UL
 #define BLE_MIN_AFTER_MQTT_MS 4000UL
-#define HTTP_ATTR_FETCH_DELAY_MS 5000UL
 
-/** PRO_CPU — WiFi stack + dedicated MQTT pump task. */
-#define CORE_NET 0
-/** APP_CPU — Arduino loop, BLE watchdog, PZEM, session logic. */
-#define CORE_APP 1
-#define MQTT_TASK_STACK_WORDS 8192
-#define MQTT_TASK_PRIORITY 2
+// Single-core: sdk.loop() runs in Arduino loop() only (no pinned MQTT task).
+#define USE_MQTT_PUMP_TASK 0
 
 // 1 = laptop/backend on LAN (EMQX :1883, Nest :3000). 0 = production.
 #define LOCAL_DEV 1
@@ -81,8 +97,8 @@ const char* ATTR_TOOL_USED = "machine_tool_cycles_used";
 // ---------------------------------------------------------------------------
 static const char* DEVICE_TOKEN = "1047388e-d0d7-44a3-98c7-9258ba977add";
 
-// HTTP backup for SHARED attrs when MQTT snapshot/response is slow or missing.
-#define HTTP_ATTR_FALLBACK 1
+// HTTP backup for SHARED attrs — disabled for stability (MQTT shared snapshot is enough).
+#define HTTP_ATTR_FALLBACK 0
 
 #if LOCAL_DEV
 static const char* API_HOST = "192.168.68.107";
@@ -101,6 +117,8 @@ static unsigned long httpAttrFetchAtMs = 0;
 // Pull sync keys (SDK README / PAYLOADS.md) — same pattern as AllFunctionTest_mqtt
 #define SHARED_ATTR_KEYS \
   "machine_slot,machine_allow_run,machine_tool_remaining,machine_tool_limit,machine_tool_cycles_used"
+
+#define NVS_RUNTIME_VERSION 2
 
 // Autoconnecto worker BLE GATT (see MACHINE_RUNTIME_BLE.md)
 #define BLE_SERVICE_UUID "a7c50001-0001-4000-8000-ac0000010001"
@@ -138,12 +156,74 @@ static unsigned long lastBleWatchdogMs = 0;
 static unsigned long lastBleStatusLogMs = 0;
 static unsigned long lastAdvCheckMs = 0;
 static bool pendingSlotClientAttr = false;
-static bool pendingSessionEnd = false;
-static const char* pendingSessionEndReason = "";
 static bool pendingClientMirrorOnConnect = false;
+static bool pendingBootAttrSync = false;
+static bool pendingStatusNotify = false;
+static bool pendingSsrApply = false;
+static bool pendingPersistNvs = false;
+static bool pendingBleCmdReady = false;
+static char pendingBleCmd[256];
+static char statusJsonBuf[384];
+
+/** BLE/NimBLE callbacks run on a different task — never touch MQTT or heavy BLE there. */
+static bool onAppLoopThread() {
+  return xPortGetCoreID() == ARDUINO_RUNNING_CORE;
+}
+
+/** Persist full runtime snapshot — survives power cycle (NVS). */
+static void persistRuntimeToNvs() {
+  prefs.putInt("nv_ver", NVS_RUNTIME_VERSION);
+  prefs.putInt("session_active", sessionActive ? 1 : 0);
+  prefs.putString("operator_id", operatorId);
+  prefs.putString("operator_name", operatorName);
+  prefs.putLong("session_start_ts", sessionStartTs);
+  prefs.putLong("session_end_ts", sessionEndTs);
+  prefs.putInt("allow_run", allowRun ? 1 : 0);
+  prefs.putInt("cycle_count", cycleCount);
+  prefs.putInt("machine_slot", machineSlot);
+  prefs.putInt("tool_rem", toolRemaining);
+  prefs.putInt("tool_limit", toolLimit);
+  prefs.putInt("tool_used", toolUsed);
+}
+
+/** Restore RAM + SSR from NVS before MQTT (power-cycle survival). */
+static void loadRuntimeFromNvs() {
+  const int nvVer = prefs.getInt("nv_ver", 0);
+  machineSlot = prefs.getInt("machine_slot", 0);
+  cycleCount = prefs.getInt("cycle_count", 0);
+  sessionActive = prefs.getInt("session_active", 0) == 1;
+  operatorId = prefs.getString("operator_id", "");
+  operatorName = prefs.getString("operator_name", "");
+  sessionStartTs = prefs.getLong("session_start_ts", 0);
+  sessionEndTs = prefs.getLong("session_end_ts", 0);
+  allowRun = prefs.getInt("allow_run", 1) == 1;
+  toolRemaining = prefs.getInt("tool_rem", -1);
+  toolLimit = prefs.getInt("tool_limit", -1);
+  toolUsed = prefs.getInt("tool_used", -1);
+
+  if (sessionActive) {
+  // Grace period — phone may not have reconnected BLE yet after power cycle.
+    lastBleHeartbeatMs = millis();
+  }
+
+  Serial.print("[NV] restore v=");
+  Serial.print(nvVer);
+  Serial.print(" slot=");
+  Serial.print(machineSlot);
+  Serial.print(" session=");
+  Serial.print(sessionActive ? "1" : "0");
+  Serial.print(" jobs=");
+  Serial.print(cycleCount);
+  Serial.print(" allow_run=");
+  Serial.print(allowRun ? "1" : "0");
+  if (sessionActive && operatorId.length()) {
+    Serial.print(" op=");
+    Serial.print(operatorId);
+  }
+  Serial.println();
+}
 
 static SemaphoreHandle_t sdkMutex = nullptr;
-static TaskHandle_t mqttTaskHandle = nullptr;
 static volatile bool mqttUp = false;
 static unsigned long lastCoexUpdateMs = 0;
 
@@ -159,6 +239,9 @@ static void sdkUnlock() {
 static bool isMqttUp() {
   return mqttUp;
 }
+
+#if USE_MQTT_PUMP_TASK
+static TaskHandle_t mqttTaskHandle = nullptr;
 
 static void mqttPumpTask(void* /*param*/) {
   for (;;) {
@@ -181,20 +264,26 @@ static void startMqttPumpTask() {
   const BaseType_t ok = xTaskCreatePinnedToCore(
     mqttPumpTask,
     "mqtt_pump",
-    MQTT_TASK_STACK_WORDS,
+    8192,
     nullptr,
-    MQTT_TASK_PRIORITY,
+    2,
     &mqttTaskHandle,
-    CORE_NET
+    0
   );
   if (ok != pdPASS) {
     Serial.println("[CPU] warn — mqtt_pump task create failed");
     mqttTaskHandle = nullptr;
     return;
   }
-  Serial.print("[CPU] mqtt pump pinned core ");
-  Serial.println(CORE_NET);
+  Serial.println("[CPU] mqtt pump pinned core 0");
 }
+#else
+static void initSdkMutex() {
+  if (!sdkMutex) {
+    sdkMutex = xSemaphoreCreateMutex();
+  }
+}
+#endif
 
 /** WiFi and BLE share one 2.4 GHz radio — cores only separate CPU work. */
 static void updateCoexPreference() {
@@ -210,7 +299,8 @@ static void updateCoexPreference() {
 }
 
 static void applySsrOutput() {
-  digitalWrite(PIN_SSR_ALLOW, (allowRun && sessionActive) ? HIGH : LOW);
+  // SSR follows operator session only — app "stop" / End shift is the sole OFF path.
+  digitalWrite(PIN_SSR_ALLOW, sessionActive ? HIGH : LOW);
 }
 
 static String bleAdvertName() {
@@ -228,37 +318,64 @@ static long nowEpochSec() {
   return (t > 1700000000L) ? (long)t : 0;
 }
 
-static String buildStatusJson() {
+static size_t fillStatusJsonBuf() {
   StaticJsonDocument<384> doc;
   doc["slot"] = machineSlot;
   doc["session"] = sessionActive;
   doc["jobs"] = cycleCount;
   doc["allow_run"] = allowRun;
+  if (toolRemaining >= 0) {
+    doc["tool_remaining"] = toolRemaining;
+    doc["tool_life_enabled"] = true;
+  } else {
+    doc["tool_life_enabled"] = false;
+  }
+  if (toolLimit >= 0) doc["tool_limit"] = toolLimit;
   doc["ble_linked"] = bleClientConnected;
   if (sessionStartTs > 0) doc["session_start_ts"] = sessionStartTs;
   if (sessionEndTs > 0) doc["session_end_ts"] = sessionEndTs;
   if (operatorId.length()) doc["operator_id"] = operatorId;
   if (operatorName.length()) doc["operator_name"] = operatorName;
-  String out;
-  serializeJson(doc, out);
-  return out;
+  return serializeJson(doc, statusJsonBuf, sizeof(statusJsonBuf));
 }
 
 /** Always mirror RAM session state into the GATT value (READ on reconnect). */
 static void syncStatusCharacteristic(bool notify) {
-  if (!statusChar) return;
-  const String out = buildStatusJson();
-  statusChar->setValue(out.c_str());
+  if (!statusChar || !onAppLoopThread()) {
+    pendingStatusNotify = true;
+    return;
+  }
+  const size_t n = fillStatusJsonBuf();
+  if (!n) return;
+  statusChar->setValue((uint8_t*)statusJsonBuf, n);
   if (notify && bleClientConnected) {
     statusChar->notify();
   }
 }
 
 static void pushStatusNotify() {
+  if (!onAppLoopThread()) {
+    pendingStatusNotify = true;
+    return;
+  }
   syncStatusCharacteristic(true);
 }
 
+static void requestPersistNvs() {
+  pendingPersistNvs = true;
+}
+
+static void flushPersistNvs() {
+  if (!pendingPersistNvs) return;
+  pendingPersistNvs = false;
+  persistRuntimeToNvs();
+}
+
 static void pushClientMirror(bool pushOperatorTelemetry = false) {
+  if (!onAppLoopThread()) {
+    pendingClientMirrorOnConnect = true;
+    return;
+  }
   StaticJsonDocument<448> attrs;
   attrs[ATTR_ALLOW_RUN] = allowRun;
   attrs[KEY_SESSION_ACTIVE] = sessionActive;
@@ -281,9 +398,17 @@ static void pushClientMirror(bool pushOperatorTelemetry = false) {
       tel[KEY_CYCLE_COUNT] = cycleCount;
       tel[KEY_SESSION_START_TS] = sessionStartTs > 0 ? sessionStartTs : 0;
       tel[KEY_SESSION_END_TS] = sessionEndTs > 0 ? sessionEndTs : 0;
-      sdk.sendTelemetry(tel);
+      bool telOk = sdk.sendTelemetry(tel);
+      Serial.print("[MQTT] telemetry cycle_count=");
+      Serial.print(cycleCount);
+      Serial.print(" session=");
+      Serial.print(sessionActive ? "1" : "0");
+      Serial.print(" ok=");
+      Serial.println(telOk ? "1" : "0");
     }
     sdkUnlock();
+  } else if (pushOperatorTelemetry) {
+    Serial.println("[MQTT] telemetry skipped — sdk lock timeout");
   }
 }
 
@@ -293,6 +418,11 @@ static void resetSessionJobs() {
 }
 
 static void endSession(const char* reason) {
+  if (strcmp(reason, "stop") != 0) {
+    Serial.print("[BLE] session end ignored (not app stop): ");
+    Serial.println(reason);
+    return;
+  }
   sessionActive = false;
   operatorId = "";
   operatorName = "";
@@ -302,6 +432,7 @@ static void endSession(const char* reason) {
     sessionEndTs = endedAt;
   }
   applySsrOutput();
+  requestPersistNvs();
   pushClientMirror(true);
   pushStatusNotify();
   Serial.print("[BLE] session end: ");
@@ -324,20 +455,24 @@ static void startSession(const String& id, const String& name) {
   if (sessionActive && operatorId.length() && operatorId != id) {
     Serial.print("[BLE] session reject — in use by ");
     Serial.println(operatorId);
-    StaticJsonDocument<320> doc;
-    doc["slot"] = machineSlot;
-    doc["session"] = true;
-    doc["session_busy"] = true;
-    doc["jobs"] = cycleCount;
-    doc["allow_run"] = allowRun;
-    doc["ble_linked"] = bleClientConnected;
-    doc["operator_id"] = operatorId;
-    doc["operator_name"] = operatorName;
-    String out;
-    serializeJson(doc, out);
-    if (statusChar) {
-      statusChar->setValue(out.c_str());
-      statusChar->notify();
+    if (statusChar && onAppLoopThread()) {
+      StaticJsonDocument<320> doc;
+      doc["slot"] = machineSlot;
+      doc["session"] = true;
+      doc["session_busy"] = true;
+      doc["jobs"] = cycleCount;
+      doc["allow_run"] = allowRun;
+      doc["ble_linked"] = bleClientConnected;
+      doc["operator_id"] = operatorId;
+      doc["operator_name"] = operatorName;
+      char busyBuf[320];
+      const size_t n = serializeJson(doc, busyBuf, sizeof(busyBuf));
+      if (n) {
+        statusChar->setValue((uint8_t*)busyBuf, n);
+        statusChar->notify();
+      }
+    } else {
+      pendingStatusNotify = true;
     }
     return;
   }
@@ -360,6 +495,7 @@ static void startSession(const String& id, const String& name) {
   }
   lastBleHeartbeatMs = millis();
   applySsrOutput();
+  requestPersistNvs();
   pushClientMirror(true);
   pushStatusNotify();
   Serial.print("[BLE] session start ");
@@ -383,10 +519,13 @@ static void adjustJobCount(int delta) {
     if (toolRemaining <= 0) {
       toolRemaining = 0;
       allowRun = false;
-      endSession("tool_life");
+      Serial.println("[BLE] tool life exhausted — block new jobs; session stays ON until app stop");
+      pushStatusNotify();
+      requestPersistNvs();
       return;
     }
   }
+  requestPersistNvs();
   pushClientMirror(true);
   pushStatusNotify();
   Serial.print("[BLE] jobs=");
@@ -403,6 +542,11 @@ static void handleBleCommand(const String& raw) {
   const char* cmd = doc["cmd"] | "";
   if (!strcmp(cmd, "heartbeat")) {
     lastBleHeartbeatMs = millis();
+    pushStatusNotify();
+    return;
+  }
+  if (!strcmp(cmd, "sync_attrs")) {
+    requestPlatformSync("worker_app");
     pushStatusNotify();
     return;
   }
@@ -433,8 +577,7 @@ class BleServerCallbacks : public NimBLEServerCallbacks {
     bleConnHandle = connInfo.getConnHandle();
     lastBleHeartbeatMs = millis();
     touchGattActivity();
-    syncStatusCharacteristic(true);
-    updateCoexPreference();
+    pendingStatusNotify = true;
     Serial.print("[BLE] client connected handle=");
     Serial.println(bleConnHandle);
   }
@@ -442,10 +585,9 @@ class BleServerCallbacks : public NimBLEServerCallbacks {
     bleClientConnected = false;
     bleConnHandle = 0xFFFF;
     touchGattActivity();
+    bleAdvertRestartPending = true;
     Serial.print("[BLE] client disconnected reason=");
     Serial.println(reason);
-    updateCoexPreference();
-    restartBleAdvertising("on_disconnect");
   }
 };
 
@@ -453,7 +595,10 @@ class BleCmdCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
     touchGattActivity();
     const std::string& v = pCharacteristic->getValue();
-    handleBleCommand(String(v.c_str()));
+    if (!v.length() || v.length() >= sizeof(pendingBleCmd)) return;
+    memcpy(pendingBleCmd, v.data(), v.length());
+    pendingBleCmd[v.length()] = '\0';
+    pendingBleCmdReady = true;
   }
 };
 
@@ -560,10 +705,6 @@ static void reconcileBleAdvertising() {
 
   bleClientConnected = true;
   updateCoexPreference();
-  if (now - lastGattActivityMs > BLE_STALE_GATT_MS) {
-    dropAllBlePeers("stale_gatt");
-    restartBleAdvertising("after_stale_drop");
-  }
 }
 
 static void touchGattActivity() {
@@ -602,16 +743,8 @@ static void ensureBleWatchdog() {
 static void processBleAdvertRestart() {
   if (!bleAdvertRestartPending || !bleInited) return;
   bleAdvertRestartPending = false;
-  static int lastSlot = -1;
-  if (machineSlot == lastSlot) return;
-  lastSlot = machineSlot;
-  Serial.println("[BLE] restart advert for new machine_slot");
-  NimBLEDevice::deinit(true);
-  bleInited = false;
-  bleServer = nullptr;
-  statusChar = nullptr;
-  bleStartPending = true;
-  bleStartAtMs = millis() + 500;
+  restartBleAdvertising("loop_deferred");
+  updateCoexPreference();
 }
 
 static void requestPlatformSync(const char* reason) {
@@ -635,6 +768,7 @@ static void connectWifiAndSyncTime(const char* ssid, const char* password) {
   Serial.print("[WiFi] connecting");
   for (int i = 0; i < 60 && WiFi.status() != WL_CONNECTED; i++) {
     delay(500);
+    yield();
     Serial.print('.');
   }
   Serial.println();
@@ -654,6 +788,7 @@ static void connectWifiAndSyncTime(const char* ssid, const char* password) {
       return;
     }
     delay(500);
+    yield();
   }
   Serial.println("[NTP] warn — MQTT TLS may fail until time syncs");
 }
@@ -664,46 +799,40 @@ static void onSharedAttribute(const String& key, float value) {
 
   sharedAttrsReceived = true;
 
-  Serial.print("[ATTR] ");
-  Serial.print(key);
-  Serial.print(" = ");
-  Serial.println(value, 3);
-
   if (key == ATTR_ALLOW_RUN) {
     allowRun = value >= 0.5f;
-    if (!allowRun && sessionActive) {
-      pendingSessionEnd = true;
-      pendingSessionEndReason = "allow_run_false";
-    }
-    applySsrOutput();
-    pushStatusNotify();
+    requestPersistNvs();
+    pendingStatusNotify = true;
     return;
   }
   if (key == ATTR_MACHINE_SLOT) {
     const int slot = (int)value;
     if (slot > 0 && slot != machineSlot) {
       machineSlot = slot;
-      prefs.putInt("machine_slot", machineSlot);
       pendingSlotClientAttr = true;
-      Serial.print("[ATTR] machine_slot applied → BLE name ");
-      Serial.println(bleAdvertName());
       if (bleInited) {
         bleAdvertRestartPending = true;
       }
     }
-    pushStatusNotify();
+    requestPersistNvs();
+    pendingStatusNotify = true;
     return;
   }
   if (key == ATTR_TOOL_REMAINING) {
     toolRemaining = (int)value;
-    // machine_allow_run (SHARED) is authoritative — stale remaining=0 must not
-    // override platform when tool counter is disabled.
-    applySsrOutput();
-    pushStatusNotify();
+    requestPersistNvs();
+    pendingStatusNotify = true;
     return;
   }
-  if (key == ATTR_TOOL_LIMIT) toolLimit = (int)value;
-  if (key == ATTR_TOOL_USED) toolUsed = (int)value;
+  if (key == ATTR_TOOL_LIMIT) {
+    toolLimit = (int)value;
+    requestPersistNvs();
+    return;
+  }
+  if (key == ATTR_TOOL_USED) {
+    toolUsed = (int)value;
+    requestPersistNvs();
+  }
 }
 
 /** HTTPS fallback when MQTT shared snapshot/response is missing (device-token API). */
@@ -728,10 +857,11 @@ static bool fetchSharedAttrsViaHttp() {
     return false;
   }
   Serial.println(url);
-  http.setTimeout(20000);
+  http.setTimeout(8000);
   const int code = http.GET();
   const String body = http.getString();
   http.end();
+  yield();
   Serial.print("[HTTP] status ");
   Serial.println(code);
   if (code != 200) {
@@ -783,8 +913,9 @@ static void onConnect(bool connected) {
     }
 #if HTTP_ATTR_FALLBACK
     httpAttrFetchPending = true;
-    httpAttrFetchAtMs = millis() + HTTP_ATTR_FETCH_DELAY_MS;
+    httpAttrFetchAtMs = millis() + 1500UL;
 #endif
+    pendingBootAttrSync = true;
     pendingClientMirrorOnConnect = true;
   }
 }
@@ -834,10 +965,59 @@ static bool modbusReadInputRegs(uint8_t slave, uint16_t startReg, uint16_t count
   return true;
 }
 
-static float readPZEMCurrentAmps() {
-  uint16_t regs[2] = {0, 0};
-  if (!modbusReadInputRegs(PZEM_SLAVE_ADDR, 0x0001, 2, regs)) return NAN;
-  return (((uint32_t)regs[0] << 16) | regs[1]) / 1000.0f;
+/** PZEM-004T v3/v4 input regs 0x0000..0x0009 (read all 10 for diagnostics). */
+static bool readPZEM(PzemReading& out, PzemRawSnapshot* rawOut = nullptr) {
+  uint16_t regs[10] = {0};
+  const uint8_t regCount = 10;
+  if (!modbusReadInputRegs(PZEM_SLAVE_ADDR, 0x0000, regCount, regs)) {
+    return false;
+  }
+  if (rawOut) {
+    rawOut->regCount = regCount;
+    for (uint8_t i = 0; i < regCount; i++) rawOut->regs[i] = regs[i];
+  }
+  out.voltageV = regs[0] / 10.0f;
+  const uint32_t currentRaw = ((uint32_t)regs[2] << 16) | regs[1];
+  out.currentA = currentRaw / 1000.0f;
+  const uint32_t powerRaw = ((uint32_t)regs[4] << 16) | regs[3];
+  out.powerW = powerRaw / 10.0f;
+  out.frequencyHz = regs[7] / 10.0f;
+  out.powerFactor = regs[8] / 100.0f;
+  return true;
+}
+
+static void logPzemDiagnostics(const PzemReading& pzem, const PzemRawSnapshot& raw) {
+  Serial.print("[PZEM] diag V=");
+  Serial.print(pzem.voltageV, 1);
+  Serial.print("V I=");
+  Serial.print(pzem.currentA, 3);
+  Serial.print("A P=");
+  Serial.print(pzem.powerW, 1);
+  Serial.print("W F=");
+  Serial.print(pzem.frequencyHz, 1);
+  Serial.print("Hz PF=");
+  Serial.print(pzem.powerFactor, 2);
+  Serial.print(" raw");
+  for (uint8_t i = 0; i < raw.regCount; i++) {
+    Serial.print(i == 0 ? "[" : ",");
+    Serial.print(raw.regs[i]);
+  }
+  Serial.print("]");
+  if (pzem.frequencyHz >= 45.0f && pzem.frequencyHz <= 65.0f) {
+    Serial.print(" modbus=ok");
+  } else {
+    Serial.print(" modbus=check_freq");
+  }
+  if (pzem.currentA < 0.15f && pzem.voltageV > 80.0f) {
+    Serial.print(" hint=CT_jack_or_single_live_wire");
+  }
+  Serial.println();
+}
+
+static bool pzemReadingValid(const PzemReading& r) {
+  return r.voltageV >= 0.0f && r.voltageV <= 320.0f &&
+         r.currentA >= 0.0f && r.currentA < 120.0f &&
+         r.powerW >= 0.0f && r.powerW < 35000.0f;
 }
 
 static float readDemoCurrentAmps() {
@@ -847,31 +1027,56 @@ static float readDemoCurrentAmps() {
   return 22.0f;
 }
 
-static float readCurrentAmps(bool* sensorOk) {
-  float amps = readPZEMCurrentAmps();
-  if (!isnan(amps) && amps >= 0.0f && amps < 120.0f) {
+static float readCurrentAmps(bool* sensorOk, float* voltageV = nullptr, float* powerW = nullptr) {
+  PzemRawSnapshot raw;
+  PzemReading pzem;
+  if (readPZEM(pzem, &raw) && pzemReadingValid(pzem)) {
     *sensorOk = true;
-    return amps;
+    if (voltageV) *voltageV = pzem.voltageV;
+    if (powerW) *powerW = pzem.powerW;
+#if PZEM_RAW_DEBUG
+    static unsigned long lastRawLogMs = 0;
+    const unsigned long now = millis();
+    if (now - lastRawLogMs >= 10000UL) {
+      lastRawLogMs = now;
+      logPzemDiagnostics(pzem, raw);
+    }
+#endif
+    return pzem.currentA;
   }
+
+#if PZEM_RAW_DEBUG
+  Serial.println("[PZEM] read failed or out of range — check addr 0xF8, 5V, TX/RX");
+#endif
+
 #if PZEM_DEMO_FALLBACK
   *sensorOk = false;
+  if (voltageV) *voltageV = 230.0f;
+  if (powerW) {
+    const float demo = readDemoCurrentAmps();
+    *powerW = demo * 230.0f;
+  }
   return readDemoCurrentAmps();
 #else
   *sensorOk = false;
+  if (voltageV) *voltageV = 0.0f;
+  if (powerW) *powerW = 0.0f;
   return 0.0f;
 #endif
 }
 
 void setup() {
   Serial.begin(115200);
-  delay(2000);
+  delay(500);
+  Serial.println("[BOOT] setup start — stability rev 4 (BLE cmds deferred to loop)");
 
   prefs.begin("ac_mach", false);
-  machineSlot = prefs.getInt("machine_slot", 0);
-  cycleCount = prefs.getInt("cycle_count", 0);
+  loadRuntimeFromNvs();
 
   pinMode(PIN_SSR_ALLOW, OUTPUT);
-  digitalWrite(PIN_SSR_ALLOW, LOW);
+  applySsrOutput();
+  Serial.print("[SSR] boot output=");
+  Serial.println(sessionActive ? "ON" : "OFF");
 
   // Free ~40KB for BLE stack (must run before any BLE init)
   if (esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT) != ESP_OK) {
@@ -934,30 +1139,23 @@ void setup() {
   sdk.onAttributeUpdate(onSharedAttribute);
   sdk.onConnect(onConnect);
 
-  // BLE needs contiguous heap — start before MQTT TLS buffers are allocated.
-  Serial.print("[MEM] heap before BLE ");
-  Serial.println(ESP.getFreeHeap());
-  Serial.println("[BLE] starting early (pre-MQTT)");
-  ensureBleStarted();
-  logBleStatus("boot");
-
   Serial.print("[MEM] heap before MQTT ");
   Serial.println(ESP.getFreeHeap());
   sdk.begin(config);
+#if USE_MQTT_PUMP_TASK
   startMqttPumpTask();
+#else
+  initSdkMutex();
+  Serial.println("[CPU] single-core — sdk.loop in Arduino loop");
+#endif
   updateCoexPreference();
 
   Serial.print("[CPU] setup running on core ");
   Serial.println(xPortGetCoreID());
 
-  applySsrOutput();
-
   Serial.println("[SDK] Machine_Runtime_BLE — worker app + MQTT");
-  if (!bleInited) {
-    Serial.println("[BLE] warn — not advertising at boot; watchdog will retry");
-    bleStartPending = true;
-    bleStartAtMs = millis() + 5000;
-  }
+  Serial.println("[BLE] deferred — starts from loop after MQTT stable");
+  scheduleBleStart();
 }
 
 unsigned long lastTelemetryMs = 0;
@@ -967,6 +1165,7 @@ unsigned long lastClientPushMs = 0;
 void loop() {
   const unsigned long nowMs = millis();
 
+#if USE_MQTT_PUMP_TASK
   if (!mqttTaskHandle) {
     if (sdkLock(pdMS_TO_TICKS(10))) {
       sdk.loop();
@@ -974,29 +1173,56 @@ void loop() {
       sdkUnlock();
     }
   }
+#else
+  if (sdkLock(pdMS_TO_TICKS(10))) {
+    sdk.loop();
+    mqttUp = sdk.connected();
+    sdkUnlock();
+  }
+#endif
 
   if (nowMs - lastCoexUpdateMs >= 10000UL) {
     lastCoexUpdateMs = nowMs;
     updateCoexPreference();
   }
 
-  if (pendingSessionEnd) {
-    pendingSessionEnd = false;
-    endSession(pendingSessionEndReason);
+  flushPersistNvs();
+
+  if (pendingBleCmdReady) {
+    pendingBleCmdReady = false;
+    handleBleCommand(String(pendingBleCmd));
+  }
+
+  if (pendingSsrApply) {
+    pendingSsrApply = false;
+    applySsrOutput();
+  }
+
+  if (pendingStatusNotify) {
+    pendingStatusNotify = false;
+    syncStatusCharacteristic(bleClientConnected);
   }
 
   if (pendingClientMirrorOnConnect && isMqttUp()) {
     pendingClientMirrorOnConnect = false;
-    pushClientMirror(false);
+    pushClientMirror(true);
+  }
+
+  if (pendingBootAttrSync && isMqttUp()) {
+    pendingBootAttrSync = false;
+    requestPlatformSync("mqtt_connect");
   }
 
 #if HTTP_ATTR_FALLBACK
+  // HTTP only if MQTT shared snapshot never arrived (e.g. broker down).
   if (
     httpAttrFetchPending && isMqttUp() &&
     !sharedAttrsReceived && millis() >= httpAttrFetchAtMs
   ) {
     httpAttrFetchPending = false;
     fetchSharedAttrsViaHttp();
+    pendingSsrApply = true;
+    pendingStatusNotify = true;
   }
 #endif
 
@@ -1026,10 +1252,7 @@ void loop() {
     }
   }
 
-  if (sessionActive && bleClientConnected &&
-      (nowMs - lastBleHeartbeatMs) > BLE_HEARTBEAT_TIMEOUT_MS) {
-    endSession("heartbeat_timeout");
-  }
+  // Heartbeat updates lastBleHeartbeatMs only — never ends session (app stop only).
 
   if (nowMs - lastSharedSyncMs >= SHARED_SYNC_MS) {
     lastSharedSyncMs = nowMs;
@@ -1056,10 +1279,14 @@ void loop() {
   if (nowMs - lastTelemetryMs >= TELEMETRY_MS) {
     lastTelemetryMs = nowMs;
     bool sensorOk = true;
-    const float amps = readCurrentAmps(&sensorOk);
+    float voltageV = 0.0f;
+    float powerW = 0.0f;
+    const float amps = readCurrentAmps(&sensorOk, &voltageV, &powerW);
 
-    StaticJsonDocument<320> tel;
+    StaticJsonDocument<384> tel;
     tel[KEY_CURRENT] = amps;
+    tel[KEY_VOLTAGE] = voltageV;
+    tel[KEY_POWER] = powerW;
     tel[KEY_SENSOR_OK] = sensorOk;
     tel[KEY_SESSION_ACTIVE] = sessionActive;
     tel[KEY_CYCLE_COUNT] = cycleCount;
@@ -1074,9 +1301,19 @@ void loop() {
       sdkUnlock();
     }
 
-    Serial.print("[PZEM] I=");
+    Serial.print("[PZEM] V=");
+    Serial.print(voltageV, 1);
+    Serial.print("V I=");
     Serial.print(amps, 3);
-    Serial.print("A sensor_ok=");
+    Serial.print("A P=");
+    Serial.print(powerW, 0);
+    Serial.print("W");
+    if (amps > 0.0f && amps < 0.15f && voltageV > 50.0f) {
+      Serial.print(" (low — load likely not through PZEM; 100W expects ~");
+      Serial.print(voltageV > 1.0f ? (100.0f / voltageV) : 0.0f, 2);
+      Serial.print("A)");
+    }
+    Serial.print(" sensor_ok=");
     Serial.print(sensorOk ? "1" : "0");
     Serial.print(" mqtt=");
     Serial.println(isMqttUp() ? "up" : "down");

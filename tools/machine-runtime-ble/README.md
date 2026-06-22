@@ -2,9 +2,60 @@
 
 Worker **Android app** + **ESP32 BLE** — no PN532 on machine.
 
-## Sketch
+## Dual ESP32 (recommended for stability)
 
-`Machine_Runtime_BLE_mqtt/Machine_Runtime_BLE_mqtt.ino`
+Two boards back-to-back — **no WiFi+BLE on one chip**:
+
+| Board | Sketch | Role |
+|-------|--------|------|
+| **esp_ble** | [`esp_ble/esp_ble.ino`](esp_ble/esp_ble.ino) | NimBLE GATT only → worker app |
+| **esp_wifi** | [`esp_wifi/esp_wifi.ino`](esp_wifi/esp_wifi.ino) | WiFi, MQTT, PZEM, SSR, session/NVS |
+
+**UART (115200, cross-connect):**
+
+```
+esp_ble TX=19  →  esp_wifi RX=21
+esp_ble RX=21  ←  esp_wifi TX=19
+GND ↔ GND
+```
+
+Both sketches use **TX=GPIO19, RX=GPIO21**. Verify with [`link_test/link_test.ino`](link_test/link_test.ino) before loading production firmware.
+
+**Flash order:** `esp_wifi` first (powers session/MQTT), then `esp_ble`.
+
+**Libraries:** esp_ble → ArduinoJson + NimBLE-Arduino. esp_wifi → AutoconnectoSDK + ArduinoJson.
+
+**Partition:** esp_wifi → **Huge APP**. esp_ble → default OK.
+
+Worker app and GATT UUIDs unchanged. UART uses newline JSON — same `cmd` objects as BLE writes; esp_wifi replies with `{"type":"status",...}`.
+
+### UART OK but worker app stuck on “Connecting / Retrying”
+
+Monitor **esp_ble** Serial (not esp_wifi). You need **both** lines:
+
+```
+[BLE] advertising as AC-001
+[LINK] → {"cmd":"get_status"}
+[LINK] ← {"type":"status",...}
+```
+
+`[LINK]` alone means the bridge works — it does **not** prove the phone can see BLE. If `[BLE]` is missing, reflash **esp_ble** (NimBLE-Arduino installed).
+
+After a failed phone connect, esp_ble must restart advertising every ~5 s (`[BLE] advertising restart (no_peers)`). Reflash latest **esp_ble** if the app never finds AC-001 again until power-cycle.
+
+**Phone checks:** Bluetooth + Location ON; Worker app → Nearby devices allowed; tap **Change machine → Scan again** (clears stale BLE address). Optional: nRF Connect → scan for **AC-001** and service `a7c50001-...`.
+
+### Phone sees nothing (ESP shows adv=yes)
+
+1. **Unplug esp_wifi** — WiFi on the adjacent board can jam BLE discovery. Test **esp_ble alone** (only USB power, no UART wire needed for this test).
+2. Flash [`ble_adv_test/ble_adv_test.ino`](ble_adv_test/ble_adv_test.ino) on esp_ble — minimal advert, no UART. nRF Connect must show **AC-001** within 1 m.
+3. If **ble_adv_test** also invisible → hardware/antenna/USB power issue on esp_ble board, or phone BT/Location off.
+4. If **ble_adv_test works** but **esp_ble.ino** does not → reflash latest esp_ble (split advert: UUID primary, name scan response).
+5. Reflash esp_ble after edits; look for `[BLE] adv->start() FAILED` in serial (means advert packet rejected).
+
+## Single ESP32 (legacy)
+
+`Machine_Runtime_BLE_mqtt/Machine_Runtime_BLE_mqtt.ino` — BLE + WiFi on one board (coexistence can reboot).
 
 ### Local dev (LAN backend)
 

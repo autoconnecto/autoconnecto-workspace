@@ -194,15 +194,13 @@ curl -sS  https://app.autoconnecto.in/ | grep -E 'index-[A-Za-z0-9_-]+\.(js|css)
 
 **Host:** EC2 instance (Ubuntu) running the backend in **Docker Compose**. Compose project root: `~/autoconnecto/backend/` on the host. Services include `backend`, `timescaledb` (Postgres + Timescale), `redis`, `autoconnecto-emqx` (MQTT broker).
 
-**Confirmed release flow (v1.0.3+, 2026-05-15):** full runbook in `backend/ops/DEPLOYMENT-EC2.md` → **Backend release runbook**.
+**Confirmed release flow:** see **[`deployment.md`](deployment.md)** (single source of truth for backend, frontend, website, docs, SDK, and mobile).
 
 ```bash
 # On EC2 host (ubuntu@<instance>):
 cd ~/autoconnecto/backend
-bash scripts/ec2-release-deploy.sh v1.0.3
+bash scripts/ec2-release-deploy.sh vX.Y.Z
 ```
-
-Or manually: `git fetch --tags --force origin` → `git checkout -f v1.0.3` → `docker compose up -d migrate` (exit 0) → `docker compose up -d --build --no-deps backend`.
 
 `--no-deps backend` is intentional: it rebuilds and recreates only the `backend` container, leaving `timescaledb` / `redis` / `autoconnecto-emqx` untouched.
 

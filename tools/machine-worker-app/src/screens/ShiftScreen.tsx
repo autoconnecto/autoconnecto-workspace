@@ -20,6 +20,7 @@ import { RECONNECT_STUCK_MS } from "../config/constants";
 import { savePinnedMachine } from "../config/storage";
 import { useWorker } from "../context/WorkerContext";
 import { usePinnedMachineConnection } from "../hooks/usePinnedMachineConnection";
+import { resolveToolLifeDisplay } from "../machine/toolLifeDisplay";
 
 export function ShiftScreen() {
   const { profile, pinned, changeMachine, startProfileEdit, pinMachine } = useWorker();
@@ -50,8 +51,10 @@ export function ShiftScreen() {
   const machineBusy = isMachineBusyForWorker(status, workerId);
   const sessionOn = Boolean(status?.session && sessionMine);
   const jobCount = status?.jobs ?? 0;
-  const allowBlocked = status?.allow_run === false;
   const connected = phase === "connected";
+  const toolLife = resolveToolLifeDisplay(status);
+  const allowBlocked =
+    status?.allow_run === false || (toolLife.enabled && toolLife.remaining === 0);
 
   useEffect(() => {
     if (phase === "connected" || phase === "idle") return;
@@ -107,10 +110,17 @@ export function ShiftScreen() {
   }
 
   async function onJobAdd() {
+    if (allowBlocked) {
+      setActionError("Tool life limit reached. Ask supervisor to reset tool in dashboard Setup.");
+      return;
+    }
     setBusy(true);
     setActionError("");
     try {
-      await sendCommand({ cmd: "job_add" });
+      const latest = await sendCommand({ cmd: "job_add" });
+      if (latest?.allow_run === false) {
+        setActionError("Tool life limit reached. Ask supervisor to reset tool in dashboard Setup.");
+      }
     } catch (err) {
       setActionError(friendlyBleError(err, "Could not add job"));
     } finally {
@@ -258,13 +268,24 @@ export function ShiftScreen() {
               }
               tone={sessionOn ? "ok" : sessionSuspended ? "neutral" : "neutral"}
             />
+            <StatusTile label="Jobs" value={String(jobCount)} tone="neutral" />
+            <StatusTile
+              label="Tool life left"
+              value={toolLife.label}
+              tone={toolLife.tone}
+            />
             <StatusTile
               label="Allow run"
               value={allowBlocked ? "BLOCKED" : "OK"}
               tone={allowBlocked ? "bad" : "ok"}
             />
-            <StatusTile label="Jobs" value={String(jobCount)} tone="neutral" />
           </View>
+
+          {toolLife.enabled && toolLife.remaining !== null && toolLife.remaining <= 3 && toolLife.remaining > 0 ? (
+            <Text style={styles.toolWarn}>
+              Tool change soon — {toolLife.remaining} job{toolLife.remaining === 1 ? "" : "s"} left.
+            </Text>
+          ) : null}
 
           {stepHint ? <Text style={styles.hint}>{stepHint}</Text> : null}
 
@@ -306,7 +327,7 @@ export function ShiftScreen() {
               count={jobCount}
               onIncrement={onJobAdd}
               onDecrement={onJobRemove}
-              disabled={busy}
+              disabled={busy || allowBlocked}
               busy={busy}
             />
           ) : null}
@@ -350,7 +371,7 @@ function StatusTile({
 }: {
   label: string;
   value: string;
-  tone: "ok" | "bad" | "neutral";
+  tone: "ok" | "bad" | "neutral" | "warn";
 }) {
   return (
     <View style={styles.tile}>
@@ -358,7 +379,13 @@ function StatusTile({
       <Text
         style={[
           styles.tileValue,
-          tone === "ok" ? styles.tileOk : tone === "bad" ? styles.tileBad : null,
+          tone === "ok"
+            ? styles.tileOk
+            : tone === "bad"
+              ? styles.tileBad
+              : tone === "warn"
+                ? styles.tileWarn
+                : null,
         ]}
       >
         {value}
@@ -395,9 +422,15 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     flex: 1,
   },
-  statusGrid: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  statusGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   tile: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "46%",
     backgroundColor: colors.bgMuted,
     borderRadius: 12,
     padding: spacing.sm,
@@ -407,6 +440,16 @@ const styles = StyleSheet.create({
   tileValue: { marginTop: spacing.xs, fontSize: 18, fontWeight: "800", color: colors.text },
   tileOk: { color: colors.successDark },
   tileBad: { color: colors.danger },
+  tileWarn: { color: "#b45309" },
+  toolWarn: {
+    color: "#b45309",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: spacing.sm,
+    backgroundColor: "#fffbeb",
+    padding: spacing.sm,
+    borderRadius: 10,
+  },
   blockedHint: {
     color: colors.danger,
     fontSize: 12,
