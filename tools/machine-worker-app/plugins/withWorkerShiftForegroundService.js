@@ -1,11 +1,17 @@
-const { withAndroidManifest, AndroidConfig } = require("@expo/config-plugins");
+const {
+  withAndroidManifest,
+  withAppBuildGradle,
+  AndroidConfig,
+} = require("@expo/config-plugins");
+
+const ANDROIDX_CORE = "androidx.core:core:1.15.0";
 
 /**
  * Android 12+ requires a foreground service (connectedDevice) to keep BLE alive
  * while the worker takes calls or switches apps mid-shift.
  */
 function withWorkerShiftForegroundService(config) {
-  return withAndroidManifest(config, (cfg) => {
+  config = withAndroidManifest(config, (cfg) => {
     const manifest = cfg.modResults;
 
     AndroidConfig.Permissions.ensurePermissions(manifest, [
@@ -38,6 +44,17 @@ function withWorkerShiftForegroundService(config) {
     service.$["android:foregroundServiceType"] = "connectedDevice";
     service.$["android:exported"] = "false";
 
+    return cfg;
+  });
+
+  return withAppBuildGradle(config, (cfg) => {
+    if (!cfg.modResults.contents.includes(ANDROIDX_CORE)) {
+      cfg.modResults.contents = cfg.modResults.contents.replace(
+        /dependencies\s*\{/,
+        `dependencies {
+    implementation '${ANDROIDX_CORE}'`
+      );
+    }
     return cfg;
   });
 }
