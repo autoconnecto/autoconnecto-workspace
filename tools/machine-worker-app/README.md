@@ -15,7 +15,7 @@ Operator app for machine sessions. **No cloud login** — phone talks to ESP32 o
 | Where | Link |
 |-------|------|
 | **Platform (logged in)** | Top bar → **Worker app** |
-| **This repo** | [`autoconnecto-worker.apk`](./autoconnecto-worker.apk) (v1.2.8) |
+| **This repo** | [`autoconnecto-worker.apk`](./autoconnecto-worker.apk) (v1.2.9) |
 | **GitHub Release** | https://github.com/autoconnecto/autoconnecto-workspace/releases/latest/download/autoconnecto-worker.apk |
 
 All releases: https://github.com/autoconnecto/autoconnecto-workspace/releases
@@ -23,6 +23,18 @@ All releases: https://github.com/autoconnecto/autoconnecto-workspace/releases
 See also [`../README.md`](../README.md) (tools index).
 
 ## Build / release
+
+### v1.2.9
+
+- Foreground service **stays on during reconnect** (phone calls / app switch) instead of stopping when BLE drops.
+- Background service loop runs heartbeat + platform `sync_attrs` every ~12s while shift is open.
+- Notification shows session state (jobs count) and requests Android 13+ notification permission.
+
+### v1.2.8
+
+- Faster tool-life refresh (3s BLE poll + 20s platform `sync_attrs`).
+- **Background shift**: Android foreground service (`connectedDevice`) stays active during phone calls / app switch; BLE heartbeat + reconnect run inside the service loop.
+- Allow notification permission on Android 13+ (required for the shift notification).
 
 ### Ship a new version (GitHub Release + APK)
 
@@ -59,7 +71,7 @@ Requires a **development build** (not Expo Go) for BLE.
 | End shift | Kept | Kept |
 | Edit profile | Updated on save | Kept |
 | Change machine | Kept | Cleared → pick again |
-| BLE drop (tea break / phone call) | Kept | Kept — foreground service + auto-reconnect |
+| BLE drop (tea break / phone call) | Kept | Kept — **foreground service stays on** during reconnect + auto-reconnect |
 | App restart | Kept | Kept — opens shift screen |
 | Scan fails twice | — | Tap Scan again (auto-resets BLE stack) |
 

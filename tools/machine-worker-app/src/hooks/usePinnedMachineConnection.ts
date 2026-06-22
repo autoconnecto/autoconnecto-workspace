@@ -22,8 +22,10 @@ import {
   type BleMachineStatus,
 } from "../ble/workerBle";
 import {
+  registerShiftBackgroundTick,
   startShiftBackgroundService,
   stopShiftBackgroundService,
+  updateShiftBackgroundService,
 } from "../native/shiftBackgroundService";
 
 export type ConnectionPhase = "idle" | "connecting" | "connected" | "reconnecting" | "error";
@@ -121,7 +123,6 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
     disconnectSubRef.current = null;
     await disconnectBle(deviceRef.current);
     deviceRef.current = null;
-    await stopShiftBackgroundService();
   }, [clearReconnectTimer]);
 
   const scheduleReconnectRef = useRef<(urgent?: boolean) => void>(() => {});
@@ -197,6 +198,7 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
           attrSyncRef.current = null;
         }
         if (enabledRef.current && pinnedRef.current) {
+          setPhase("reconnecting");
           reconnectAttemptRef.current = 0;
           setTimeout(() => {
             if (!enabledRef.current || !pinnedRef.current || deviceRef.current) return;
@@ -290,8 +292,15 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active") return;
       if (!enabledRef.current || !pinnedRef.current) return;
+      if (nextState === "background" || nextState === "inactive") {
+        const machine = pinnedRef.current?.bleAdvertName?.trim();
+        if (machine) {
+          void startShiftBackgroundService(`Shift — ${machine}`);
+        }
+        return;
+      }
+      if (nextState !== "active") return;
       reconnectAttemptRef.current = 0;
       clearReconnectTimer();
       void verifyLinkRef.current();
@@ -328,6 +337,8 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
 
     return () => {
       reconnectAttemptRef.current = 0;
+      registerShiftBackgroundTick(null);
+      void stopShiftBackgroundService();
       void cleanupLink();
     };
   }, [enabled, pinned?.bleAdvertName, connectNow, cleanupLink]);
@@ -417,16 +428,76 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
   }, [status?.session, phase]);
 
   useEffect(() => {
-    const machine = pinned?.bleAdvertName?.trim();
-    if (phase === "connected" && machine) {
-      void startShiftBackgroundService(`Connected to ${machine}`);
-      return () => {
-        void stopShiftBackgroundService();
-      };
+    if (!enabled || !pinned) {
+      registerShiftBackgroundTick(null);
+      void stopShiftBackgroundService();
+      return;
     }
-    void stopShiftBackgroundService();
-    return undefined;
-  }, [phase, pinned?.bleAdvertName]);
+
+    registerShiftBackgroundTick(async () => {
+      const device = deviceRef.current;
+      if (!device) {
+        if (!connectingRef.current && !reconnectTimerRef.current) {
+          scheduleReconnectRef.current(true);
+        }
+        return;
+      }
+      try {
+        if (!(await device.isConnected())) {
+          scheduleReconnectRef.current(true);
+          return;
+        }
+        if (lastStatusRef.current?.session) {
+          await writeBleCommand(device, { cmd: "heartbeat" });
+        }
+        await pullPlatformAttrs();
+      } catch {
+        scheduleReconnectRef.current(true);
+      }
+    });
+
+    return () => {
+      registerShiftBackgroundTick(null);
+    };
+  }, [enabled, pinned?.bleAdvertName, pullPlatformAttrs]);
+
+  useEffect(() => {
+    const machine = pinned?.bleAdvertName?.trim();
+    if (!enabled || !machine) {
+      void stopShiftBackgroundService();
+      return;
+    }
+    if (phase === "idle") {
+      void stopShiftBackgroundService();
+      return;
+    }
+
+    const session = status?.session;
+    const jobs = status?.jobs ?? 0;
+    const label = session
+      ? `${machine} — session on (${jobs} job${jobs === 1 ? "" : "s"})`
+      : phase === "connected"
+        ? `Connected to ${machine}`
+        : `Reconnecting to ${machine}…`;
+
+    void startShiftBackgroundService(label);
+    return () => {
+      /* stop only when leaving shift (enabled/pinned effect cleanup) */
+    };
+  }, [enabled, phase, pinned?.bleAdvertName, status?.session, status?.jobs]);
+
+  useEffect(() => {
+    const machine = pinned?.bleAdvertName?.trim();
+    if (!enabled || !machine || phase === "idle") return;
+    const session = status?.session;
+    const jobs = status?.jobs ?? 0;
+    const label = session
+      ? `${machine} — session on (${jobs} job${jobs === 1 ? "" : "s"})`
+      : phase === "connected"
+        ? `Connected to ${machine}`
+        : `Reconnecting to ${machine}…`;
+    void updateShiftBackgroundService(label);
+  }, [enabled, phase, pinned?.bleAdvertName, status?.session, status?.jobs]);
 
   const sendCommand = useCallback(
     async (command: Parameters<typeof writeBleCommand>[1]) => {

@@ -8,6 +8,8 @@ export const HEARTBEAT_INTERVAL_MS = 60_000;
 export const STATUS_POLL_INTERVAL_MS = 3_000;
 /** Pull platform SHARED attrs via ESP MQTT (admin save / reset in dashboard). */
 export const ATTR_SYNC_INTERVAL_MS = 20_000;
+/** Foreground-service loop also ticks at ~12s (shiftBackgroundService.ts). */
+export const BACKGROUND_TICK_MS = 12_000;
 export const BLE_SCAN_TIMEOUT_MS = 8_000;
 export const BLE_SCAN_EXTENDED_MS = 6_000;
 export const BLE_RECONNECT_SCAN_TIMEOUT_MS = 12_000;
