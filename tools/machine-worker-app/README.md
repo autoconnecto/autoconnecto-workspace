@@ -15,7 +15,7 @@ Operator app for machine sessions. **No cloud login** — phone talks to ESP32 o
 | Where | Link |
 |-------|------|
 | **Platform (logged in)** | Top bar → **Worker app** |
-| **This repo** | [`autoconnecto-worker.apk`](./autoconnecto-worker.apk) (v1.2.7) |
+| **This repo** | [`autoconnecto-worker.apk`](./autoconnecto-worker.apk) (v1.2.8) |
 | **GitHub Release** | https://github.com/autoconnecto/autoconnecto-workspace/releases/latest/download/autoconnecto-worker.apk |
 
 All releases: https://github.com/autoconnecto/autoconnecto-workspace/releases
@@ -59,7 +59,7 @@ Requires a **development build** (not Expo Go) for BLE.
 | End shift | Kept | Kept |
 | Edit profile | Updated on save | Kept |
 | Change machine | Kept | Cleared → pick again |
-| BLE drop (tea break) | Kept | Kept — auto-reconnect |
+| BLE drop (tea break / phone call) | Kept | Kept — foreground service + auto-reconnect |
 | App restart | Kept | Kept — opens shift screen |
 | Scan fails twice | — | Tap Scan again (auto-resets BLE stack) |
 

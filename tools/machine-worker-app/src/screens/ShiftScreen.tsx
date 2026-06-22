@@ -298,7 +298,7 @@ export function ShiftScreen() {
 
           {allowBlocked ? (
             <Text style={styles.blockedHint}>
-              Machine blocked by admin (tool life or allow-run). Ask supervisor to reset in dashboard Setup.
+              Machine stopped for tool change (SSR off). Session stays on — ask supervisor to reset tool in dashboard Setup, then you can run again.
             </Text>
           ) : null}
 

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Autoconnecto Worker",
     "slug": "autoconnecto-worker",
-    "version": "1.2.7",
+    "version": "1.2.8",
     "orientation": "portrait",
     "scheme": "autoconnecto-worker",
     "userInterfaceStyle": "light",
@@ -17,7 +17,8 @@
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "Connect to machines on the factory floor.",
         "NSBluetoothPeripheralUsageDescription": "Connect to machines on the factory floor.",
-        "NSLocationWhenInUseUsageDescription": "Required for Bluetooth scanning on Android."
+        "NSLocationWhenInUseUsageDescription": "Required for Bluetooth scanning on Android.",
+        "UIBackgroundModes": ["bluetooth-central"]
       }
     },
     "android": {
@@ -29,27 +30,31 @@
         "BLUETOOTH_SCAN",
         "BLUETOOTH_CONNECT",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_CONNECTED_DEVICE",
+        "POST_NOTIFICATIONS",
+        "WAKE_LOCK"
       ]
     },
     "plugins": [
       [
         "react-native-ble-plx",
         {
-          "isBackgroundEnabled": false,
-          "modes": [
-            "central"
-          ],
+          "isBackgroundEnabled": true,
+          "modes": ["central"],
           "bluetoothAlwaysPermission": "Allow Autoconnecto Worker to connect to machines via Bluetooth."
         }
       ],
+      "./plugins/withWorkerShiftForegroundService.js",
       "expo-asset",
       "expo-font",
       [
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "1.9.25"
+            "kotlinVersion": "1.9.25",
+            "targetSdkVersion": 34
           }
         }
       ]

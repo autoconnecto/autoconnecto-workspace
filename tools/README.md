@@ -7,7 +7,7 @@ Developer and factory-floor utilities in this repo. **Operators do not configure
 | Item | Location |
 |------|----------|
 | **Latest APK (repo copy)** | [`machine-worker-app/autoconnecto-worker.apk`](machine-worker-app/autoconnecto-worker.apk) |
-| Versioned APK | [`machine-worker-app/autoconnecto-worker-v1.2.7.apk`](machine-worker-app/autoconnecto-worker-v1.2.7.apk) |
+| Versioned APK | [`machine-worker-app/autoconnecto-worker-v1.2.8.apk`](machine-worker-app/autoconnecto-worker-v1.2.8.apk) |
 | Source | [`machine-worker-app/`](machine-worker-app/) |
 | Contract | [`sdk/MACHINE_RUNTIME_BLE.md`](../sdk/MACHINE_RUNTIME_BLE.md) |
 

@@ -3,6 +3,7 @@ import { AppState } from "react-native";
 import type { Device } from "react-native-ble-plx";
 import type { PinnedMachine, WorkerProfile } from "../config/storage";
 import {
+  ATTR_SYNC_INTERVAL_MS,
   HEARTBEAT_INTERVAL_MS,
   RECONNECT_AFTER_DISCONNECT_MS,
   RECONNECT_BASE_MS,
@@ -20,6 +21,10 @@ import {
   writeBleCommand,
   type BleMachineStatus,
 } from "../ble/workerBle";
+import {
+  startShiftBackgroundService,
+  stopShiftBackgroundService,
+} from "../native/shiftBackgroundService";
 
 export type ConnectionPhase = "idle" | "connecting" | "connected" | "reconnecting" | "error";
 
@@ -75,6 +80,7 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
   const disconnectSubRef = useRef<{ remove: () => void } | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const attrSyncRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const connectingRef = useRef(false);
@@ -105,15 +111,36 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
       clearInterval(statusPollRef.current);
       statusPollRef.current = null;
     }
+    if (attrSyncRef.current) {
+      clearInterval(attrSyncRef.current);
+      attrSyncRef.current = null;
+    }
     monitorRef.current?.remove();
     monitorRef.current = null;
     disconnectSubRef.current?.remove();
     disconnectSubRef.current = null;
     await disconnectBle(deviceRef.current);
     deviceRef.current = null;
+    await stopShiftBackgroundService();
   }, [clearReconnectTimer]);
 
   const scheduleReconnectRef = useRef<(urgent?: boolean) => void>(() => {});
+
+  const pullPlatformAttrs = useCallback(async () => {
+    const device = deviceRef.current;
+    if (!device) return;
+    try {
+      if (!(await device.isConnected())) return;
+      await writeBleCommand(device, { cmd: "sync_attrs" });
+      const latest = await readBleStatusWithRetry(device, 6, 400);
+      if (latest) {
+        lastStatusRef.current = latest;
+        setStatus(latest);
+      }
+    } catch {
+      /* MQTT pull is best-effort */
+    }
+  }, []);
 
   const connectNow = useCallback(async () => {
     const pin = pinnedRef.current;
@@ -165,6 +192,10 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
           clearInterval(statusPollRef.current);
           statusPollRef.current = null;
         }
+        if (attrSyncRef.current) {
+          clearInterval(attrSyncRef.current);
+          attrSyncRef.current = null;
+        }
         if (enabledRef.current && pinnedRef.current) {
           reconnectAttemptRef.current = 0;
           setTimeout(() => {
@@ -192,14 +223,9 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
       }
 
       try {
-        await writeBleCommand(device, { cmd: "sync_attrs" });
-        const afterSync = await readBleStatusWithRetry(device, 3, 200);
-        if (afterSync) {
-          lastStatusRef.current = afterSync;
-          setStatus(afterSync);
-        }
+        await pullPlatformAttrs();
       } catch {
-        /* MQTT sync is best-effort; backend hook still refreshes */
+        /* MQTT sync is best-effort; periodic sync also runs while connected */
       }
 
       reconnectAttemptRef.current = 0;
@@ -214,7 +240,7 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
         scheduleReconnectRef.current();
       }
     }
-  }, [cleanupLink, clearReconnectTimer]);
+  }, [cleanupLink, clearReconnectTimer, pullPlatformAttrs]);
 
   scheduleReconnectRef.current = (urgent = false) => {
     if (!enabledRef.current || !pinnedRef.current) return;
@@ -239,14 +265,36 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
   const connectNowRef = useRef(connectNow);
   connectNowRef.current = connectNow;
 
+  const verifyLink = useCallback(async () => {
+    if (!enabledRef.current || !pinnedRef.current) return;
+    const device = deviceRef.current;
+    if (!device) {
+      reconnectAttemptRef.current = 0;
+      clearReconnectTimer();
+      void connectNowRef.current();
+      return;
+    }
+    try {
+      if (!(await device.isConnected())) {
+        scheduleReconnectRef.current(true);
+        return;
+      }
+      await pullPlatformAttrs();
+    } catch {
+      scheduleReconnectRef.current(true);
+    }
+  }, [clearReconnectTimer, pullPlatformAttrs]);
+
+  const verifyLinkRef = useRef(verifyLink);
+  verifyLinkRef.current = verifyLink;
+
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
       if (nextState !== "active") return;
       if (!enabledRef.current || !pinnedRef.current) return;
-      if (deviceRef.current) return;
       reconnectAttemptRef.current = 0;
       clearReconnectTimer();
-      void connectNowRef.current();
+      void verifyLinkRef.current();
     });
     return () => sub.remove();
   }, [clearReconnectTimer]);
@@ -318,6 +366,28 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
   }, [phase]);
 
   useEffect(() => {
+    if (phase !== "connected" || !deviceRef.current) {
+      if (attrSyncRef.current) {
+        clearInterval(attrSyncRef.current);
+        attrSyncRef.current = null;
+      }
+      return;
+    }
+    if (attrSyncRef.current) return;
+
+    attrSyncRef.current = setInterval(() => {
+      void pullPlatformAttrs();
+    }, ATTR_SYNC_INTERVAL_MS);
+
+    return () => {
+      if (attrSyncRef.current) {
+        clearInterval(attrSyncRef.current);
+        attrSyncRef.current = null;
+      }
+    };
+  }, [phase, pullPlatformAttrs]);
+
+  useEffect(() => {
     if (!status?.session || phase !== "connected" || !deviceRef.current) {
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current);
@@ -345,6 +415,18 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
       }
     };
   }, [status?.session, phase]);
+
+  useEffect(() => {
+    const machine = pinned?.bleAdvertName?.trim();
+    if (phase === "connected" && machine) {
+      void startShiftBackgroundService(`Connected to ${machine}`);
+      return () => {
+        void stopShiftBackgroundService();
+      };
+    }
+    void stopShiftBackgroundService();
+    return undefined;
+  }, [phase, pinned?.bleAdvertName]);
 
   const sendCommand = useCallback(
     async (command: Parameters<typeof writeBleCommand>[1]) => {
