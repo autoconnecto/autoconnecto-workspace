@@ -20,6 +20,8 @@ import { ensureBluetoothPoweredOn } from "./bleReadiness";
 
 export type BleMachineStatus = {
   slot?: number;
+  /** Factory machine_code from platform (worker-facing label). */
+  code?: string;
   session?: boolean;
   jobs?: number;
   allow_run?: boolean;
@@ -48,6 +50,8 @@ export type BleCommand =
 export type ScannedMachine = {
   deviceId: string;
   bleAdvertName: string;
+  /** Human label from ESP status `code` (machine_code), e.g. TH160FRAME. */
+  machineLabel?: string;
   rssi: number | null;
 };
 
@@ -108,9 +112,15 @@ export function machineBleNameFromDevice(device: Device): string | null {
 
 export function bleAdvertNameFromSlot(slot: number | null | undefined): string | null {
   if (slot === null || slot === undefined || !Number.isFinite(Number(slot))) return null;
-  const n = Math.max(0, Math.floor(Number(slot)));
+  const n = Math.floor(Number(slot));
+  if (n <= 0) return null;
   const name = `AC-${String(n).padStart(3, "0")}`;
   return isMachineAdvertName(name) ? name : null;
+}
+
+export function machineLabelFromStatus(status: BleMachineStatus | null | undefined): string | null {
+  const code = String(status?.code || "").trim();
+  return code || null;
 }
 
 function sleep(ms: number) {
@@ -156,6 +166,22 @@ export async function prepareBleForScan() {
     /* ignore */
   }
   await sleep(400);
+}
+
+async function releaseEspAfterProbe() {
+  const ble = getBleManager();
+  try {
+    await ble.stopDeviceScan();
+  } catch {
+    /* ignore */
+  }
+  try {
+    const connected = await ble.connectedDevices([BLE_SERVICE_UUID]);
+    await Promise.all(connected.map((d) => d.cancelConnection().catch(() => {})));
+  } catch {
+    /* ignore */
+  }
+  await sleep(800);
 }
 
 async function requestAndroidBlePermissions() {
@@ -213,10 +239,38 @@ async function resolveMachineViaConnect(
     await linked.cancelConnection();
     const bleAdvertName = bleAdvertNameFromSlot(status?.slot ?? null);
     if (!bleAdvertName) return null;
-    return { deviceId, bleAdvertName, rssi };
+    return {
+      deviceId,
+      bleAdvertName,
+      machineLabel: machineLabelFromStatus(status) || undefined,
+      rssi,
+    };
   } catch {
     return null;
   }
+}
+
+/** Fill machineLabel (machine_code) for scan hits that only have AC-###. */
+async function enrichMachineLabels(machines: ScannedMachine[]): Promise<ScannedMachine[]> {
+  const out: ScannedMachine[] = [];
+  for (const row of machines) {
+    if (row.machineLabel) {
+      out.push(row);
+      continue;
+    }
+    const resolved = await resolveMachineViaConnect(row.deviceId, row.rssi);
+    await releaseEspAfterProbe();
+    if (resolved) {
+      out.push({
+        ...row,
+        bleAdvertName: resolved.bleAdvertName || row.bleAdvertName,
+        machineLabel: resolved.machineLabel || row.machineLabel,
+      });
+    } else {
+      out.push(row);
+    }
+  }
+  return out;
 }
 
 export type ScanNearbyResult = {
@@ -378,10 +432,20 @@ export async function scanNearbyMachinesDetailed(
         machines.push(resolved);
         publishScanProgress(onProgress, "resolving", machines, serviceHits);
       }
+      await releaseEspAfterProbe();
     }
   }
 
-  machines = machines.sort((a, b) => a.bleAdvertName.localeCompare(b.bleAdvertName));
+  if (machines.length) {
+    publishScanProgress(onProgress, "resolving", machines, serviceHits);
+    machines = await enrichMachineLabels(machines);
+  }
+
+  machines = machines.sort((a, b) => {
+    const aLabel = (a.machineLabel || a.bleAdvertName).toUpperCase();
+    const bLabel = (b.machineLabel || b.bleAdvertName).toUpperCase();
+    return aLabel.localeCompare(bLabel);
+  });
   publishScanProgress(onProgress, "done", machines, serviceHits);
   return { machines, serviceHits };
 }

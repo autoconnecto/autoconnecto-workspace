@@ -21,8 +21,10 @@
 #define BLE_STATUS_CHAR_UUID "a7c50003-0001-4000-8000-ac0000010003"
 
 #define BLE_ADV_RECONCILE_MS 5000UL
+/** After connect without clean disconnect (Android), resume advertising quickly for scan. */
+#define BLE_STALE_GATT_MS 8000UL
+#define BLE_BOOT_SLOT_WAIT_MS 12000UL
 #define STATUS_POLL_MS 3000UL
-#define DEFAULT_MACHINE_SLOT 1
 
 HardwareSerial LinkSerial(1);
 
@@ -34,12 +36,13 @@ static bool pendingStatusNotify = false;
 static bool pendingBleCmdReady = false;
 static bool pendingSlotReinit = false;
 static char pendingBleCmd[256];
-static char statusJsonBuf[384];
+static char statusJsonBuf[512];
 
 static int machineSlot = 0;
 static unsigned long lastAdvCheckMs = 0;
 static unsigned long lastBleStatusLogMs = 0;
 static unsigned long lastStatusPollMs = 0;
+static unsigned long lastGattActivityMs = 0;
 static bool linkPeerAlive = false;
 static uint32_t linkRxByteCount = 0;
 
@@ -117,7 +120,7 @@ static void pollLinkRx() {
     }
     if (!line.startsWith("{")) continue;
 
-    StaticJsonDocument<384> doc;
+    StaticJsonDocument<512> doc;
     if (deserializeJson(doc, line)) {
       Serial.println("[LINK] bad JSON");
       continue;
@@ -139,7 +142,7 @@ static void syncStatusNotify() {
     pendingStatusNotify = true;
     return;
   }
-  StaticJsonDocument<384> doc;
+  StaticJsonDocument<512> doc;
   if (deserializeJson(doc, statusJsonBuf)) return;
   doc["ble_linked"] = bleClientConnected;
   const size_t n = serializeJson(doc, statusJsonBuf, sizeof(statusJsonBuf));
@@ -152,19 +155,23 @@ class BleServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer*, NimBLEConnInfo&) override {
     bleClientConnected = true;
     pendingStatusNotify = true;
+    touchGattActivity();
     linkRequestStatus();
     Serial.println("[BLE] client connected");
   }
   void onDisconnect(NimBLEServer*, NimBLEConnInfo&, int reason) override {
     bleClientConnected = false;
+    lastGattActivityMs = 0;
     pendingStatusNotify = true;
     Serial.print("[BLE] disconnected reason=");
     Serial.println(reason);
+    restartBleAdvertising("on_disconnect");
   }
 };
 
 class BleCmdCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo&) override {
+    touchGattActivity();
     const std::string& v = pCharacteristic->getValue();
     if (!v.length() || v.length() >= sizeof(pendingBleCmd)) return;
     memcpy(pendingBleCmd, v.data(), v.length());
@@ -173,20 +180,47 @@ class BleCmdCallbacks : public NimBLECharacteristicCallbacks {
   }
 };
 
+class BleStatusReadCallbacks : public NimBLECharacteristicCallbacks {
+  void onRead(NimBLECharacteristic*, NimBLEConnInfo&) override {
+    touchGattActivity();
+  }
+};
+
 static BleServerCallbacks bleServerCallbacks;
 static BleCmdCallbacks bleCmdCallbacks;
+static BleStatusReadCallbacks bleStatusReadCallbacks;
 
 static void seedDefaultStatusChar() {
   if (!statusChar) return;
   StaticJsonDocument<256> doc;
-  const int slot = machineSlot > 0 ? machineSlot : DEFAULT_MACHINE_SLOT;
-  doc["slot"] = slot;
+  if (machineSlot > 0) doc["slot"] = machineSlot;
   doc["session"] = false;
   doc["jobs"] = 0;
   doc["allow_run"] = true;
   doc["ble_linked"] = false;
   const size_t n = serializeJson(doc, statusJsonBuf, sizeof(statusJsonBuf));
   if (n) statusChar->setValue((uint8_t*)statusJsonBuf, n);
+}
+
+static void touchGattActivity() {
+  lastGattActivityMs = millis();
+}
+
+static void dropAllBlePeers(const char* reason) {
+  if (!bleServer) return;
+  const uint8_t peerCount = bleServer->getConnectedCount();
+  if (!peerCount) return;
+  Serial.print("[BLE] drop ");
+  Serial.print(peerCount);
+  Serial.print(" peer(s): ");
+  Serial.println(reason);
+  for (uint8_t i = 0; i < peerCount; i++) {
+    const NimBLEConnInfo peer = bleServer->getPeerInfo(i);
+    if (peer.getConnHandle() != 0xFFFF && peer.getConnHandle() != 0) {
+      bleServer->disconnect(peer);
+    }
+  }
+  bleClientConnected = false;
 }
 
 static void restartBleAdvertising(const char* reason) {
@@ -205,7 +239,11 @@ static void restartBleAdvertising(const char* reason) {
 static void reconcileBleAdvertising() {
   if (!bleInited || !bleServer) return;
 
+  const unsigned long now = millis();
   const uint8_t peerCount = bleServer->getConnectedCount();
+  NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+  const bool advertising = adv && adv->isAdvertising();
+
   if (peerCount == 0) {
     if (bleClientConnected) {
       Serial.println("[BLE] ghost link cleared — no GATT peers");
@@ -216,6 +254,17 @@ static void reconcileBleAdvertising() {
   }
 
   bleClientConnected = true;
+
+  // NimBLE can report a peer while advert is off (Android ghost link). Phone scan needs adv=yes.
+  if (!advertising) {
+    const bool stale =
+        lastGattActivityMs == 0 ||
+        (now - lastGattActivityMs) >= BLE_STALE_GATT_MS;
+    if (stale) {
+      dropAllBlePeers("stale_or_ghost");
+      restartBleAdvertising("after_stale_drop");
+    }
+  }
 }
 
 static bool startBleAdvertising(NimBLEAdvertising* adv, const String& name) {
@@ -258,6 +307,7 @@ static void initBle() {
   cmdChar->setCallbacks(&bleCmdCallbacks);
   statusChar = service->createCharacteristic(
     BLE_STATUS_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+  statusChar->setCallbacks(&bleStatusReadCallbacks);
   seedDefaultStatusChar();
 
   service->start();
@@ -290,14 +340,17 @@ static void processSlotReinit() {
   if (!pendingSlotReinit || !bleInited) return;
   pendingSlotReinit = false;
   Serial.println("[BLE] reinit for new machine slot");
+  dropAllBlePeers("slot_reinit");
   NimBLEDevice::deinit(true);
   bleInited = false;
   bleServer = nullptr;
   statusChar = nullptr;
   bleClientConnected = false;
+  lastGattActivityMs = 0;
   delay(200);
   initBle();
   beginLinkUart();
+  reconcileBleAdvertising();
 }
 
 /** 5 s PING test before BLE — same code path as link_test.ino */
@@ -330,6 +383,31 @@ static void preBleLinkTest() {
   }
 }
 
+/** Wait for WiFi board status so we advertise AC-### from platform, not a hardcoded slot. */
+static void waitForInitialSlotFromWifi() {
+  linkSendLine("{\"type\":\"hello\",\"board\":\"ble\"}");
+  linkRequestStatus();
+
+  const unsigned long deadline = millis() + BLE_BOOT_SLOT_WAIT_MS;
+  unsigned long lastReq = 0;
+  while (millis() < deadline && machineSlot <= 0) {
+    pollLinkRx();
+    if (machineSlot > 0) break;
+    const unsigned long now = millis();
+    if (now - lastReq >= 2000UL) {
+      lastReq = now;
+      linkRequestStatus();
+    }
+    delay(5);
+  }
+  if (machineSlot > 0) {
+    Serial.print("[BLE] slot from WiFi before advert: ");
+    Serial.println(machineSlot);
+  } else {
+    Serial.println("[BLE] no slot yet — advertising AC-UNSET until WiFi/MQTT sync");
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   delay(300);
@@ -338,16 +416,16 @@ void setup() {
   WiFi.mode(WIFI_OFF);
   esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
 
-#if DEFAULT_MACHINE_SLOT > 0
-  machineSlot = DEFAULT_MACHINE_SLOT;
-#endif
-
   beginLinkUart();
   preBleLinkTest();
+  waitForInitialSlotFromWifi();
 
   initBle();
   beginLinkUart();
   Serial.println("[LINK] UART reinit after BLE");
+
+  lastGattActivityMs = 0;
+  reconcileBleAdvertising();
 
   linkSendLine("{\"type\":\"hello\",\"board\":\"ble\"}");
   linkRequestStatus();
