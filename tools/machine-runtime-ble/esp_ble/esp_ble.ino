@@ -21,8 +21,12 @@
 #define BLE_STATUS_CHAR_UUID "a7c50003-0001-4000-8000-ac0000010003"
 
 #define BLE_ADV_RECONCILE_MS 5000UL
-/** After connect without clean disconnect (Android), resume advertising quickly for scan. */
-#define BLE_STALE_GATT_MS 8000UL
+/**
+ * Drop only after long silence. Advertising is OFF while a phone is connected —
+ * treating that as "stale" at 8s caused connect→drop→reconnect loops.
+ * Must be > worker heartbeat (60s) and status poll gaps.
+ */
+#define BLE_STALE_GATT_MS 120000UL
 #define BLE_BOOT_SLOT_WAIT_MS 12000UL
 #define STATUS_POLL_MS 3000UL
 
@@ -49,6 +53,8 @@ static uint32_t linkRxByteCount = 0;
 static bool onAppLoopThread() {
   return xPortGetCoreID() == ARDUINO_RUNNING_CORE;
 }
+
+static void touchGattActivity();
 
 static String bleAdvertName() {
   char buf[12];
@@ -99,7 +105,10 @@ static void applyStatusFromDoc(JsonDocument& doc) {
     return;
   }
   statusChar->setValue((uint8_t*)statusJsonBuf, n);
-  if (bleClientConnected) statusChar->notify();
+  if (bleClientConnected) {
+    touchGattActivity();
+    statusChar->notify();
+  }
 }
 
 /** Identical RX path to link_test.ino */
@@ -148,7 +157,10 @@ static void syncStatusNotify() {
   const size_t n = serializeJson(doc, statusJsonBuf, sizeof(statusJsonBuf));
   if (!n) return;
   statusChar->setValue((uint8_t*)statusJsonBuf, n);
-  if (bleClientConnected) statusChar->notify();
+  if (bleClientConnected) {
+    touchGattActivity();
+    statusChar->notify();
+  }
 }
 
 class BleServerCallbacks : public NimBLEServerCallbacks {
@@ -255,15 +267,12 @@ static void reconcileBleAdvertising() {
 
   bleClientConnected = true;
 
-  // NimBLE can report a peer while advert is off (Android ghost link). Phone scan needs adv=yes.
-  if (!advertising) {
-    const bool stale =
-        lastGattActivityMs == 0 ||
-        (now - lastGattActivityMs) >= BLE_STALE_GATT_MS;
-    if (stale) {
-      dropAllBlePeers("stale_or_ghost");
-      restartBleAdvertising("after_stale_drop");
-    }
+  // Advertising is normally OFF while a real phone is connected — do NOT treat that
+  // as stale. Only drop after long silence (ghost Android links that never traffic).
+  if (!advertising && lastGattActivityMs > 0 &&
+      (now - lastGattActivityMs) >= BLE_STALE_GATT_MS) {
+    dropAllBlePeers("stale_gatt");
+    restartBleAdvertising("after_stale_drop");
   }
 }
 

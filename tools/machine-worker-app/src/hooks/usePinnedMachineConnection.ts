@@ -281,9 +281,16 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
         scheduleReconnectRef.current(true);
         return;
       }
-      await pullPlatformAttrs();
+      // Best-effort sync — do not reconnect on MQTT/attr write glitches.
+      void pullPlatformAttrs();
     } catch {
-      scheduleReconnectRef.current(true);
+      try {
+        if (!(await device.isConnected())) {
+          scheduleReconnectRef.current(true);
+        }
+      } catch {
+        scheduleReconnectRef.current(true);
+      }
     }
   }, [clearReconnectTimer, pullPlatformAttrs]);
 
@@ -447,12 +454,27 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
           scheduleReconnectRef.current(true);
           return;
         }
-        if (lastStatusRef.current?.session) {
-          await writeBleCommand(device, { cmd: "heartbeat" });
+        // Keep link warm; never treat a single write failure as a hard disconnect.
+        try {
+          if (lastStatusRef.current?.session) {
+            await writeBleCommand(device, { cmd: "heartbeat" });
+          }
+        } catch {
+          /* ignore */
         }
-        await pullPlatformAttrs();
+        try {
+          await pullPlatformAttrs();
+        } catch {
+          /* ignore */
+        }
       } catch {
-        scheduleReconnectRef.current(true);
+        try {
+          if (!(await device.isConnected())) {
+            scheduleReconnectRef.current(true);
+          }
+        } catch {
+          scheduleReconnectRef.current(true);
+        }
       }
     });
 
