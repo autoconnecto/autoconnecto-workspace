@@ -47,6 +47,7 @@ static unsigned long lastAdvCheckMs = 0;
 static unsigned long lastBleStatusLogMs = 0;
 static unsigned long lastStatusPollMs = 0;
 static unsigned long lastGattActivityMs = 0;
+static unsigned long lastNotifyMs = 0;
 static bool linkPeerAlive = false;
 static uint32_t linkRxByteCount = 0;
 
@@ -99,13 +100,25 @@ static void applyStatusFromDoc(JsonDocument& doc) {
     machineSlot = newSlot;
   }
   doc["ble_linked"] = bleClientConnected;
-  const size_t n = serializeJson(doc, statusJsonBuf, sizeof(statusJsonBuf));
+
+  char nextBuf[512];
+  const size_t n = serializeJson(doc, nextBuf, sizeof(nextBuf));
   if (!n || !statusChar || !onAppLoopThread()) {
+    if (n && n < sizeof(statusJsonBuf)) {
+      memcpy(statusJsonBuf, nextBuf, n + 1);
+    }
     pendingStatusNotify = true;
     return;
   }
+
+  const bool changed = strncmp(statusJsonBuf, nextBuf, sizeof(statusJsonBuf)) != 0;
+  memcpy(statusJsonBuf, nextBuf, n + 1);
   statusChar->setValue((uint8_t*)statusJsonBuf, n);
-  if (bleClientConnected) {
+
+  // Throttle notifies — flooding notify() every UART status (~2–3s) drops Android links.
+  const unsigned long now = millis();
+  if (bleClientConnected && changed && (now - lastNotifyMs) >= 2000UL) {
+    lastNotifyMs = now;
     touchGattActivity();
     statusChar->notify();
   }
@@ -158,18 +171,22 @@ static void syncStatusNotify() {
   if (!n) return;
   statusChar->setValue((uint8_t*)statusJsonBuf, n);
   if (bleClientConnected) {
-    touchGattActivity();
-    statusChar->notify();
+    const unsigned long now = millis();
+    if ((now - lastNotifyMs) >= 2000UL) {
+      lastNotifyMs = now;
+      touchGattActivity();
+      statusChar->notify();
+    }
   }
 }
 
 class BleServerCallbacks : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
+  void onConnect(NimBLEServer*, NimBLEConnInfo&) override {
     bleClientConnected = true;
     pendingStatusNotify = true;
     touchGattActivity();
-    // Longer supervision timeout reduces Android drop under GATT traffic (unit: 10 ms).
-    pServer->updateConnParams(connInfo.getConnHandle(), 24, 40, 0, 600);
+    // Do not call updateConnParams here — short supervision timeouts caused
+    // Android to drop the link every ~10–15s under GATT traffic.
     linkRequestStatus();
     Serial.println("[BLE] client connected");
   }
@@ -269,13 +286,10 @@ static void reconcileBleAdvertising() {
 
   bleClientConnected = true;
 
-  // Advertising is normally OFF while a real phone is connected — do NOT treat that
-  // as stale. Only drop after long silence (ghost Android links that never traffic).
-  if (!advertising && lastGattActivityMs > 0 &&
-      (now - lastGattActivityMs) >= BLE_STALE_GATT_MS) {
-    dropAllBlePeers("stale_gatt");
-    restartBleAdvertising("after_stale_drop");
-  }
+  // Never drop a live peer from reconcile — only restore advertising when idle.
+  // Stale/ghost cleanup was causing reconnect loops on the worker phone.
+  (void)advertising;
+  (void)now;
 }
 
 static bool startBleAdvertising(NimBLEAdvertising* adv, const String& name) {
@@ -464,7 +478,7 @@ void loop() {
     lastBleStatusLogMs = now;
     logBleStatus("periodic");
   }
-  if (now - lastStatusPollMs >= STATUS_POLL_MS) {
+  if (now - lastStatusPollMs >= (bleClientConnected ? 10000UL : STATUS_POLL_MS)) {
     lastStatusPollMs = now;
     linkRequestStatus();
   }
