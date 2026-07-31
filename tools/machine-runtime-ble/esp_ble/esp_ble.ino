@@ -164,10 +164,12 @@ static void syncStatusNotify() {
 }
 
 class BleServerCallbacks : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer*, NimBLEConnInfo&) override {
+  void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
     bleClientConnected = true;
     pendingStatusNotify = true;
     touchGattActivity();
+    // Longer supervision timeout reduces Android drop under GATT traffic (unit: 10 ms).
+    pServer->updateConnParams(connInfo.getConnHandle(), 24, 40, 0, 600);
     linkRequestStatus();
     Serial.println("[BLE] client connected");
   }

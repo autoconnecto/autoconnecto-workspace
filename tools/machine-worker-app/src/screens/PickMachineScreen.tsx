@@ -35,7 +35,7 @@ export function PickMachineScreen() {
       setScanPhase("scanning");
       setError("");
 
-      const resetManager = options?.resetManager ?? true;
+      const resetManager = options?.resetManager ?? failStreakRef.current >= 2;
 
       try {
         const { machines: rows, serviceHits } = await scanNearbyMachinesDetailed({

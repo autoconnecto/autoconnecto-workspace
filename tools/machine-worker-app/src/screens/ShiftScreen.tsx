@@ -46,16 +46,28 @@ export function ShiftScreen() {
     onDeviceId,
   });
 
-  // Refresh worker-facing label from ESP status `code` (machine_code).
+  // Show live machine_code from status; persist label once (do not thrash pinMachine).
   useEffect(() => {
     const code = String(status?.code || "").trim();
-    if (!pinned || !code || pinned.machineLabel === code) return;
+    if (!pinned?.bleAdvertName || !code) return;
+    if (pinned.machineLabel === code) return;
+    let cancelled = false;
     const next = { ...pinned, machineLabel: code };
     void (async () => {
       await savePinnedMachine(next);
-      await pinMachine(next);
+      if (!cancelled) await pinMachine(next);
     })();
-  }, [status?.code, pinned, pinMachine]);
+    return () => {
+      cancelled = true;
+    };
+    // Only when code arrives/changes — not on every pinned object identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status?.code, pinned?.bleAdvertName, pinned?.machineLabel, pinMachine]);
+
+  const displayMachineName =
+    String(status?.code || "").trim() ||
+    pinned?.machineLabel ||
+    pinned?.bleAdvertName;
 
   const workerId = profile?.workerId || "";
   const sessionMine = isSessionOwnedByWorker(status, workerId);
@@ -246,9 +258,11 @@ export function ShiftScreen() {
           <Text style={styles.brand}>Autoconnecto Worker</Text>
           <Text style={styles.version}>v{appVersion}</Text>
           <Text style={styles.machine}>
-            {pinned?.machineLabel || pinned?.bleAdvertName}
+            {displayMachineName}
           </Text>
-          {pinned?.machineLabel ? (
+          {displayMachineName &&
+          pinned?.bleAdvertName &&
+          displayMachineName !== pinned.bleAdvertName ? (
             <Text style={styles.machineSub}>{pinned.bleAdvertName}</Text>
           ) : null}
           <Text style={styles.worker}>

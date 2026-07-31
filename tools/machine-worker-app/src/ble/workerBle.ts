@@ -250,29 +250,6 @@ async function resolveMachineViaConnect(
   }
 }
 
-/** Fill machineLabel (machine_code) for scan hits that only have AC-###. */
-async function enrichMachineLabels(machines: ScannedMachine[]): Promise<ScannedMachine[]> {
-  const out: ScannedMachine[] = [];
-  for (const row of machines) {
-    if (row.machineLabel) {
-      out.push(row);
-      continue;
-    }
-    const resolved = await resolveMachineViaConnect(row.deviceId, row.rssi);
-    await releaseEspAfterProbe();
-    if (resolved) {
-      out.push({
-        ...row,
-        bleAdvertName: resolved.bleAdvertName || row.bleAdvertName,
-        machineLabel: resolved.machineLabel || row.machineLabel,
-      });
-    } else {
-      out.push(row);
-    }
-  }
-  return out;
-}
-
 export type ScanNearbyResult = {
   machines: ScannedMachine[];
   /** Our GATT service seen in scan but advert name missing (Android quirk). */
@@ -436,10 +413,8 @@ export async function scanNearbyMachinesDetailed(
     }
   }
 
-  if (machines.length) {
-    publishScanProgress(onProgress, "resolving", machines, serviceHits);
-    machines = await enrichMachineLabels(machines);
-  }
+  // Do NOT enrich named AC-### hits with connect/read — that churn caused shift reconnect loops.
+  // Machine name (code) is applied after the worker pins and connects on the shift screen.
 
   machines = machines.sort((a, b) => {
     const aLabel = (a.machineLabel || a.bleAdvertName).toUpperCase();

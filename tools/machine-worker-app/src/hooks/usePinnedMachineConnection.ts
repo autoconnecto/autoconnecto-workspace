@@ -172,9 +172,10 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
     try {
       await cleanupLink();
       const attempt = reconnectAttemptRef.current;
+      // Avoid BLE stack resets / full rescan on the first few reconnects — that caused flapping.
       const device = await connectPinnedMachine(pin, {
-        resetBle: attempt >= 1,
-        skipCachedDeviceId: attempt >= 1,
+        resetBle: attempt >= 5,
+        skipCachedDeviceId: attempt >= 3,
       });
       deviceRef.current = device;
       onDeviceIdRef.current?.(device.id);
@@ -199,10 +200,11 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
         }
         if (enabledRef.current && pinnedRef.current) {
           setPhase("reconnecting");
-          reconnectAttemptRef.current = 0;
+          // Keep attempt counter — do not reset to 0 on every drop (prevents scan/reset thrash).
           setTimeout(() => {
             if (!enabledRef.current || !pinnedRef.current || deviceRef.current) return;
-            scheduleReconnectRef.current(true);
+            if (connectingRef.current) return;
+            scheduleReconnectRef.current(false);
           }, RECONNECT_AFTER_DISCONNECT_MS);
         } else {
           setPhase("idle");
@@ -224,12 +226,7 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
         setStatus(initial);
       }
 
-      try {
-        await pullPlatformAttrs();
-      } catch {
-        /* MQTT sync is best-effort; periodic sync also runs while connected */
-      }
-
+      // Defer platform sync — running sync_attrs immediately after connect stressed the link.
       reconnectAttemptRef.current = 0;
       setPhase("connected");
     } catch (err) {
@@ -324,8 +321,8 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
       if (connectingRef.current) return;
       if (deviceRef.current) return;
       if (reconnectTimerRef.current) return;
-      scheduleReconnectRef.current(true);
-    }, 5000);
+      scheduleReconnectRef.current(false);
+    }, 10000);
 
     return () => clearInterval(id);
   }, [enabled, pinned?.bleAdvertName]);
@@ -445,35 +442,29 @@ export function usePinnedMachineConnection({ pinned, enabled, profile, onDeviceI
       const device = deviceRef.current;
       if (!device) {
         if (!connectingRef.current && !reconnectTimerRef.current) {
-          scheduleReconnectRef.current(true);
+          scheduleReconnectRef.current(false);
         }
         return;
       }
       try {
         if (!(await device.isConnected())) {
-          scheduleReconnectRef.current(true);
+          scheduleReconnectRef.current(false);
           return;
         }
-        // Keep link warm; never treat a single write failure as a hard disconnect.
-        try {
-          if (lastStatusRef.current?.session) {
+        if (lastStatusRef.current?.session) {
+          try {
             await writeBleCommand(device, { cmd: "heartbeat" });
+          } catch {
+            /* keep link; next tick retries */
           }
-        } catch {
-          /* ignore */
-        }
-        try {
-          await pullPlatformAttrs();
-        } catch {
-          /* ignore */
         }
       } catch {
         try {
           if (!(await device.isConnected())) {
-            scheduleReconnectRef.current(true);
+            scheduleReconnectRef.current(false);
           }
         } catch {
-          scheduleReconnectRef.current(true);
+          scheduleReconnectRef.current(false);
         }
       }
     });
