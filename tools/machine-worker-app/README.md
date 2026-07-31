@@ -15,7 +15,7 @@ Operator app for machine sessions. **No cloud login** — phone talks to ESP32 o
 | Where | Link |
 |-------|------|
 | **Platform (logged in)** | Top bar → **Worker app** |
-| **This repo** | [`autoconnecto-worker.apk`](./autoconnecto-worker.apk) (v1.2.9) |
+| **This repo** | [`autoconnecto-worker.apk`](./autoconnecto-worker.apk) (v1.3.0) |
 | **GitHub Release** | https://github.com/autoconnecto/autoconnecto-workspace/releases/latest/download/autoconnecto-worker.apk |
 
 All releases: https://github.com/autoconnecto/autoconnecto-workspace/releases
@@ -23,6 +23,12 @@ All releases: https://github.com/autoconnecto/autoconnecto-workspace/releases
 See also [`../README.md`](../README.md) (tools index).
 
 ## Build / release
+
+### v1.3.0
+
+- Scan list and shift screen show **machine name** (`machine_code`) with **AC-###** as secondary hint.
+- More reliable BLE scan (manager reset, longer windows, release after identify).
+- Requires WiFi ESP with `code` in BLE status (SDK string attrs + `esp_wifi_new`).
 
 ### v1.2.9
 
