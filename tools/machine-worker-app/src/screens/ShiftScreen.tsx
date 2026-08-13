@@ -46,29 +46,6 @@ export function ShiftScreen() {
     onDeviceId,
   });
 
-  // Show live machine_code from status; persist label once (do not thrash pinMachine).
-  useEffect(() => {
-    const code = String(status?.code || "").trim();
-    if (!pinned?.bleAdvertName || !code) return;
-    if (pinned.machineLabel === code) return;
-    let cancelled = false;
-    const next = { ...pinned, machineLabel: code };
-    void (async () => {
-      await savePinnedMachine(next);
-      if (!cancelled) await pinMachine(next);
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // Only when code arrives/changes — not on every pinned object identity change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status?.code, pinned?.bleAdvertName, pinned?.machineLabel, pinMachine]);
-
-  const displayMachineName =
-    String(status?.code || "").trim() ||
-    pinned?.machineLabel ||
-    pinned?.bleAdvertName;
-
   const workerId = profile?.workerId || "";
   const sessionMine = isSessionOwnedByWorker(status, workerId);
   const machineBusy = isMachineBusyForWorker(status, workerId);
@@ -257,14 +234,7 @@ export function ShiftScreen() {
         <View style={styles.top}>
           <Text style={styles.brand}>Autoconnecto Worker</Text>
           <Text style={styles.version}>v{appVersion}</Text>
-          <Text style={styles.machine}>
-            {displayMachineName}
-          </Text>
-          {displayMachineName &&
-          pinned?.bleAdvertName &&
-          displayMachineName !== pinned.bleAdvertName ? (
-            <Text style={styles.machineSub}>{pinned.bleAdvertName}</Text>
-          ) : null}
+          <Text style={styles.machine}>{pinned?.bleAdvertName}</Text>
           <Text style={styles.worker}>
             {profile?.workerName} · {profile?.workerId}
           </Text>
@@ -438,7 +408,6 @@ const styles = StyleSheet.create({
   },
   version: { color: "#64748b", fontSize: 10, fontWeight: "600", marginBottom: spacing.xs },
   machine: { color: colors.textOnDark, fontSize: 34, fontWeight: "800" },
-  machineSub: { color: "#94a3b8", fontSize: 14, fontWeight: "600", marginTop: 2 },
   worker: { color: "#94a3b8", marginTop: spacing.xs, fontSize: 15 },
   linkRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
   linkDot: { width: 10, height: 10, borderRadius: 5 },

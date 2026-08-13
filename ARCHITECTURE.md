@@ -7,7 +7,7 @@ This document reflects the architecture confirmed from the current codebase. Any
 ### Backend (`backend/`) — confirmed
 
 - NestJS application (`src/main.ts`, `src/app.module.ts`)
-- REST endpoints via controllers
+- REST endpoints via controllers (including `/api/reports` and user invite `/api/users/:userId/invite/*`)
 - **Browser realtime** via Socket.IO gateway (`@WebSocketGateway`, path `/socket.io`)
 - **Device raw WebSocket** server (standalone `ws` server on `DEVICE_WS_PORT`)
 - MQTT services (multiple clients) for telemetry ingest, RPC/ack consume, attribute flows, and command publishing

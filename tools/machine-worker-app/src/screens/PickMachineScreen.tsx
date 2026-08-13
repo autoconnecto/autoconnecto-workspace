@@ -35,7 +35,7 @@ export function PickMachineScreen() {
       setScanPhase("scanning");
       setError("");
 
-      const resetManager = options?.resetManager ?? failStreakRef.current >= 2;
+      const resetManager = options?.resetManager ?? failStreakRef.current >= 1;
 
       try {
         const { machines: rows, serviceHits } = await scanNearbyMachinesDetailed({
@@ -101,7 +101,6 @@ export function PickMachineScreen() {
     try {
       await pinMachine({
         bleAdvertName: item.bleAdvertName,
-        machineLabel: item.machineLabel,
         deviceId: item.deviceId,
       });
       failStreakRef.current = 0;
@@ -129,9 +128,8 @@ export function PickMachineScreen() {
           <Text style={styles.version}>v{appVersion}</Text>
           <Text style={styles.title}>Select your machine</Text>
           <Text style={styles.subtitle}>
-            {profile?.workerName} ({profile?.workerId}) — pick your press by{" "}
-            <Text style={{ fontWeight: "700", color: colors.textOnDark }}>machine name</Text>
-            . Radio id (AC-###) is shown as a small hint. Saved until you change machine.
+            {profile?.workerName} ({profile?.workerId}) — pick the floor label on the press (AC-001,
+            AC-002…). Saved on this phone until you change machine.
           </Text>
         </View>
 
@@ -154,7 +152,7 @@ export function PickMachineScreen() {
         {scanning && !machines.length ? (
           <View style={styles.scanningBox}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.scanningText}>Looking for nearby machines…</Text>
+            <Text style={styles.scanningText}>Looking for AC-001, AC-002…</Text>
           </View>
         ) : null}
 
@@ -177,12 +175,9 @@ export function PickMachineScreen() {
                 <Text style={styles.rowIconText}>⚙</Text>
               </View>
               <View style={styles.rowBody}>
-                <Text style={styles.rowTitle}>
-                  {item.machineLabel || item.bleAdvertName}
-                </Text>
+                <Text style={styles.rowTitle}>{item.bleAdvertName}</Text>
                 <Text style={styles.rowMeta}>
-                  {item.machineLabel ? `${item.bleAdvertName} · ` : ""}
-                  Signal {item.rssi ?? "—"} dBm · tap to assign
+                  Signal {item.rssi ?? "—"} dBm · tap to assign this press
                 </Text>
               </View>
               {pinning === item.bleAdvertName ? (

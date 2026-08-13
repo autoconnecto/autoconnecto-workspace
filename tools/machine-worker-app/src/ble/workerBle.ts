@@ -20,8 +20,6 @@ import { ensureBluetoothPoweredOn } from "./bleReadiness";
 
 export type BleMachineStatus = {
   slot?: number;
-  /** Factory machine_code from platform (worker-facing label). */
-  code?: string;
   session?: boolean;
   jobs?: number;
   allow_run?: boolean;
@@ -50,8 +48,6 @@ export type BleCommand =
 export type ScannedMachine = {
   deviceId: string;
   bleAdvertName: string;
-  /** Human label from ESP status `code` (machine_code), e.g. TH160FRAME. */
-  machineLabel?: string;
   rssi: number | null;
 };
 
@@ -112,15 +108,9 @@ export function machineBleNameFromDevice(device: Device): string | null {
 
 export function bleAdvertNameFromSlot(slot: number | null | undefined): string | null {
   if (slot === null || slot === undefined || !Number.isFinite(Number(slot))) return null;
-  const n = Math.floor(Number(slot));
-  if (n <= 0) return null;
+  const n = Math.max(0, Math.floor(Number(slot)));
   const name = `AC-${String(n).padStart(3, "0")}`;
   return isMachineAdvertName(name) ? name : null;
-}
-
-export function machineLabelFromStatus(status: BleMachineStatus | null | undefined): string | null {
-  const code = String(status?.code || "").trim();
-  return code || null;
 }
 
 function sleep(ms: number) {
@@ -166,22 +156,6 @@ export async function prepareBleForScan() {
     /* ignore */
   }
   await sleep(400);
-}
-
-async function releaseEspAfterProbe() {
-  const ble = getBleManager();
-  try {
-    await ble.stopDeviceScan();
-  } catch {
-    /* ignore */
-  }
-  try {
-    const connected = await ble.connectedDevices([BLE_SERVICE_UUID]);
-    await Promise.all(connected.map((d) => d.cancelConnection().catch(() => {})));
-  } catch {
-    /* ignore */
-  }
-  await sleep(800);
 }
 
 async function requestAndroidBlePermissions() {
@@ -239,12 +213,7 @@ async function resolveMachineViaConnect(
     await linked.cancelConnection();
     const bleAdvertName = bleAdvertNameFromSlot(status?.slot ?? null);
     if (!bleAdvertName) return null;
-    return {
-      deviceId,
-      bleAdvertName,
-      machineLabel: machineLabelFromStatus(status) || undefined,
-      rssi,
-    };
+    return { deviceId, bleAdvertName, rssi };
   } catch {
     return null;
   }
@@ -409,18 +378,10 @@ export async function scanNearbyMachinesDetailed(
         machines.push(resolved);
         publishScanProgress(onProgress, "resolving", machines, serviceHits);
       }
-      await releaseEspAfterProbe();
     }
   }
 
-  // Do NOT enrich named AC-### hits with connect/read — that churn caused shift reconnect loops.
-  // Machine name (code) is applied after the worker pins and connects on the shift screen.
-
-  machines = machines.sort((a, b) => {
-    const aLabel = (a.machineLabel || a.bleAdvertName).toUpperCase();
-    const bLabel = (b.machineLabel || b.bleAdvertName).toUpperCase();
-    return aLabel.localeCompare(bLabel);
-  });
+  machines = machines.sort((a, b) => a.bleAdvertName.localeCompare(b.bleAdvertName));
   publishScanProgress(onProgress, "done", machines, serviceHits);
   return { machines, serviceHits };
 }
