@@ -1,0 +1,22 @@
+{
+  "scope": "SHARED",
+  "description": "Default alarm limits for a 100 kVA, 415 V distribution transformer. Change rated_kva and current_high per rating before a live demo.",
+  "attributes": {
+    "rated_kva": 100,
+    "voltage_high_ln": 253,
+    "voltage_low_ln": 216,
+    "current_high": 150,
+    "load_pct_high": 90,
+    "pf_low": 0.8,
+    "freq_high": 51.5,
+    "freq_low": 48.5,
+    "imbalance_pct_high": 20
+  },
+  "perRatingCurrentHigh": {
+    "25": 50,
+    "63": 100,
+    "100": 150,
+    "250": 400,
+    "500": 800
+  }
+}

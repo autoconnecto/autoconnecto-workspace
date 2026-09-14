@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Autoconnecto Factory Floor — Customer Pilot Guide</title>
+  <style>
+    :root {
+      --ink: #1a1f24;
+      --muted: #5c6670;
+      --line: #d8dee4;
+      --accent: #0b6e4f;
+      --accent-soft: #e8f5f0;
+      --warn: #8a5a00;
+      --warn-bg: #fff6e5;
+      --paper: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #eef1f4;
+      font: 15px/1.55 "Segoe UI", system-ui, sans-serif;
+    }
+    .page {
+      max-width: 820px;
+      margin: 24px auto;
+      background: var(--paper);
+      padding: 48px 56px;
+      box-shadow: 0 8px 28px rgba(20, 30, 40, 0.08);
+    }
+    header {
+      border-bottom: 3px solid var(--accent);
+      padding-bottom: 20px;
+      margin-bottom: 28px;
+    }
+    .brand {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 700;
+      margin: 0 0 8px;
+    }
+    h1 {
+      font-size: 28px;
+      line-height: 1.2;
+      margin: 0 0 10px;
+      font-weight: 700;
+    }
+    .lede {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .chip {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    h2 {
+      font-size: 18px;
+      margin: 32px 0 12px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      color: var(--ink);
+    }
+    h2:first-of-type { border-top: 0; }
+    h3 { font-size: 15px; margin: 20px 0 8px; }
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 0 0 14px; padding-left: 1.25rem; }
+    li { margin-bottom: 6px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f4f7f9;
+      font-weight: 600;
+    }
+    .callout {
+      background: var(--accent-soft);
+      border-left: 4px solid var(--accent);
+      padding: 12px 14px;
+      margin: 14px 0;
+    }
+    .warn {
+      background: var(--warn-bg);
+      border-left: 4px solid var(--warn);
+      padding: 12px 14px;
+      margin: 14px 0;
+    }
+    .diagram {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 12px;
+      background: #f7f9fb;
+      border: 1px solid var(--line);
+      padding: 14px;
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.4;
+      margin: 12px 0 18px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .card {
+      border: 1px solid var(--line);
+      padding: 14px;
+      border-radius: 8px;
+    }
+    .card h3 { margin-top: 0; }
+    footer {
+      margin-top: 36px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .actions {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #eef1f4;
+      padding: 10px 16px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      border-bottom: 1px solid var(--line);
+    }
+    .actions button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .actions button.secondary {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    @media print {
+      body { background: #fff; }
+      .actions { display: none; }
+      .page {
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        max-width: none;
+      }
+      h2 { break-after: avoid; }
+      table, .card, .callout, .warn { break-inside: avoid; }
+    }
+    @media (max-width: 700px) {
+      .page { padding: 28px 20px; margin: 0; }
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="actions">
+    <button type="button" onclick="window.print()">Download / Print as PDF</button>
+    <button type="button" class="secondary" onclick="window.scrollTo({top:0,behavior:'smooth'})">Back to top</button>
+  </div>
+
+  <article class="page">
+    <header>
+      <p class="brand">Autoconnecto</p>
+      <h1>Factory Floor — Customer Pilot Guide</h1>
+      <p class="lede">
+        Machine Runtime (dual ESP) · Worker phone app · Cloud dashboard.<br />
+        For site supervisors, plant admins, and operators.
+      </p>
+      <div class="meta">
+        <span class="chip">Pilot</span>
+        <span class="chip">Shop-floor monitoring</span>
+        <span class="chip">Worker Bluetooth sessions</span>
+      </div>
+    </header>
+
+    <h2>1. What you received</h2>
+    <p>This pilot connects a machine press to Autoconnecto so you can:</p>
+    <ul>
+      <li>See live electrical load and count <strong>product cycles</strong></li>
+      <li>Let operators <strong>Start / End shift</strong> and record <strong>jobs</strong> from a phone (Bluetooth)</li>
+      <li>Track <strong>efficiency</strong>, <strong>worker activity</strong>, and optional <strong>tool life</strong></li>
+      <li>Manage machines from the <strong>Factory Floor</strong> cloud dashboard</li>
+    </ul>
+
+    <table>
+      <thead>
+        <tr><th>Piece</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Wi‑Fi ESP board</strong></td>
+          <td>Shop Wi‑Fi + Autoconnecto cloud; current sensing (PZEM); machine enable (SSR); cycle storage</td>
+        </tr>
+        <tr>
+          <td><strong>BLE ESP board</strong></td>
+          <td>Bluetooth radio for the worker phone only</td>
+        </tr>
+        <tr>
+          <td><strong>Android Worker app</strong></td>
+          <td>Start / End shift and job + / − (Bluetooth only — no cloud login on the phone)</td>
+        </tr>
+        <tr>
+          <td><strong>Factory Floor dashboard</strong></td>
+          <td>Live monitoring, Setup, tool-life and counter admin actions</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="diagram">[ Worker phone ] --Bluetooth--> [ BLE ESP ] --wire--> [ Wi‑Fi ESP ] --Wi‑Fi--> [ Autoconnecto cloud ]
+                                                          |               |
+                                                       [ PZEM ]        [ SSR / enable ]</div>
+
+    <h2>2. What this pilot includes</h2>
+    <ul>
+      <li>Live amps / volts / power when the machine is online</li>
+      <li>Electrical <strong>load cycles</strong> for Day / Week / Month / Year</li>
+      <li>Worker <strong>jobs</strong> from the phone + / − buttons</li>
+      <li><strong>This login</strong> vs period totals</li>
+      <li>Efficiency when expected cycles/hour is configured</li>
+      <li>Optional tool life (blocks machine at the job limit)</li>
+      <li>Admin clear / reset of counters on the Wi‑Fi board from the cloud</li>
+      <li>Remote firmware update (OTA) for the <strong>Wi‑Fi board only</strong></li>
+    </ul>
+
+    <div class="warn">
+      <strong>Pilot limits</strong><br />
+      BLE board firmware is not updated over the air (USB / visit if needed).
+      Shop Wi‑Fi must match the network programmed into the Wi‑Fi board.
+      Worker app is Android. Treat this as assisted production visibility — escalate issues to your Autoconnecto contact.
+    </div>
+
+    <h2>3. On-site checklist</h2>
+    <ol>
+      <li>Machine panel powered; both ESP boards powered.</li>
+      <li>Shop Wi‑Fi matches the network programmed on the device.</li>
+      <li>Dashboard shows the machine <strong>online</strong> (Factory Floor → Machines).</li>
+      <li>Physical label matches Bluetooth name (<strong>AC-001</strong>, <strong>AC-007</strong>, …).</li>
+      <li>Android phone has Autoconnecto Worker installed (Bluetooth + Location allowed).</li>
+      <li>Supervisor can open Factory Floor → <strong>Setup</strong>.</li>
+    </ol>
+
+    <h2>4. Worker phone app (operators)</h2>
+    <h3>Install</h3>
+    <p>From the Autoconnecto web app (logged in): top bar → <strong>Worker app</strong>, or use the APK from your Autoconnecto contact. Allow Bluetooth, Location, and Nearby devices if prompted.</p>
+
+    <h3>First-time setup</h3>
+    <ol>
+      <li>Enter <strong>Worker ID</strong> and <strong>Name</strong> (kept until Edit profile).</li>
+      <li>Scan and <strong>pin</strong> your machine <strong>AC-###</strong> (kept until Change machine).</li>
+      <li>Stand within about 2&nbsp;m while scanning if the press does not appear.</li>
+    </ol>
+
+    <h3>Shift</h3>
+    <table>
+      <thead><tr><th>Action</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td><strong>START SESSION</strong> / <strong>RESUME SESSION</strong></td><td>Begins or resumes your session on the machine</td></tr>
+        <tr><td><strong>+</strong> / <strong>−</strong></td><td>Adds or removes a worker job for this shift</td></tr>
+        <tr><td><strong>End shift</strong></td><td>Ends session; machine pin stays</td></tr>
+        <tr><td><strong>Change machine</strong></td><td>Unpin so you can select another press</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      Only one active operator at a time. If the app says the tool limit is reached, ask a supervisor to replace the tool and reset tool life in Setup.
+    </div>
+
+    <h2>5. Factory Floor dashboard (supervisors)</h2>
+    <p>Open Autoconnecto → dashboard containing the <strong>Factory Floor</strong> widget.</p>
+
+    <table>
+      <thead><tr><th>Tab</th><th>Use for</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Overview</strong></td><td>Fleet summary and highlights</td></tr>
+        <tr><td><strong>Machines</strong></td><td>Live status: load, cycles, jobs, tool left</td></tr>
+        <tr><td><strong>Workers</strong></td><td>Activity while workers are logged in</td></tr>
+        <tr><td><strong>Setup</strong></td><td>Configure machines and admin resets</td></tr>
+      </tbody>
+    </table>
+
+    <p>Periods: <strong>Day / Week / Month / Year</strong> (India Standard Time; weeks start Monday 00:00 IST).</p>
+
+    <table>
+      <thead><tr><th>Metric</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Cycles (period)</strong></td><td>Electrical product cycles from the current sensor pattern</td></tr>
+        <tr><td><strong>This login</strong></td><td>Cycles since the current shift started</td></tr>
+        <tr><td><strong>Lifetime on device</strong></td><td>Lifetime electrical cycles on the Wi‑Fi board</td></tr>
+        <tr><td><strong>Worker jobs</strong></td><td>Counts from phone + / −</td></tr>
+        <tr><td><strong>Efficiency</strong></td><td>Load cycles vs expected (needs Expected cycles/hour in Setup)</td></tr>
+        <tr><td><strong>Tool left</strong></td><td>Jobs remaining before tool change (if enabled)</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>Note:</strong> Efficiency uses electrical load cycles while someone is logged in — not the job buttons.</p>
+    <p><strong>Cycle shapes:</strong> 2-level = Off → On load → Off · 3-level = On → On load → On.</p>
+
+    <h2>6. Setup (tenant admin / owner)</h2>
+    <ul>
+      <li><strong>Create</strong> or <strong>Link</strong> machines; set display name, thresholds, expected cycles/hour, tool life.</li>
+      <li>Each machine gets a code and Bluetooth name <strong>AC-###</strong>.</li>
+      <li><strong>Reset tool life</strong> — after physical tool change (admin only).</li>
+      <li><strong>Clear data &amp; reset ESP</strong> — zeros period counters and Wi‑Fi board lifetime (admin only). Prefer <strong>End shift</strong> first. Does not change tool life. Cannot be undone.</li>
+    </ul>
+
+    <h2>7. Remote updates</h2>
+    <table>
+      <thead><tr><th>Board</th><th>Update method</th></tr></thead>
+      <tbody>
+        <tr><td>Wi‑Fi ESP</td><td>Cloud OTA by Autoconnecto while the machine is online</td></tr>
+        <tr><td>BLE ESP</td><td>USB / on-site only in this pilot</td></tr>
+      </tbody>
+    </table>
+
+    <h2>8. Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Try this</th></tr></thead>
+      <tbody>
+        <tr><td>Machine offline</td><td>Power, Wi‑Fi, wait 1–2 minutes; then contact support</td></tr>
+        <tr><td>Phone cannot find AC-###</td><td>Bluetooth + Location on; stand close; scan again; BLE board powered</td></tr>
+        <tr><td>Machine in use</td><td>Current operator must End shift or Resume</td></tr>
+        <tr><td>Tool blocked</td><td>Replace tool → Setup → Reset tool life</td></tr>
+        <tr><td>Lifetime not clearing after reset</td><td>Machine must be online when Clear &amp; reset is pressed</td></tr>
+      </tbody>
+    </table>
+
+    <h2>9. Safety</h2>
+    <ul>
+      <li>Electrical / SSR work must be done by a qualified electrician.</li>
+      <li>Plant lockout/tagout and local safety rules still apply.</li>
+      <li>Do not share device tokens or admin passwords.</li>
+    </ul>
+
+    <h2>10. Quick cards</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Operator</h3>
+        <ol>
+          <li>Open Worker app → confirm name.</li>
+          <li>Confirm pinned <strong>AC-###</strong>.</li>
+          <li><strong>START SESSION</strong> → work → <strong>+</strong> jobs as trained.</li>
+          <li><strong>End shift</strong> when done.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Supervisor</h3>
+        <ol>
+          <li>Factory Floor → Machines.</li>
+          <li>Check online / cycles / jobs.</li>
+          <li>Tool expired → Reset tool life.</li>
+          <li>Clean counters → End shift → Clear data &amp; reset ESP.</li>
+        </ol>
+      </div>
+    </div>
+
+    <h2>11. Support</h2>
+    <p>Contact your site supervisor / tenant admin, or your Autoconnecto support contact, with:</p>
+    <ul>
+      <li>Machine name / AC-###</li>
+      <li>Approximate time of the issue</li>
+      <li>What you saw on the phone and dashboard</li>
+    </ul>
+
+    <footer>
+      Autoconnecto Factory Floor · Customer Pilot Guide<br />
+      Cloud endpoints used by the Wi‑Fi board: mqtt.autoconnecto.in · api.autoconnecto.in<br />
+      Tip: use <strong>Download / Print as PDF</strong> above to save this file.
+    </footer>
+  </article>
+</body>
+</html>

@@ -1,0 +1,311 @@
+{
+  "exportedAt": "2026-08-13T00:00:00.000Z",
+  "dashboard": {
+    "name": "Distribution Transformer Monitor",
+    "type": "STATIC",
+    "states": [{ "id": "default", "name": "Default" }],
+    "timeWindow": {
+      "type": "realtime",
+      "realtime": { "windowSizeMs": 3600000, "refreshIntervalSec": 5 }
+    },
+    "aliases": [
+      {
+        "id": "transformer",
+        "name": "Transformer",
+        "type": "dashboardState",
+        "filter": {}
+      }
+    ],
+    "widgets": [
+      {
+        "widgetId": "dt-md-intro",
+        "name": "How to use",
+        "type": "markdownPanel",
+        "aliases": [],
+        "telemetryKeys": [],
+        "aggregation": "none",
+        "intervalSec": 10,
+        "realtime": false,
+        "dashboardStateId": "default",
+        "config": {
+          "title": "",
+          "showTitle": false,
+          "content": "**Distribution transformer — live demo.** Select a device in the dashboard picker. Use **Alarm limits** to change trip points. Platform alarms follow those shared attributes.",
+          "fontSize": 14,
+          "textAlign": "left"
+        }
+      },
+      {
+        "widgetId": "dt-overview",
+        "name": "Transformer overview",
+        "type": "transformerMonitoring",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_v_r", "dt_v_y", "dt_v_b", "dt_i_r", "dt_i_y", "dt_i_b", "dt_kw", "dt_kva", "dt_kvar", "dt_pf", "dt_hz", "dt_kwh", "dt_load_pct", "dt_imbalance_pct"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": {
+          "title": "Distribution Transformer",
+          "showTitle": true,
+          "showDeviceName": true,
+          "showTimestamp": true,
+          "ratedKva": 100,
+          "alias": "transformer",
+          "deviceId": "",
+          "deviceIds": [],
+          "key": "dt_kva",
+          "metric": "dt_kva",
+          "telemetryKeys": ["dt_v_r", "dt_v_y", "dt_v_b", "dt_i_r", "dt_i_y", "dt_i_b", "dt_kw", "dt_kva", "dt_kvar", "dt_pf", "dt_hz", "dt_kwh", "dt_load_pct", "dt_imbalance_pct"]
+        }
+      },
+      {
+        "widgetId": "dt-limits",
+        "name": "Alarm limits",
+        "type": "attributeControlCard",
+        "aliases": ["transformer"],
+        "telemetryKeys": [],
+        "aggregation": "none",
+        "intervalSec": 10,
+        "realtime": false,
+        "dashboardStateId": "default",
+        "config": {
+          "title": "Alarm limits",
+          "alias": "transformer",
+          "selectedDeviceId": "",
+          "items": [
+            { "id": "lim-rated", "label": "Rated kVA", "writeScope": "shared", "writeKey": "rated_kva", "readScope": "shared", "readKey": "rated_kva" },
+            { "id": "lim-vh", "label": "Voltage high L-N (V)", "writeScope": "shared", "writeKey": "voltage_high_ln", "readScope": "shared", "readKey": "voltage_high_ln" },
+            { "id": "lim-vl", "label": "Voltage low L-N (V)", "writeScope": "shared", "writeKey": "voltage_low_ln", "readScope": "shared", "readKey": "voltage_low_ln" },
+            { "id": "lim-ih", "label": "Current high (A)", "writeScope": "shared", "writeKey": "current_high", "readScope": "shared", "readKey": "current_high" },
+            { "id": "lim-load", "label": "Load high (%)", "writeScope": "shared", "writeKey": "load_pct_high", "readScope": "shared", "readKey": "load_pct_high" },
+            { "id": "lim-pf", "label": "PF low", "writeScope": "shared", "writeKey": "pf_low", "readScope": "shared", "readKey": "pf_low" },
+            { "id": "lim-fh", "label": "Frequency high (Hz)", "writeScope": "shared", "writeKey": "freq_high", "readScope": "shared", "readKey": "freq_high" },
+            { "id": "lim-fl", "label": "Frequency low (Hz)", "writeScope": "shared", "writeKey": "freq_low", "readScope": "shared", "readKey": "freq_low" },
+            { "id": "lim-imb", "label": "Imbalance high (%)", "writeScope": "shared", "writeKey": "imbalance_pct_high", "readScope": "shared", "readKey": "imbalance_pct_high" }
+          ]
+        }
+      },
+      {
+        "widgetId": "dt-kpi-kw",
+        "name": "Active power",
+        "type": "kpiStatCard",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_kw"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": { "title": "Active power", "alias": "transformer", "metric": "dt_kw", "telemetryKeys": ["dt_kw"], "unit": "kW", "decimals": 1, "showTimestamp": false, "showDeviceName": false }
+      },
+      {
+        "widgetId": "dt-kpi-kva",
+        "name": "Apparent power",
+        "type": "kpiStatCard",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_kva"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": { "title": "Apparent power", "alias": "transformer", "metric": "dt_kva", "telemetryKeys": ["dt_kva"], "unit": "kVA", "decimals": 1, "showTimestamp": false, "showDeviceName": false }
+      },
+      {
+        "widgetId": "dt-kpi-pf",
+        "name": "Power factor",
+        "type": "kpiStatCard",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_pf"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": { "title": "Power factor", "alias": "transformer", "metric": "dt_pf", "telemetryKeys": ["dt_pf"], "unit": "", "decimals": 2, "showTimestamp": false, "showDeviceName": false }
+      },
+      {
+        "widgetId": "dt-kpi-hz",
+        "name": "Frequency",
+        "type": "kpiStatCard",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_hz"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": { "title": "Frequency", "alias": "transformer", "metric": "dt_hz", "telemetryKeys": ["dt_hz"], "unit": "Hz", "decimals": 2, "showTimestamp": false, "showDeviceName": false }
+      },
+      {
+        "widgetId": "dt-kpi-kwh",
+        "name": "Energy",
+        "type": "kpiStatCard",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_kwh"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": { "title": "Energy", "alias": "transformer", "metric": "dt_kwh", "telemetryKeys": ["dt_kwh"], "unit": "kWh", "decimals": 1, "showTimestamp": false, "showDeviceName": false }
+      },
+      {
+        "widgetId": "dt-kpi-load",
+        "name": "Load",
+        "type": "kpiStatCard",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_load_pct"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": { "title": "Load", "alias": "transformer", "metric": "dt_load_pct", "telemetryKeys": ["dt_load_pct"], "unit": "%", "decimals": 0, "showTimestamp": false, "showDeviceName": false }
+      },
+      {
+        "widgetId": "dt-analog-v",
+        "name": "Phase voltages",
+        "type": "analogMeter",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_v_r", "dt_v_y", "dt_v_b"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": {
+          "title": "Phase voltages (L-N)",
+          "alias": "transformer",
+          "deviceIds": [],
+          "decimals": 1,
+          "columns": 3,
+          "compact": true,
+          "showTitle": true,
+          "showDeviceName": false,
+          "showKey": false,
+          "items": [
+            { "id": "av-r", "deviceId": "__dashboardState__", "label": "R", "key": "dt_v_r", "unit": "V", "min": 180, "max": 280, "warning": 253, "critical": 260, "color": "#ef4444" },
+            { "id": "av-y", "deviceId": "__dashboardState__", "label": "Y", "key": "dt_v_y", "unit": "V", "min": 180, "max": 280, "warning": 253, "critical": 260, "color": "#eab308" },
+            { "id": "av-b", "deviceId": "__dashboardState__", "label": "B", "key": "dt_v_b", "unit": "V", "min": 180, "max": 280, "warning": 253, "critical": 260, "color": "#3b82f6" }
+          ]
+        }
+      },
+      {
+        "widgetId": "dt-analog-i",
+        "name": "Phase currents",
+        "type": "analogMeter",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_i_r", "dt_i_y", "dt_i_b"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": {
+          "title": "Phase currents",
+          "alias": "transformer",
+          "deviceIds": [],
+          "decimals": 1,
+          "columns": 3,
+          "compact": true,
+          "showTitle": true,
+          "showDeviceName": false,
+          "showKey": false,
+          "items": [
+            { "id": "ai-r", "deviceId": "__dashboardState__", "label": "R", "key": "dt_i_r", "unit": "A", "min": 0, "max": 200, "warning": 140, "critical": 150, "color": "#ef4444" },
+            { "id": "ai-y", "deviceId": "__dashboardState__", "label": "Y", "key": "dt_i_y", "unit": "A", "min": 0, "max": 200, "warning": 140, "critical": 150, "color": "#eab308" },
+            { "id": "ai-b", "deviceId": "__dashboardState__", "label": "B", "key": "dt_i_b", "unit": "A", "min": 0, "max": 200, "warning": 140, "critical": 150, "color": "#3b82f6" }
+          ]
+        }
+      },
+      {
+        "widgetId": "dt-chart-v",
+        "name": "Voltage trend",
+        "type": "multitimeseries",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_v_r", "dt_v_y", "dt_v_b"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": {
+          "title": "Voltage trend (L-N)",
+          "alias": "transformer",
+          "deviceIds": [],
+          "keys": ["dt_v_r", "dt_v_y", "dt_v_b"],
+          "lineWidth": 2,
+          "aggregation": "none"
+        }
+      },
+      {
+        "widgetId": "dt-chart-i",
+        "name": "Current trend",
+        "type": "multitimeseries",
+        "aliases": ["transformer"],
+        "telemetryKeys": ["dt_i_r", "dt_i_y", "dt_i_b"],
+        "aggregation": "none",
+        "intervalSec": 5,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": {
+          "title": "Current trend",
+          "alias": "transformer",
+          "deviceIds": [],
+          "keys": ["dt_i_r", "dt_i_y", "dt_i_b"],
+          "lineWidth": 2,
+          "aggregation": "none"
+        }
+      },
+      {
+        "widgetId": "dt-alarms",
+        "name": "Device alarms",
+        "type": "deviceAlarm",
+        "aliases": ["transformer"],
+        "telemetryKeys": [],
+        "aggregation": "none",
+        "intervalSec": 10,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": {
+          "title": "Transformer alarms",
+          "alias": "transformer",
+          "limit": 15,
+          "status": ["ACTIVE"],
+          "severity": ["CRITICAL", "MAJOR", "MINOR", "WARNING"],
+          "ackState": "ALL"
+        }
+      },
+      {
+        "widgetId": "dt-alarm-summary",
+        "name": "Alarm summary",
+        "type": "alarmSummary",
+        "aliases": [],
+        "telemetryKeys": [],
+        "aggregation": "none",
+        "intervalSec": 10,
+        "realtime": true,
+        "dashboardStateId": "default",
+        "config": {
+          "title": "Fleet alarm summary",
+          "status": ["ACTIVE"],
+          "severity": ["CRITICAL", "MAJOR", "MINOR", "WARNING"],
+          "ackState": "ALL",
+          "limit": 200,
+          "compact": true,
+          "showSeverityBreakdown": true
+        }
+      }
+    ],
+    "layout": [
+      { "i": "dt-md-intro", "x": 0, "y": 0, "w": 48, "h": 2 },
+      { "i": "dt-overview", "x": 0, "y": 2, "w": 30, "h": 12 },
+      { "i": "dt-limits", "x": 30, "y": 2, "w": 18, "h": 12 },
+      { "i": "dt-kpi-kw", "x": 0, "y": 14, "w": 8, "h": 4 },
+      { "i": "dt-kpi-kva", "x": 8, "y": 14, "w": 8, "h": 4 },
+      { "i": "dt-kpi-pf", "x": 16, "y": 14, "w": 8, "h": 4 },
+      { "i": "dt-kpi-hz", "x": 24, "y": 14, "w": 8, "h": 4 },
+      { "i": "dt-kpi-kwh", "x": 32, "y": 14, "w": 8, "h": 4 },
+      { "i": "dt-kpi-load", "x": 40, "y": 14, "w": 8, "h": 4 },
+      { "i": "dt-analog-v", "x": 0, "y": 18, "w": 24, "h": 8 },
+      { "i": "dt-analog-i", "x": 24, "y": 18, "w": 24, "h": 8 },
+      { "i": "dt-chart-v", "x": 0, "y": 26, "w": 24, "h": 8 },
+      { "i": "dt-chart-i", "x": 24, "y": 26, "w": 24, "h": 8 },
+      { "i": "dt-alarms", "x": 0, "y": 34, "w": 30, "h": 8 },
+      { "i": "dt-alarm-summary", "x": 30, "y": 34, "w": 18, "h": 8 }
+    ]
+  }
+}

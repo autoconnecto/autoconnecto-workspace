@@ -11,6 +11,7 @@
 #include <esp_bt.h>
 #include <ArduinoJson.h>
 #include <NimBLEDevice.h>
+#include <Preferences.h>
 
 #define LINK_RX 21
 #define LINK_TX 19
@@ -29,8 +30,11 @@
 #define BLE_STALE_GATT_MS 120000UL
 #define BLE_BOOT_SLOT_WAIT_MS 12000UL
 #define STATUS_POLL_MS 3000UL
+/** Used only when NVS empty and WiFi UART silent — TH160FRAME trial machine. */
+#define FALLBACK_MACHINE_SLOT 3
 
 HardwareSerial LinkSerial(1);
+Preferences blePrefs;
 
 static NimBLEServer* bleServer = nullptr;
 static NimBLECharacteristic* statusChar = nullptr;
@@ -67,6 +71,27 @@ static String bleAdvertName() {
   return String(buf);
 }
 
+static void loadSlotFromNvs() {
+  blePrefs.begin("ble_rt", true);
+  machineSlot = blePrefs.getInt("slot", 0);
+  blePrefs.end();
+  if (machineSlot > 0) {
+    Serial.print("[BLE] NVS slot=");
+    Serial.println(machineSlot);
+  }
+}
+
+static void saveSlotToNvs(int slot) {
+  if (slot <= 0) return;
+  blePrefs.begin("ble_rt", false);
+  if (blePrefs.getInt("slot", 0) != slot) {
+    blePrefs.putInt("slot", slot);
+    Serial.print("[BLE] NVS saved slot=");
+    Serial.println(slot);
+  }
+  blePrefs.end();
+}
+
 /** Same UART init as link_test.ino */
 static void beginLinkUart() {
   LinkSerial.end();
@@ -95,9 +120,11 @@ static void applyStatusFromDoc(JsonDocument& doc) {
   const int newSlot = doc["slot"] | machineSlot;
   if (newSlot > 0 && newSlot != machineSlot) {
     machineSlot = newSlot;
+    saveSlotToNvs(machineSlot);
     if (bleInited) pendingSlotReinit = true;
   } else if (newSlot > 0) {
     machineSlot = newSlot;
+    saveSlotToNvs(machineSlot);
   }
   doc["ble_linked"] = bleClientConnected;
 
@@ -115,9 +142,9 @@ static void applyStatusFromDoc(JsonDocument& doc) {
   memcpy(statusJsonBuf, nextBuf, n + 1);
   statusChar->setValue((uint8_t*)statusJsonBuf, n);
 
-  // Throttle notifies — flooding notify() every UART status (~2–3s) drops Android links.
+  // Throttle notifies — UART status floods were dropping Android links ~every 10–15s.
   const unsigned long now = millis();
-  if (bleClientConnected && changed && (now - lastNotifyMs) >= 2000UL) {
+  if (bleClientConnected && changed && (now - lastNotifyMs) >= 3000UL) {
     lastNotifyMs = now;
     touchGattActivity();
     statusChar->notify();
@@ -172,7 +199,7 @@ static void syncStatusNotify() {
   statusChar->setValue((uint8_t*)statusJsonBuf, n);
   if (bleClientConnected) {
     const unsigned long now = millis();
-    if ((now - lastNotifyMs) >= 2000UL) {
+    if ((now - lastNotifyMs) >= 3000UL) {
       lastNotifyMs = now;
       touchGattActivity();
       statusChar->notify();
@@ -185,8 +212,8 @@ class BleServerCallbacks : public NimBLEServerCallbacks {
     bleClientConnected = true;
     pendingStatusNotify = true;
     touchGattActivity();
-    // Do not call updateConnParams here — short supervision timeouts caused
-    // Android to drop the link every ~10–15s under GATT traffic.
+    // Do not call updateConnParams here — timeout>3200 is out of BLE range and
+    // Android often terminates immediately (reason=531 REM_USER_CONN_TERM).
     linkRequestStatus();
     Serial.println("[BLE] client connected");
   }
@@ -428,6 +455,11 @@ static void waitForInitialSlotFromWifi() {
   if (machineSlot > 0) {
     Serial.print("[BLE] slot from WiFi before advert: ");
     Serial.println(machineSlot);
+  } else if (FALLBACK_MACHINE_SLOT > 0) {
+    machineSlot = FALLBACK_MACHINE_SLOT;
+    saveSlotToNvs(machineSlot);
+    Serial.print("[BLE] WiFi silent — fallback advert AC-");
+    Serial.println(machineSlot);
   } else {
     Serial.println("[BLE] no slot yet — advertising AC-UNSET until WiFi/MQTT sync");
   }
@@ -440,6 +472,8 @@ void setup() {
 
   WiFi.mode(WIFI_OFF);
   esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
+
+  loadSlotFromNvs();
 
   beginLinkUart();
   preBleLinkTest();
@@ -478,7 +512,8 @@ void loop() {
     lastBleStatusLogMs = now;
     logBleStatus("periodic");
   }
-  if (now - lastStatusPollMs >= (bleClientConnected ? 10000UL : STATUS_POLL_MS)) {
+  // While phone is linked, lean on WiFi dirty/periodic push — avoid get_status chatter.
+  if (now - lastStatusPollMs >= (bleClientConnected ? 20000UL : STATUS_POLL_MS)) {
     lastStatusPollMs = now;
     linkRequestStatus();
   }

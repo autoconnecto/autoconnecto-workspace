@@ -1,0 +1,364 @@
+{
+  "name": "Distribution Transformer",
+  "type": "distribution_transformer",
+  "description": "3-phase DT with RS485 energy meter. Alarm limits come from shared attributes so the dashboard Attribute Control Card can change them live.",
+  "transport": ["MQTT", "HTTP"],
+  "alarms": [
+    {
+      "ruleId": "dt-overvoltage-r",
+      "schemaVersion": 2,
+      "name": "Overvoltage phase R",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_v_r",
+      "valueType": "NUMBER",
+      "attributeScope": "ANY",
+      "severityStages": [
+        {
+          "severity": "CRITICAL",
+          "operator": ">",
+          "threshold": 253,
+          "thresholdAttribute": "voltage_high_ln",
+          "durationSec": 10
+        }
+      ],
+      "clearCondition": {
+        "operator": "<=",
+        "threshold": 253,
+        "thresholdAttribute": "voltage_high_ln"
+      },
+      "policies": { "clearAfterSec": 15, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-overvoltage-y",
+      "schemaVersion": 2,
+      "name": "Overvoltage phase Y",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_v_y",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "CRITICAL",
+          "operator": ">",
+          "threshold": 253,
+          "thresholdAttribute": "voltage_high_ln",
+          "durationSec": 10
+        }
+      ],
+      "clearCondition": {
+        "operator": "<=",
+        "threshold": 253,
+        "thresholdAttribute": "voltage_high_ln"
+      },
+      "policies": { "clearAfterSec": 15, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-overvoltage-b",
+      "schemaVersion": 2,
+      "name": "Overvoltage phase B",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_v_b",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "CRITICAL",
+          "operator": ">",
+          "threshold": 253,
+          "thresholdAttribute": "voltage_high_ln",
+          "durationSec": 10
+        }
+      ],
+      "clearCondition": {
+        "operator": "<=",
+        "threshold": 253,
+        "thresholdAttribute": "voltage_high_ln"
+      },
+      "policies": { "clearAfterSec": 15, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-undervoltage-r",
+      "schemaVersion": 2,
+      "name": "Undervoltage phase R",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_v_r",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "MAJOR",
+          "operator": "<",
+          "threshold": 216,
+          "thresholdAttribute": "voltage_low_ln",
+          "durationSec": 10
+        }
+      ],
+      "clearCondition": {
+        "operator": ">=",
+        "threshold": 216,
+        "thresholdAttribute": "voltage_low_ln"
+      },
+      "policies": { "clearAfterSec": 15, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-undervoltage-y",
+      "schemaVersion": 2,
+      "name": "Undervoltage phase Y",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_v_y",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "MAJOR",
+          "operator": "<",
+          "threshold": 216,
+          "thresholdAttribute": "voltage_low_ln",
+          "durationSec": 10
+        }
+      ],
+      "clearCondition": {
+        "operator": ">=",
+        "threshold": 216,
+        "thresholdAttribute": "voltage_low_ln"
+      },
+      "policies": { "clearAfterSec": 15, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-undervoltage-b",
+      "schemaVersion": 2,
+      "name": "Undervoltage phase B",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_v_b",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "MAJOR",
+          "operator": "<",
+          "threshold": 216,
+          "thresholdAttribute": "voltage_low_ln",
+          "durationSec": 10
+        }
+      ],
+      "clearCondition": {
+        "operator": ">=",
+        "threshold": 216,
+        "thresholdAttribute": "voltage_low_ln"
+      },
+      "policies": { "clearAfterSec": 15, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-overload",
+      "schemaVersion": 2,
+      "name": "Transformer overload",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_load_pct",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "WARNING",
+          "operator": ">",
+          "threshold": 90,
+          "thresholdAttribute": "load_pct_high",
+          "durationSec": 20
+        },
+        {
+          "severity": "CRITICAL",
+          "operator": ">",
+          "threshold": 110,
+          "durationSec": 5
+        }
+      ],
+      "clearCondition": {
+        "operator": "<=",
+        "threshold": 90,
+        "thresholdAttribute": "load_pct_high"
+      },
+      "policies": { "clearAfterSec": 30, "retriggerSec": 60 }
+    },
+    {
+      "ruleId": "dt-overcurrent-r",
+      "schemaVersion": 2,
+      "name": "Overcurrent phase R",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_i_r",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "MAJOR",
+          "operator": ">",
+          "threshold": 150,
+          "thresholdAttribute": "current_high",
+          "durationSec": 10
+        }
+      ],
+      "clearCondition": {
+        "operator": "<=",
+        "threshold": 150,
+        "thresholdAttribute": "current_high"
+      },
+      "policies": { "clearAfterSec": 15, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-overcurrent-y",
+      "schemaVersion": 2,
+      "name": "Overcurrent phase Y",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_i_y",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "MAJOR",
+          "operator": ">",
+          "threshold": 150,
+          "thresholdAttribute": "current_high",
+          "durationSec": 10
+        }
+      ],
+      "clearCondition": {
+        "operator": "<=",
+        "threshold": 150,
+        "thresholdAttribute": "current_high"
+      },
+      "policies": { "clearAfterSec": 15, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-overcurrent-b",
+      "schemaVersion": 2,
+      "name": "Overcurrent phase B",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_i_b",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "MAJOR",
+          "operator": ">",
+          "threshold": 150,
+          "thresholdAttribute": "current_high",
+          "durationSec": 10
+        }
+      ],
+      "clearCondition": {
+        "operator": "<=",
+        "threshold": 150,
+        "thresholdAttribute": "current_high"
+      },
+      "policies": { "clearAfterSec": 15, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-low-pf",
+      "schemaVersion": 2,
+      "name": "Low power factor",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_pf",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "WARNING",
+          "operator": "<",
+          "threshold": 0.8,
+          "thresholdAttribute": "pf_low",
+          "durationSec": 60
+        }
+      ],
+      "clearCondition": {
+        "operator": ">=",
+        "threshold": 0.8,
+        "thresholdAttribute": "pf_low"
+      },
+      "policies": { "clearAfterSec": 30, "retriggerSec": 120 }
+    },
+    {
+      "ruleId": "dt-over-freq",
+      "schemaVersion": 2,
+      "name": "Over frequency",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_hz",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "MAJOR",
+          "operator": ">",
+          "threshold": 51.5,
+          "thresholdAttribute": "freq_high",
+          "durationSec": 5
+        }
+      ],
+      "clearCondition": {
+        "operator": "<=",
+        "threshold": 51.5,
+        "thresholdAttribute": "freq_high"
+      },
+      "policies": { "clearAfterSec": 10, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-under-freq",
+      "schemaVersion": 2,
+      "name": "Under frequency",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_hz",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "MAJOR",
+          "operator": "<",
+          "threshold": 48.5,
+          "thresholdAttribute": "freq_low",
+          "durationSec": 5
+        }
+      ],
+      "clearCondition": {
+        "operator": ">=",
+        "threshold": 48.5,
+        "thresholdAttribute": "freq_low"
+      },
+      "policies": { "clearAfterSec": 10, "retriggerSec": 30 }
+    },
+    {
+      "ruleId": "dt-imbalance",
+      "schemaVersion": 2,
+      "name": "Current imbalance",
+      "triggerMode": "VALUE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_imbalance_pct",
+      "valueType": "NUMBER",
+      "severityStages": [
+        {
+          "severity": "WARNING",
+          "operator": ">",
+          "threshold": 20,
+          "thresholdAttribute": "imbalance_pct_high",
+          "durationSec": 30
+        }
+      ],
+      "clearCondition": {
+        "operator": "<=",
+        "threshold": 20,
+        "thresholdAttribute": "imbalance_pct_high"
+      },
+      "policies": { "clearAfterSec": 20, "retriggerSec": 60 }
+    },
+    {
+      "ruleId": "dt-comms-loss",
+      "schemaVersion": 2,
+      "name": "Communication loss",
+      "triggerMode": "NO_UPDATE",
+      "sourceType": "TELEMETRY",
+      "key": "dt_kva",
+      "valueType": "NUMBER",
+      "severityStages": [
+        { "severity": "CRITICAL", "operator": ">", "threshold": 0, "durationSec": 0 }
+      ],
+      "policies": { "noUpdateSec": 180, "requireFirstSample": true, "retriggerSec": 60 }
+    }
+  ]
+}

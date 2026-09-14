@@ -95,7 +95,8 @@ struct PzemRawSnapshot {
 // Dashboard → Fleet Setup → Edit machine → "Copy token"
 // Do NOT use "Device ID" at the bottom of the edit drawer (different UUID).
 // ---------------------------------------------------------------------------
-static const char* DEVICE_TOKEN = "1047388e-d0d7-44a3-98c7-9258ba977add";
+// TH160Frame — Fleet Setup → Edit machine → Copy token (not Device ID)
+static const char* DEVICE_TOKEN = "61bf44a0-e81d-42e0-b2cc-de857c61641f";
 
 // HTTP backup for SHARED attrs — disabled for stability (MQTT shared snapshot is enough).
 #define HTTP_ATTR_FALLBACK 0
@@ -299,8 +300,19 @@ static void updateCoexPreference() {
 }
 
 static void applySsrOutput() {
-  // SSR follows operator session only — app "stop" / End shift is the sole OFF path.
-  digitalWrite(PIN_SSR_ALLOW, sessionActive ? HIGH : LOW);
+  const bool ssrOn = sessionActive && allowRun;
+  static bool lastSsrOn = false;
+  digitalWrite(PIN_SSR_ALLOW, ssrOn ? HIGH : LOW);
+  if (ssrOn != lastSsrOn) {
+    lastSsrOn = ssrOn;
+    Serial.print("[SSR] ");
+    Serial.print(ssrOn ? "ON" : "OFF");
+    Serial.print(" (session=");
+    Serial.print(sessionActive ? "1" : "0");
+    Serial.print(" allow_run=");
+    Serial.print(allowRun ? "1" : "0");
+    Serial.println(")");
+  }
 }
 
 static String bleAdvertName() {
@@ -519,7 +531,8 @@ static void adjustJobCount(int delta) {
     if (toolRemaining <= 0) {
       toolRemaining = 0;
       allowRun = false;
-      Serial.println("[BLE] tool life exhausted — block new jobs; session stays ON until app stop");
+      applySsrOutput();
+      Serial.println("[BLE] tool life exhausted — SSR OFF, session stays ON");
       pushStatusNotify();
       requestPersistNvs();
       return;
@@ -800,7 +813,13 @@ static void onSharedAttribute(const String& key, float value) {
   sharedAttrsReceived = true;
 
   if (key == ATTR_ALLOW_RUN) {
-    allowRun = value >= 0.5f;
+    const bool platformAllow = value >= 0.5f;
+    if (platformAllow && toolRemaining == 0 && toolLimit > 0) {
+      Serial.println("[ATTR] ignore stale allow_run=true while tool exhausted");
+      return;
+    }
+    allowRun = platformAllow;
+    applySsrOutput();
     requestPersistNvs();
     pendingStatusNotify = true;
     return;
@@ -820,6 +839,12 @@ static void onSharedAttribute(const String& key, float value) {
   }
   if (key == ATTR_TOOL_REMAINING) {
     toolRemaining = (int)value;
+    if (toolRemaining > 0) {
+      allowRun = true;
+    } else if (toolRemaining == 0 && toolLimit > 0) {
+      allowRun = false;
+    }
+    applySsrOutput();
     requestPersistNvs();
     pendingStatusNotify = true;
     return;
@@ -1088,8 +1113,8 @@ void setup() {
   delay(100);
 
   SDKConfig config;
-  config.wifiSSID = "71";
-  config.wifiPassword = "90946062";
+  config.wifiSSID = "Panchal3";
+  config.wifiPassword = "Panchal@2@25#$%";
   config.mqttHost = MQTT_HOST;
   config.deviceToken = DEVICE_TOKEN;
   gDeviceToken = config.deviceToken;

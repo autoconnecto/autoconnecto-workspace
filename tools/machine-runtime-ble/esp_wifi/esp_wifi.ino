@@ -45,13 +45,15 @@ static uint32_t linkRxByteCount = 0;
 
 #define SHARED_SYNC_MS 60000UL
 #define CLIENT_PUSH_MS 30000UL
-#define TELEMETRY_MS 10000UL
+/** Raw PZEM read + MQTT publish every 2s (no smoothing / scaling) */
+#define TELEMETRY_MS 2000UL
 #define STATUS_PUSH_MS 2000UL
 
 #define LOCAL_DEV 1
 #define HTTP_ATTR_FALLBACK 0
 
-static const char* DEVICE_TOKEN = "1047388e-d0d7-44a3-98c7-9258ba977add";
+// TH160Frame — Fleet Setup → Edit machine → Copy token (not Device ID)
+static const char* DEVICE_TOKEN = "61bf44a0-e81d-42e0-b2cc-de857c61641f";
 
 #if LOCAL_DEV
 static const char* MQTT_HOST = "192.168.68.107";
@@ -64,9 +66,9 @@ static const char* MQTT_HOST = "mqtt.autoconnecto.in";
 
 #define NVS_RUNTIME_VERSION 2
 
-const char* KEY_CURRENT = "machine_current_a";
-const char* KEY_VOLTAGE = "machine_voltage_v";
-const char* KEY_POWER = "machine_power_w";
+const char* KEY_CURRENT = "current_current";
+const char* KEY_VOLTAGE = "current_voltage";
+const char* KEY_POWER = "current_power";
 const char* KEY_SENSOR_OK = "machine_sensor_ok";
 const char* KEY_OPERATOR_ID = "machine_operator_id";
 const char* KEY_OPERATOR_NAME = "machine_operator_name";
@@ -106,8 +108,10 @@ static bool pendingSlotClientAttr = false;
 static bool sharedAttrsReceived = false;
 static volatile bool mqttUp = false;
 
+
 static unsigned long lastStatusPushMs = 0;
 static unsigned long lastStatusDirtyMs = 0;
+static unsigned long deferredStatusPushMs = 0;
 static bool statusDirty = true;
 
 struct PzemReading {
@@ -170,7 +174,19 @@ static void flushPersistNvs() {
 }
 
 static void applySsrOutput() {
-  digitalWrite(PIN_SSR_ALLOW, sessionActive ? HIGH : LOW);
+  const bool ssrOn = sessionActive && allowRun;
+  static bool lastSsrOn = false;
+  digitalWrite(PIN_SSR_ALLOW, ssrOn ? HIGH : LOW);
+  if (ssrOn != lastSsrOn) {
+    lastSsrOn = ssrOn;
+    Serial.print("[SSR] ");
+    Serial.print(ssrOn ? "ON" : "OFF");
+    Serial.print(" (session=");
+    Serial.print(sessionActive ? "1" : "0");
+    Serial.print(" allow_run=");
+    Serial.print(allowRun ? "1" : "0");
+    Serial.println(")");
+  }
 }
 
 static long nowEpochSec() {
@@ -322,14 +338,23 @@ static void startSession(const String& id, const String& name) {
 }
 
 static void reconcileToolLifeFromShared() {
-  if (toolLimit > 0 && toolRemaining < 0) {
-    const int used = toolUsed >= 0 ? toolUsed : 0;
-    toolRemaining = toolLimit - used;
-    if (toolRemaining < 0) toolRemaining = 0;
-  }
+  if (toolLimit <= 0 || toolRemaining < 0) return;
+  const int used = toolUsed >= 0 ? toolUsed : 0;
+  toolRemaining = toolLimit - used;
+  if (toolRemaining < 0) toolRemaining = 0;
   if (toolRemaining == 0) {
     allowRun = false;
+  } else {
+    allowRun = true;
   }
+  applySsrOutput();
+}
+
+static void afterToolLifeSharedUpdate() {
+  applySsrOutput();
+  requestPersistNvs();
+  markStatusDirty();
+  pushStatusToBle();
 }
 
 static void adjustJobCount(int delta) {
@@ -345,6 +370,7 @@ static void adjustJobCount(int delta) {
     }
     if (toolRemaining >= 0 && toolRemaining <= 0) {
       allowRun = false;
+      applySsrOutput();
       pushClientMirror(false);
       markStatusDirty();
       pushStatusToBle();
@@ -362,11 +388,12 @@ static void adjustJobCount(int delta) {
     if (toolRemaining <= 0) {
       toolRemaining = 0;
       allowRun = false;
+      applySsrOutput();
       requestPersistNvs();
       pushClientMirror(true);
       markStatusDirty();
       pushStatusToBle();
-      Serial.println("[SESSION] tool life exhausted");
+      Serial.println("[SESSION] tool life exhausted — SSR OFF, session stays ON");
       return;
     }
   }
@@ -411,7 +438,7 @@ static void handleWorkerCommand(const String& line) {
   }
   if (!strcmp(cmd, "sync_attrs")) {
     requestPlatformSync("worker_app");
-    pushStatusToBle();
+    deferredStatusPushMs = millis() + 900;
     return;
   }
   if (!strcmp(cmd, "start")) {
@@ -470,7 +497,16 @@ static void onSharedAttribute(const String& key, float value) {
   sharedAttrsReceived = true;
 
   if (key == ATTR_ALLOW_RUN) {
-    allowRun = value >= 0.5f;
+    const bool platformAllow = value >= 0.5f;
+    if (platformAllow && toolRemaining == 0 && toolLimit > 0) {
+      const int used = toolUsed >= 0 ? toolUsed : 0;
+      if (used >= toolLimit) {
+        Serial.println("[ATTR] ignore stale allow_run=true while tool exhausted");
+        return;
+      }
+    }
+    allowRun = platformAllow;
+    applySsrOutput();
     requestPersistNvs();
     markStatusDirty();
     return;
@@ -485,23 +521,24 @@ static void onSharedAttribute(const String& key, float value) {
   }
   if (key == ATTR_TOOL_REMAINING) {
     toolRemaining = (int)value;
-    if (toolRemaining == 0) allowRun = false;
-    requestPersistNvs();
-    markStatusDirty();
+    if (toolRemaining > 0) {
+      allowRun = true;
+    } else if (toolRemaining == 0 && toolLimit > 0) {
+      allowRun = false;
+    }
+    afterToolLifeSharedUpdate();
     return;
   }
   if (key == ATTR_TOOL_LIMIT) {
     toolLimit = (int)value;
     reconcileToolLifeFromShared();
-    requestPersistNvs();
-    markStatusDirty();
+    afterToolLifeSharedUpdate();
     return;
   }
   if (key == ATTR_TOOL_USED) {
     toolUsed = (int)value;
     reconcileToolLifeFromShared();
-    requestPersistNvs();
-    markStatusDirty();
+    afterToolLifeSharedUpdate();
   }
 }
 
@@ -599,20 +636,6 @@ static bool readPZEM(PzemReading& out) {
          out.currentA >= 0.0f && out.currentA < 120.0f;
 }
 
-static float readCurrentAmps(bool* sensorOk, float* voltageV, float* powerW) {
-  PzemReading pzem;
-  if (readPZEM(pzem)) {
-    *sensorOk = true;
-    if (voltageV) *voltageV = pzem.voltageV;
-    if (powerW) *powerW = pzem.powerW;
-    return pzem.currentA;
-  }
-  *sensorOk = false;
-  if (voltageV) *voltageV = 0.0f;
-  if (powerW) *powerW = 0.0f;
-  return 0.0f;
-}
-
 void setup() {
   Serial.begin(115200);
   delay(300);
@@ -636,8 +659,8 @@ void setup() {
   PzemSerial.begin(PZEM_BAUD, SERIAL_8N1, PZEM_UART_RX, PZEM_UART_TX);
 
   SDKConfig config;
-  config.wifiSSID = "71";
-  config.wifiPassword = "90946062";
+  config.wifiSSID = "Panchal3";
+  config.wifiPassword = "Panchal@2@25#$%";
   config.mqttHost = MQTT_HOST;
   config.deviceToken = DEVICE_TOKEN;
   config.enableMQTT = true;
@@ -689,6 +712,10 @@ void loop() {
   if (statusDirty && millis() - lastStatusDirtyMs >= 100) {
     pushStatusToBle();
   }
+  if (deferredStatusPushMs > 0 && millis() >= deferredStatusPushMs) {
+    deferredStatusPushMs = 0;
+    pushStatusToBle();
+  }
 
   if (pendingClientMirrorOnConnect && isMqttUp()) {
     pendingClientMirrorOnConnect = false;
@@ -720,33 +747,25 @@ void loop() {
 
   if (nowMs - lastTelemetryMs >= TELEMETRY_MS) {
     lastTelemetryMs = nowMs;
-    bool sensorOk = true;
-    float voltageV = 0.0f;
-    float powerW = 0.0f;
-    const float amps = readCurrentAmps(&sensorOk, &voltageV, &powerW);
+    PzemReading pzem;
+    const bool sensorOk = readPZEM(pzem);
 
-    StaticJsonDocument<384> tel;
-    tel[KEY_CURRENT] = amps;
-    tel[KEY_VOLTAGE] = voltageV;
-    tel[KEY_POWER] = powerW;
+    StaticJsonDocument<256> tel;
+    tel[KEY_CURRENT] = sensorOk ? pzem.currentA : 0.0f;
+    tel[KEY_VOLTAGE] = sensorOk ? pzem.voltageV : 0.0f;
+    tel[KEY_POWER] = sensorOk ? pzem.powerW : 0.0f;
     tel[KEY_SENSOR_OK] = sensorOk;
-    tel[KEY_SESSION_ACTIVE] = sessionActive;
-    tel[KEY_CYCLE_COUNT] = cycleCount;
-    tel[KEY_SESSION_START_TS] = sessionStartTs > 0 ? sessionStartTs : 0;
-    tel[KEY_SESSION_END_TS] = sessionEndTs > 0 ? sessionEndTs : 0;
-    if (sessionActive) {
-      tel[KEY_OPERATOR_ID] = operatorId;
-      tel[KEY_OPERATOR_NAME] = operatorName;
-    }
     sdk.sendTelemetry(tel);
 
-    Serial.print("[PZEM] V=");
-    Serial.print(voltageV, 1);
+    Serial.print("[PZEM] raw V=");
+    Serial.print(pzem.voltageV, 1);
     Serial.print("V I=");
-    Serial.print(amps, 3);
+    Serial.print(pzem.currentA, 3);
     Serial.print("A P=");
-    Serial.print(powerW, 0);
-    Serial.print("W mqtt=");
+    Serial.print(pzem.powerW, 1);
+    Serial.print("W ok=");
+    Serial.print(sensorOk ? "1" : "0");
+    Serial.print(" mqtt=");
     Serial.println(isMqttUp() ? "up" : "down");
   }
 

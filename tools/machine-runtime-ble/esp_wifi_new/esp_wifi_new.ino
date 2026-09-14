@@ -22,6 +22,13 @@
 // cycles_count: electrical load cycles (CLIENT attr + NVS)
 // machine_cycle_count: worker session jobs (BLE app +/−)
 //
+// Remote admin: SHARED machine_reset_counters (unix seconds pulse) clears NVS
+// lifetime + session job baselines (Factory Floor Setup → Clear data & reset ESP).
+//
+// OTA: AutoconnectoOta on SHARED fw_* — board needs an OTA partition scheme
+// (e.g. "Minimal SPIFFS" with OTA). First deploy of this sketch is USB;
+// later builds can be pushed from the platform OTA page.
+//
 // Hardware: PZEM UART2 RX=GPIO16, TX=GPIO17 | SSR GPIO 2
 // Libraries: AutoconnectoSDK, ArduinoJson, Preferences
 // Revert:    esp_wifi_new_backup/esp_wifi_new_backup.ino
@@ -32,8 +39,10 @@
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <AutoconnectoSDK.h>
+#include <OtaUpdate.h>
 
 AutoconnectoSDK sdk;
+AutoconnectoOta ota;
 Preferences prefs;
 
 #define LINK_RX 21
@@ -52,26 +61,28 @@ Preferences prefs;
 /** Steady-state amps/voltage heartbeat when load is idle. */
 #define TELEMETRY_MS 1000UL
 #define SHARED_SYNC_MS 60000UL
-#define CLIENT_PUSH_MS 30000UL
-#define STATUS_PUSH_MS 2000UL
+#define CLIENT_PUSH_MS 5000UL
+#define STATUS_PUSH_MS 10000UL
 
 #define LOCAL_DEV 0
 
-// Fleet Setup → Edit machine → Copy token (not Device ID)
-static const char* DEVICE_TOKEN = "PASTE_DEVICE_TOKEN_HERE";
+// TH160Frame — Fleet Setup → Edit machine → Copy token (not Device ID)
+static const char* DEVICE_TOKEN = "61bf44a0-e81d-42e0-b2cc-de857c61641f";
 
 #if LOCAL_DEV
 static const char* MQTT_HOST = "192.168.68.107";
-static const char* WIFI_SSID = "YOUR_WIFI_SSID";
-static const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+static const char* API_HOST = "192.168.68.107";
+static const char* WIFI_SSID = "Panchal3";
+static const char* WIFI_PASSWORD = "Panchal@2@25#$%";
 #else
 static const char* MQTT_HOST = "mqtt.autoconnecto.in";
-static const char* WIFI_SSID = "YOUR_WIFI_SSID";
-static const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+static const char* API_HOST = "api.autoconnecto.in";
+static const char* WIFI_SSID = "Panchal3";
+static const char* WIFI_PASSWORD = "Panchal@2@25#$%";
 #endif
 
 #define SHARED_ATTR_KEYS \
-  "machine_slot,machine_code,machine_allow_run,machine_tool_remaining,machine_tool_limit,machine_tool_cycles_used"
+  "machine_slot,machine_code,machine_allow_run,machine_tool_remaining,machine_tool_limit,machine_tool_cycles_used,machine_reset_counters,fw_title,fw_version,fw_size,fw_checksum,fw_checksum_algorithm"
 
 #define NVS_RUNTIME_VERSION 2
 
@@ -86,6 +97,7 @@ static const char* KEY_SESSION_START_TS = "machine_session_start_ts";
 static const char* KEY_SESSION_END_TS = "machine_session_end_ts";
 static const char* KEY_JOB_COUNT = "machine_cycle_count";
 static const char* KEY_SESSION_JOBS_CLOSED = "machine_session_jobs_closed";
+static const char* KEY_SESSION_START_CYCLES = "machine_session_start_cycles";
 static const char* ATTR_CYCLES_COUNT = "cycles_count";
 static const char* ATTR_ALLOW_RUN = "machine_allow_run";
 static const char* ATTR_MACHINE_SLOT = "machine_slot";
@@ -93,6 +105,7 @@ static const char* ATTR_MACHINE_CODE = "machine_code";
 static const char* ATTR_TOOL_REMAINING = "machine_tool_remaining";
 static const char* ATTR_TOOL_LIMIT = "machine_tool_limit";
 static const char* ATTR_TOOL_USED = "machine_tool_cycles_used";
+static const char* ATTR_RESET_COUNTERS = "machine_reset_counters";
 
 /** On-load when current rises above this (A). */
 static const float ON_LOAD_A = 0.20f;
@@ -100,6 +113,7 @@ static const float ON_LOAD_A = 0.20f;
 static const float OFF_LOAD_A = ON_LOAD_A * 0.80f;
 
 enum class LoadPhase : uint8_t { OffLoad, OnLoad };
+enum class LoadEvent : uint8_t { None, PhaseChanged, CycleCompleted };
 
 HardwareSerial LinkSerial(1);
 HardwareSerial PzemSerial(2);
@@ -123,6 +137,7 @@ static String machineCode = "";
 static int jobCount = 0;
 static long sessionStartTs = 0;
 static long sessionEndTs = 0;
+static uint32_t sessionStartCycles = 0;
 static int toolRemaining = -1;
 static int toolLimit = -1;
 static int toolUsed = -1;
@@ -143,13 +158,57 @@ static unsigned long lastStatusPushMs = 0;
 static unsigned long lastStatusDirtyMs = 0;
 static unsigned long deferredStatusPushMs = 0;
 static bool statusDirty = true;
+static char lastBleStatusJson[512] = "";
+
+static void linkSendLine(const char* line);  // defined later (after UART init)
+
+static void markStatusDirty() {
+  statusDirty = true;
+  lastStatusDirtyMs = millis();
+}
+
+static void pushStatusToBle(bool sessionBusy = false) {
+  StaticJsonDocument<512> doc;
+  doc["type"] = "status";
+  doc["slot"] = machineSlot;
+  if (machineCode.length()) doc["code"] = machineCode;
+  doc["session"] = sessionActive;
+  doc["jobs"] = jobCount;
+  doc["allow_run"] = allowRun;
+  if (toolRemaining >= 0) {
+    doc["tool_remaining"] = toolRemaining;
+    doc["tool_life_enabled"] = true;
+  } else {
+    doc["tool_life_enabled"] = false;
+  }
+  if (toolLimit >= 0) doc["tool_limit"] = toolLimit;
+  if (sessionBusy) doc["session_busy"] = true;
+  if (sessionStartTs > 0) doc["session_start_ts"] = sessionStartTs;
+  if (sessionEndTs > 0) doc["session_end_ts"] = sessionEndTs;
+  if (operatorId.length()) doc["operator_id"] = operatorId;
+  if (operatorName.length()) doc["operator_name"] = operatorName;
+
+  char buf[512];
+  const size_t n = serializeJson(doc, buf, sizeof(buf));
+  if (!n) return;
+  // Skip identical payloads — BLE UART flood was saturating the link while session on.
+  if (!sessionBusy && strcmp(lastBleStatusJson, buf) == 0) {
+    statusDirty = false;
+    return;
+  }
+  memcpy(lastBleStatusJson, buf, n + 1);
+  Serial.print("[LINK] → ");
+  Serial.println(buf);
+  linkSendLine(buf);
+  statusDirty = false;
+}
 
 static LoadPhase loadPhase = LoadPhase::OffLoad;
 static uint32_t cyclesCount = 0;
 /** Last cycles_count pushed as CLIENT attr (avoid spam). */
 static uint32_t lastPublishedCyclesCount = UINT32_MAX;
-
-enum class LoadEvent : uint8_t { None, PhaseChanged, CycleCompleted };
+/** Last applied SHARED machine_reset_counters pulse (dedupe). */
+static uint32_t lastResetPulse = 0;
 
 static void persistCyclesCount() {
   prefs.putUInt("cycles_count", cyclesCount);
@@ -173,6 +232,7 @@ static void persistRuntimeToNvs() {
   prefs.putInt("tool_rem", toolRemaining);
   prefs.putInt("tool_limit", toolLimit);
   prefs.putInt("tool_used", toolUsed);
+  prefs.putUInt("sess_start_cyc", sessionStartCycles);
 }
 
 static void loadRuntimeFromNvs() {
@@ -188,10 +248,22 @@ static void loadRuntimeFromNvs() {
   toolRemaining = prefs.getInt("tool_rem", -1);
   toolLimit = prefs.getInt("tool_limit", -1);
   toolUsed = prefs.getInt("tool_used", -1);
+  sessionStartCycles = prefs.getUInt("sess_start_cyc", 0);
+
+  // Active session after reboot without a stored baseline — pin to current
+  // lifetime so "this login" does not equal full lifetime (bogus start=0).
+  if (sessionActive && sessionStartCycles == 0 && cyclesCount > 0) {
+    sessionStartCycles = cyclesCount;
+    Serial.print("[SESSION] NVS missing start cycles — pinned to ");
+    Serial.println(sessionStartCycles);
+  }
 
   if (!sessionActive && jobCount != 0) {
     jobCount = 0;
     prefs.putInt("job_count", 0);
+  }
+  if (!sessionActive) {
+    sessionStartCycles = 0;
   }
 }
 
@@ -230,11 +302,6 @@ static bool isMqttUp() {
   return mqttUp;
 }
 
-static void markStatusDirty() {
-  statusDirty = true;
-  lastStatusDirtyMs = millis();
-}
-
 static void initLinkUart() {
   LinkSerial.end();
   delay(20);
@@ -249,36 +316,6 @@ static void linkSendLine(const char* line) {
   LinkSerial.flush();
 }
 
-static void pushStatusToBle(bool sessionBusy = false) {
-  StaticJsonDocument<512> doc;
-  doc["type"] = "status";
-  doc["slot"] = machineSlot;
-  if (machineCode.length()) doc["code"] = machineCode;
-  doc["session"] = sessionActive;
-  doc["jobs"] = jobCount;
-  doc["allow_run"] = allowRun;
-  if (toolRemaining >= 0) {
-    doc["tool_remaining"] = toolRemaining;
-    doc["tool_life_enabled"] = true;
-  } else {
-    doc["tool_life_enabled"] = false;
-  }
-  if (toolLimit >= 0) doc["tool_limit"] = toolLimit;
-  if (sessionBusy) doc["session_busy"] = true;
-  if (sessionStartTs > 0) doc["session_start_ts"] = sessionStartTs;
-  if (sessionEndTs > 0) doc["session_end_ts"] = sessionEndTs;
-  if (operatorId.length()) doc["operator_id"] = operatorId;
-  if (operatorName.length()) doc["operator_name"] = operatorName;
-
-  char buf[512];
-  const size_t n = serializeJson(doc, buf, sizeof(buf));
-  if (!n) return;
-  Serial.print("[LINK] → ");
-  Serial.println(buf);
-  linkSendLine(buf);
-  statusDirty = false;
-}
-
 static void pushClientMirror(bool pushOperatorTelemetry = false) {
   StaticJsonDocument<512> attrs;
   attrs[ATTR_CYCLES_COUNT] = (float)cyclesCount;
@@ -290,6 +327,11 @@ static void pushClientMirror(bool pushOperatorTelemetry = false) {
   attrs[KEY_JOB_COUNT] = jobCount;
   attrs[KEY_SESSION_START_TS] = sessionStartTs > 0 ? sessionStartTs : 0;
   attrs[KEY_SESSION_END_TS] = sessionEndTs > 0 ? sessionEndTs : 0;
+  // Never publish start_cycles=0 while lifetime is already high — that makes
+  // dashboards show "this login" == lifetime.
+  if (sessionActive && (sessionStartCycles > 0 || cyclesCount == 0)) {
+    attrs[KEY_SESSION_START_CYCLES] = (float)sessionStartCycles;
+  }
   if (toolRemaining >= 0) attrs[ATTR_TOOL_REMAINING] = toolRemaining;
   if (toolLimit >= 0) attrs[ATTR_TOOL_LIMIT] = toolLimit;
   if (toolUsed >= 0) attrs[ATTR_TOOL_USED] = toolUsed;
@@ -350,6 +392,7 @@ static void endSession(const char* reason) {
   sessionActive = false;
   operatorId = "";
   operatorName = "";
+  sessionStartCycles = 0;
   resetSessionJobs();
   const long endedAt = nowEpochSec();
   if (endedAt > 0) sessionEndTs = endedAt;
@@ -380,6 +423,7 @@ static void startSession(const String& id, const String& name) {
     operatorName = name.length() ? name : id;
     sessionActive = true;
     sessionEndTs = 0;
+    sessionStartCycles = cyclesCount;
     const long startedAt = nowEpochSec();
     // If NTP isn't ready yet, clear start_ts so UI doesn't show a stale old value.
     // We'll back-fill once time is available.
@@ -397,6 +441,7 @@ static void startSession(const String& id, const String& name) {
   operatorName = name.length() ? name : id;
   sessionActive = true;
   sessionEndTs = 0;
+  sessionStartCycles = cyclesCount;
   const long startedAt = nowEpochSec();
   sessionStartTs = startedAt > 0 ? startedAt : 0;
   applySsrOutput();
@@ -510,7 +555,7 @@ static void handleWorkerCommand(const String& line) {
     return;
   }
   if (!strcmp(cmd, "heartbeat")) {
-    markStatusDirty();
+    // Ack with current status; identical payloads are skipped in pushStatusToBle.
     pushStatusToBle();
     return;
   }
@@ -563,8 +608,60 @@ static void pollLinkRx() {
   }
 }
 
+static void feedOtaSharedFloat(const String& key, float value) {
+  StaticJsonDocument<32> doc;
+  doc.set(value);
+  ota.onSharedAttribute(key, doc.as<JsonVariant>());
+}
+
+static void feedOtaSharedString(const String& key, const String& value) {
+  StaticJsonDocument<160> doc;
+  doc.set(value);
+  ota.onSharedAttribute(key, doc.as<JsonVariant>());
+}
+
+/** Factory Floor Setup: clear lifetime cycles + session jobs in NVS. */
+static void handleResetCountersPulse(float value) {
+  const uint32_t pulse = (uint32_t)value;
+  if (pulse == 0 || pulse == lastResetPulse) return;
+  lastResetPulse = pulse;
+
+  Serial.print("[RESET] machine_reset_counters pulse=");
+  Serial.println(pulse);
+
+  cyclesCount = 0;
+  lastPublishedCyclesCount = UINT32_MAX;
+  sessionStartCycles = 0;
+  jobCount = 0;
+  persistCyclesCount();
+  requestPersistNvs();
+  flushPersistNvs();
+  publishCyclesCountClient(true);
+  pushClientMirror(true);
+  markStatusDirty();
+  pushStatusToBle();
+  Serial.println("[RESET] cycles_count=0 jobs=0 persisted + published");
+}
+
+static bool reportFwState(const char* key, const char* value) {
+  StaticJsonDocument<128> doc;
+  doc[key] = value;
+  return sdk.sendClientAttributes(doc);
+}
+
 static void onSharedAttribute(const String& key, float value) {
   sharedAttrsReceived = true;
+
+  if (key.startsWith("fw_")) {
+    // fw_title / checksum arrive as strings; only fw_size is reliably numeric.
+    if (key == "fw_size") feedOtaSharedFloat(key, value);
+    return;
+  }
+
+  if (key == ATTR_RESET_COUNTERS) {
+    handleResetCountersPulse(value);
+    return;
+  }
 
   if (key == ATTR_ALLOW_RUN) {
     const bool platformAllow = value >= 0.5f;
@@ -575,6 +672,7 @@ static void onSharedAttribute(const String& key, float value) {
         return;
       }
     }
+    if (allowRun == platformAllow) return;
     allowRun = platformAllow;
     applySsrOutput();
     requestPersistNvs();
@@ -598,8 +696,7 @@ static void onSharedAttribute(const String& key, float value) {
       pushStatusToBle();
     } else if (slot > 0) {
       machineSlot = slot;
-      requestPersistNvs();
-      markStatusDirty();
+      // Same slot echoed from MQTT — do not dirty the BLE UART link.
     }
     return;
   }
@@ -627,6 +724,11 @@ static void onSharedAttribute(const String& key, float value) {
 }
 
 static void onSharedAttributeString(const String& key, const String& value) {
+  if (key.startsWith("fw_")) {
+    sharedAttrsReceived = true;
+    feedOtaSharedString(key, value);
+    return;
+  }
   if (key != ATTR_MACHINE_CODE) return;
   sharedAttrsReceived = true;
   String next = value;
@@ -787,6 +889,20 @@ void setup() {
   connectWifiAndSyncTime();
   delay(500);
 
+  OtaConfig otaCfg;
+  otaCfg.apiHost = API_HOST;
+  otaCfg.deviceToken = DEVICE_TOKEN;
+#if LOCAL_DEV
+  otaCfg.rootCA = nullptr;
+  otaCfg.allowInsecureTLS = true;
+#else
+  otaCfg.rootCA = AUTOCONNECTO_ROOT_CA;
+  otaCfg.allowInsecureTLS = false;
+#endif
+  otaCfg.chunkSize = 16384;
+  otaCfg.autoReboot = true;
+  ota.begin(otaCfg, reportFwState);
+
   SDKConfig config;
   config.wifiSSID = WIFI_SSID;
   config.wifiPassword = WIFI_PASSWORD;
@@ -820,6 +936,7 @@ void setup() {
   sdk.onConnect(onMqttConnect);
   sdk.begin(config);
   Serial.println("[MQTT] sdk.begin()");
+  Serial.println("[OTA] AutoconnectoOta ready");
 
   initLinkUart();
   Serial.println("[LINK] UART reinit after WiFi/MQTT");
@@ -831,7 +948,13 @@ void setup() {
 
 void loop() {
   sdk.loop();
+  ota.loop();
   mqttUp = sdk.connected();
+
+  if (ota.isBusy()) {
+    // Keep MQTT+OTA responsive; skip PZEM/BLE heavy work during flash download.
+    return;
+  }
 
   pollLinkRx();
   flushPersistNvs();

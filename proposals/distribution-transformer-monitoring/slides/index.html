@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Autoconnecto — Distribution Transformer Monitoring</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #121a2b;
+      --text: #e8eef7;
+      --muted: #93a0b5;
+      --line: #243049;
+      --accent: #1d9bf0;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: "Segoe UI", Calibri, Arial, sans-serif; }
+    .deck { height: 100%; }
+    .slide {
+      display: none;
+      height: 100%;
+      padding: 56px 72px 72px;
+      flex-direction: column;
+    }
+    .slide.active { display: flex; }
+    .kicker { color: var(--accent); letter-spacing: 0.12em; font-size: 13px; text-transform: uppercase; margin-bottom: 12px; }
+    h1 { font-size: 42px; line-height: 1.15; margin: 0 0 16px; font-weight: 650; }
+    h2 { font-size: 32px; margin: 0 0 20px; font-weight: 650; }
+    p, li { font-size: 20px; line-height: 1.45; color: var(--text); }
+    .muted { color: var(--muted); }
+    .row { display: flex; gap: 24px; }
+    .col { flex: 1; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 18px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .footer {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 13px;
+      padding-top: 20px;
+    }
+    .bar { height: 4px; width: 72px; background: var(--accent); margin-bottom: 22px; }
+    .small { font-size: 16px; }
+    @media print {
+      .slide { display: flex; height: 100vh; page-break-after: always; }
+      .slide:last-child { page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <section class="slide active">
+      <div class="kicker">Autoconnecto · Confidential proposal</div>
+      <div class="bar"></div>
+      <h1>Real-time monitoring<br />for distribution transformers</h1>
+      <p class="muted">25 · 63 · 100 · 250 · 500 kVA</p>
+      <p>Live 3-phase electrical health, operator-set alarms, and a factory-fit kit that changes only the CTs.</p>
+      <div class="footer"><span>August 2026</span><span>1 / 8</span></div>
+    </section>
+
+    <section class="slide">
+      <div class="kicker">The problem</div>
+      <h2>A transformer you cannot see will fail without warning</h2>
+      <div class="row">
+        <div class="col card">
+          <p>Overload, voltage swing, and imbalance cook oil and windings long before a visual inspection.</p>
+        </div>
+        <div class="col card">
+          <p>Your customers already ask for live data. A local meter that nobody logs does not close the order.</p>
+        </div>
+        <div class="col card">
+          <p>You need one kit across the catalogue — not five different designs.</p>
+        </div>
+      </div>
+      <div class="footer"><span>Autoconnecto</span><span>2 / 8</span></div>
+    </section>
+
+    <section class="slide">
+      <div class="kicker">Solution</div>
+      <h2>Field kit + Autoconnecto cloud</h2>
+      <p class="small muted">CTs → 3-phase RS485 meter → TTL → ESP32 → Wi-Fi → 4G modem → Autoconnecto</p>
+      <div class="row">
+        <div class="col card"><p><strong>Measure</strong><br />V, I, kW, kVA, PF, Hz, kWh on all three phases.</p></div>
+        <div class="col card"><p><strong>See</strong><br />Live dashboard, analog meters, load %, one-hour trends.</p></div>
+        <div class="col card"><p><strong>Act</strong><br />Alarms for voltage, overload, PF, frequency, imbalance, comms loss.</p></div>
+      </div>
+      <p class="small">Operators change trip points on the dashboard. No firmware visit.</p>
+      <div class="footer"><span>Autoconnecto</span><span>3 / 8</span></div>
+    </section>
+
+    <section class="slide">
+      <div class="kicker">Hardware</div>
+      <h2>Same kit. Only CTs change.</h2>
+      <table>
+        <thead>
+          <tr><th>Rating</th><th>LV full-load current</th><th>CT set</th><th>Kit (INR, ex-GST)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>25 kVA</td><td>35 A</td><td>50/5 A × 3</td><td>22,500</td></tr>
+          <tr><td>63 kVA</td><td>88 A</td><td>100/5 A × 3</td><td>23,000</td></tr>
+          <tr><td>100 kVA</td><td>139 A</td><td>200/5 A × 3</td><td>23,500</td></tr>
+          <tr><td>250 kVA</td><td>348 A</td><td>400/5 A × 3</td><td>25,000</td></tr>
+          <tr><td>500 kVA</td><td>696 A</td><td>800/5 A × 3</td><td>27,500</td></tr>
+        </tbody>
+      </table>
+      <p class="small muted">ESP32, Indian RS485 meter, converter, 4G Wi-Fi modem, 5 V 4 A PSU, IP65 enclosure — common to all.</p>
+      <div class="footer"><span>Autoconnecto</span><span>4 / 8</span></div>
+    </section>
+
+    <section class="slide">
+      <div class="kicker">Platform</div>
+      <h2>Autoconnecto subscription</h2>
+      <table>
+        <thead>
+          <tr><th>Fleet size</th><th>Plan</th><th>Devices</th><th>Annual (INR)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Pilot, up to 10</td><td>Starter</td><td>10</td><td>8,999</td></tr>
+          <tr><td>Commercial, up to 100</td><td>Growth</td><td>100</td><td>34,999</td></tr>
+          <tr><td>Factory + field, up to 500</td><td>Enterprise</td><td>500</td><td>1,99,999</td></tr>
+        </tbody>
+      </table>
+      <p class="small">Enterprise includes white-label. SIM / data is separate (~₹1,500 per transformer per year if we supply).</p>
+      <div class="footer"><span>Autoconnecto</span><span>5 / 8</span></div>
+    </section>
+
+    <section class="slide">
+      <div class="kicker">Pilot</div>
+      <h2>Five ratings, ninety days</h2>
+      <div class="row">
+        <div class="col card">
+          <p>One kit each: 25, 63, 100, 250, 500 kVA</p>
+          <p>10% off list kits → <strong>₹1,09,350</strong></p>
+        </div>
+        <div class="col card">
+          <p>Commissioning of five sites → <strong>₹24,000</strong></p>
+          <p>Growth plan, 90 days → <strong>included</strong></p>
+        </div>
+      </div>
+      <p>Pilot total <strong>₹1,33,350</strong> ex-GST. Then you decide factory-fit volume and which plan to keep.</p>
+      <div class="footer"><span>Autoconnecto</span><span>6 / 8</span></div>
+    </section>
+
+    <section class="slide">
+      <div class="kicker">Delivery</div>
+      <h2>Four weeks to a live pilot</h2>
+      <div class="row">
+        <div class="col card"><p><strong>Week 1</strong><br />Ratings, SIMs, nameplate data</p></div>
+        <div class="col card"><p><strong>Week 2</strong><br />Kit FAT on a 100 kVA</p></div>
+        <div class="col card"><p><strong>Week 3</strong><br />Dashboard + alarm training</p></div>
+        <div class="col card"><p><strong>Week 4–6</strong><br />Sites live, weekly review</p></div>
+      </div>
+      <p class="small muted">Factory-fit work instruction for your electrician is included.</p>
+      <div class="footer"><span>Autoconnecto</span><span>7 / 8</span></div>
+    </section>
+
+    <section class="slide">
+      <div class="kicker">Next step</div>
+      <h2>Confirm four things</h2>
+      <ol>
+        <li>Pilot of five ratings, or one rating first?</li>
+        <li>Factory-fit, site retrofit, or both?</li>
+        <li>Who supplies the SIM?</li>
+        <li>Legal name, GSTIN, billing address</li>
+      </ol>
+      <p>We can show a live Autoconnecto dashboard of a 100 kVA transformer this week.</p>
+      <div class="footer"><span>Autoconnecto · DT-MON-2026-01</span><span>8 / 8</span></div>
+    </section>
+  </div>
+  <script>
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    let i = 0;
+    function show(n) {
+      i = (n + slides.length) % slides.length;
+      slides.forEach((s, idx) => s.classList.toggle("active", idx === i));
+    }
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") show(i + 1);
+      if (e.key === "ArrowLeft" || e.key === "PageUp") show(i - 1);
+      if (e.key === "Home") show(0);
+      if (e.key === "End") show(slides.length - 1);
+    });
+  </script>
+</body>
+</html>

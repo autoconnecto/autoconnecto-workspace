@@ -1,0 +1,156 @@
+{
+  "name": "DT 100 kVA demo generator",
+  "description": "Realistic 3-phase distribution transformer telemetry for customer demo. Point it at the demo device, then Start.",
+  "type": "data_generator",
+  "enabled": true,
+  "status": "draft",
+  "config": {
+    "version": 1,
+    "mode": "form",
+    "generator": {
+      "protocol": "http",
+      "targetMode": "single",
+      "deviceIds": [],
+      "intervalSeconds": 5,
+      "batchMode": "per_device_randomized",
+      "keys": [
+        {
+          "id": "dt-v-r",
+          "key": "dt_v_r",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 228, "max": 248, "decimals": 1, "driftStrength": 0.8, "startValue": 239 }
+        },
+        {
+          "id": "dt-v-y",
+          "key": "dt_v_y",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 226, "max": 247, "decimals": 1, "driftStrength": 0.8, "startValue": 237 }
+        },
+        {
+          "id": "dt-v-b",
+          "key": "dt_v_b",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 227, "max": 249, "decimals": 1, "driftStrength": 0.8, "startValue": 241 }
+        },
+        {
+          "id": "dt-v-ry",
+          "key": "dt_v_ry",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 398, "max": 428, "decimals": 1, "driftStrength": 1.2, "startValue": 414 }
+        },
+        {
+          "id": "dt-v-yb",
+          "key": "dt_v_yb",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 396, "max": 426, "decimals": 1, "driftStrength": 1.2, "startValue": 412 }
+        },
+        {
+          "id": "dt-v-br",
+          "key": "dt_v_br",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 397, "max": 429, "decimals": 1, "driftStrength": 1.2, "startValue": 416 }
+        },
+        {
+          "id": "dt-i-r",
+          "key": "dt_i_r",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 72, "max": 118, "decimals": 1, "driftStrength": 1.5, "startValue": 92 }
+        },
+        {
+          "id": "dt-i-y",
+          "key": "dt_i_y",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 68, "max": 114, "decimals": 1, "driftStrength": 1.5, "startValue": 88 }
+        },
+        {
+          "id": "dt-i-b",
+          "key": "dt_i_b",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 70, "max": 120, "decimals": 1, "driftStrength": 1.5, "startValue": 95 }
+        },
+        {
+          "id": "dt-kw",
+          "key": "dt_kw",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 48, "max": 78, "decimals": 1, "driftStrength": 1.2, "startValue": 61 }
+        },
+        {
+          "id": "dt-kva",
+          "key": "dt_kva",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 55, "max": 88, "decimals": 1, "driftStrength": 1.2, "startValue": 69 }
+        },
+        {
+          "id": "dt-kvar",
+          "key": "dt_kvar",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 18, "max": 36, "decimals": 1, "driftStrength": 0.8, "startValue": 26 }
+        },
+        {
+          "id": "dt-pf",
+          "key": "dt_pf",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 0.82, "max": 0.97, "decimals": 2, "driftStrength": 0.02, "startValue": 0.91 }
+        },
+        {
+          "id": "dt-hz",
+          "key": "dt_hz",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 49.7, "max": 50.4, "decimals": 2, "driftStrength": 0.04, "startValue": 50.01 }
+        },
+        {
+          "id": "dt-kwh",
+          "key": "dt_kwh",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "step",
+          "settings": { "min": 12000, "max": 999999, "decimals": 1, "stepSize": 0.08, "startValue": 18420 }
+        },
+        {
+          "id": "dt-load",
+          "key": "dt_load_pct",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 55, "max": 88, "decimals": 1, "driftStrength": 1.2, "startValue": 69 }
+        },
+        {
+          "id": "dt-imbalance",
+          "key": "dt_imbalance_pct",
+          "dataType": "number",
+          "enabled": true,
+          "mode": "drift",
+          "settings": { "min": 2, "max": 14, "decimals": 1, "driftStrength": 0.6, "startValue": 6 }
+        }
+      ]
+    }
+  }
+}

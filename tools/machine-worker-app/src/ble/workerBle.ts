@@ -449,7 +449,8 @@ export async function connectPinnedMachine(
       const device = await connectByDeviceId(pin.deviceId, { timeoutMs: 5000 });
       const status = await readBleStatus(device);
       const seen = bleAdvertNameFromSlot(status?.slot ?? null);
-      if (seen === target) {
+      // Keep link if slot unknown (WiFi UART lag) — only drop when another AC-### replies.
+      if (!seen || seen === target) {
         return device;
       }
       await device.cancelConnection();
