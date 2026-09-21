@@ -1,6 +1,8 @@
 # Required Actions secrets on autoconnecto-workspace (Settings → Secrets → Actions):
 #   GIT_READ_TOKEN     Fine-grained PAT with Contents: READ on autoconnecto-backend +
 #                      autoconnecto-frontend (used by actions/checkout).
+#   DOCS_DEPLOY_KEY    SSH private key with access to autoconnecto/autoconnecto-docs
+#                      (same key as public-docs-site.yml — used to clone manual-inapp pages).
 #   AWS_ACCESS_KEY_ID  CI IAM user with s3:PutObject/DeleteObject on
 #   AWS_SECRET_ACCESS_KEY  s3://autoconnecto-docs-site/backend-generated/*
 #   EC2_HOST           Public hostname or IPv4 of the backend (api.autoconnecto.in).
@@ -10,10 +12,11 @@
 # Contract owned by this workflow (in-app docs delivery):
 #   1. Generate backend/docs/generated/ from backend + frontend sources (Node, no DB/Redis/MQTT).
 #   2. aws s3 sync to s3://autoconnecto-docs-site/backend-generated/.
-#   3. SSH into EC2 and run .github/scripts/ec2-remote-pull-backend-docs.sh which:
+#   3. Clone autoconnecto-docs via DOCS_DEPLOY_KEY and sync docs/manual-inapp → S3 manual-inapp/.
+#   4. SSH into EC2 and run .github/scripts/ec2-remote-pull-backend-docs.sh which:
 #        aws s3 sync -> /home/ubuntu/autoconnecto/backend/docs/generated/
 #        docker compose up -d --no-deps backend
-#   4. Backend container reads ./docs:/app/docs (generated at /app/docs/generated) and serves
+#   5. Backend container reads ./docs:/app/docs (generated at /app/docs/generated) and serves
 #      /api/documentation/navigation + /api/documentation/page.
 #
 # This workflow MUST succeed for in-app docs to refresh in production.
@@ -69,6 +72,7 @@ jobs:
         env:
           EC2_HOST_CHK: ${{ secrets.EC2_HOST }}
           EC2_KEY_CHK: ${{ secrets.EC2_SSH_KEY }}
+          DOCS_KEY_CHK: ${{ secrets.DOCS_DEPLOY_KEY }}
         run: |
           missing=0
           if [ -z "$CHECKOUT_PAT" ]; then
@@ -81,6 +85,10 @@ jobs:
           fi
           if [ -z "$EC2_KEY_CHK" ]; then
             echo "::error::EC2_SSH_KEY is empty. Paste the OpenSSH private key matching the EC2 key pair."
+            missing=1
+          fi
+          if [ -z "$DOCS_KEY_CHK" ]; then
+            echo "::error::DOCS_DEPLOY_KEY is empty. Needed to clone autoconnecto-docs (manual-inapp pages)."
             missing=1
           fi
           exit $missing
@@ -106,13 +114,20 @@ jobs:
           path: frontend
           token: ${{ env.CHECKOUT_PAT }}
 
-      - name: Checkout docs repo (manual in-app pages)
-        uses: actions/checkout@v4
-        with:
-          repository: autoconnecto/autoconnecto-docs
-          ref: main
-          path: docs-repo
-          token: ${{ env.CHECKOUT_PAT }}
+      # Same auth path as public-docs-site.yml. Do NOT use GIT_READ_TOKEN here —
+      # that PAT is scoped to backend+frontend only and returns 403 on autoconnecto-docs.
+      - name: Clone docs repo (manual in-app pages, SSH)
+        env:
+          DOCS_DEPLOY_KEY: ${{ secrets.DOCS_DEPLOY_KEY }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DOCS_DEPLOY_KEY" | tr -d '\r' > ~/.ssh/docs_deploy_key
+          chmod 600 ~/.ssh/docs_deploy_key
+          ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND='ssh -i ~/.ssh/docs_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes'
+          git clone --depth 1 git@github.com:autoconnecto/autoconnecto-docs.git docs-repo
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
