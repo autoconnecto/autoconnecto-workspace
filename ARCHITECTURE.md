@@ -43,7 +43,11 @@ This document reflects the architecture confirmed from the current codebase. Any
 ### Device → Backend → Frontend (telemetry)
 
 - Device sends telemetry via MQTT (`devices/+/telemetry`) and/or device raw WS message type `"telemetry"`.
-- Backend ingests and emits to browser clients via Socket.IO (`telemetry_update` / `telemetry_update_global`), using rooms named `device:{deviceId}`.
+- Backend ingest order (fail-open unless a pipeline/engine drops): **rule engine → persist / realtime / profile alarms**.
+  Data/attribute pipelines and calculated-fields stages are retired from the product path; use Rule Engine `enrich` / `script` / `math` nodes for transforms. Profile **Alarm Rules** remain on the device profile (ThingsBoard-style thresholds).
+  Rule Engine adds `delay` (park-and-resume; timers + Redis persistence via Presence Redis so jobs survive process restart when Redis is up), `switch`, `notify` (freeform email/SMS), `dedupe`, `math`, `rest_call`, `engine_ref` (nested Started engine, max depth 3), `related_entity` (asset/gateway context). Message types: `telemetry`, `attributes`, `device_inactive`, `device_active`, `rpc_response`. Tenant `default_rule_engine_id` applies when a profile has no engine. Job templates cover forward / alarm / Slack / Teams / inactivity / RPC. `message_in.accepts` may include `attributes` and lifecycle events.
+- Integration Hub (HTTP webhooks + MQTT broker bridge) decode via typed adapters, then the same ingest chain. Prefer Rule Engine for business logic; optional legacy mapping/script on the integration is pass-through only. ChirpStack/TTN downlinks: integration UI or Rule Engine node `integration_downlink`.
+- Backend emits to browser clients via Socket.IO (`telemetry_update` / `telemetry_update_global`), using rooms named `device:{deviceId}`.
 - Frontend normalizes telemetry payloads and distributes them through `telemetry.store.ts`.
 
 ### Attributes (client/shared)
@@ -71,6 +75,8 @@ This is the primary control pattern for widgets that manage device state: **Swit
 On device restart, the device subscribes to its shared attributes (MQTT retained) at startup, restores its working state from them, and immediately publishes its client attributes back. This brings the dashboard into sync automatically — without any user action — because the confirmed state is driven by the device reading its own shared attributes on boot.
 
 **Design intent:** Shared attributes are the source of truth for desired state. Client attributes are the source of truth for confirmed device state. The feedback loop ensures the dashboard always reflects actual hardware state, not just the last command sent.
+
+**Scheduler (confirmed):** Tenant jobs under `/scheduler` can write shared attributes or send commands on a one-shot, cron, or interval schedule. Shared-attribute jobs preserve the reboot self-heal path above.
 
 **Platform differentiator:** This attribute feedback loop solves a known pain point in platforms like ThingsBoard, where a device reboot causes the dashboard to show stale state until the user manually re-issues a command. In Autoconnecto, the device self-heals on every boot — it reads its own retained shared attributes, restores hardware state, and pushes confirmed client attributes back — making the dashboard resync automatically with zero user intervention. This is a core platform USP and must be preserved in all future control widget designs.
 
