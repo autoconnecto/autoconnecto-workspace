@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PurpleChillyBucketList",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::purplechilly-www-site"
+    },
+    {
+      "Sid": "PurpleChillyBucketObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:PutObjectAcl"
+      ],
+      "Resource": "arn:aws:s3:::purplechilly-www-site/*"
+    },
+    {
+      "Sid": "PurpleChillyCloudFrontInvalidate",
+      "Comment": "Replace ENHPEBEMIV02 with the actual CloudFront distribution ID after creating it.",
+      "Effect": "Allow",
+      "Action": "cloudfront:CreateInvalidation",
+      "Resource": "arn:aws:cloudfront::813417990382:distribution/ENHPEBEMIV02"
+    }
+  ]
+}
