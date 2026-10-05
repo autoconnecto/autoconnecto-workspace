@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /_next/
+
+Sitemap: https://www.purplechilly.com/sitemap.xml
