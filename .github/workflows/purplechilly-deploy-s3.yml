@@ -1,0 +1,79 @@
+# Deploy purplechilly.com static export to S3 + CloudFront invalidation.
+#
+# Required repository SECRETS:
+#   AWS_ACCESS_KEY_ID          — same IAM user as autoconnecto.in (autoconnecto-backend)
+#   AWS_SECRET_ACCESS_KEY
+#
+# Optional overrides (Secrets or Variables):
+#   PURPLECHILLY_S3_BUCKET                   default: purplechilly-www-site
+#   PURPLECHILLY_CLOUDFRONT_DISTRIBUTION_ID  default: ENHPEBEMIV02
+#
+# IAM: AutoconnectoWebsiteDeploy policy on autoconnecto-backend IAM user
+#   extended to include purplechilly-www-site bucket + distribution ENHPEBEMIV02.
+
+name: purplechilly.com — deploy static export to S3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'purplechilly-website/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PURPLECHILLY_S3_BUCKET: ${{ secrets.PURPLECHILLY_S3_BUCKET || vars.PURPLECHILLY_S3_BUCKET || 'purplechilly-www-site' }}
+  PURPLECHILLY_CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.PURPLECHILLY_CLOUDFRONT_DISTRIBUTION_ID || vars.PURPLECHILLY_CLOUDFRONT_DISTRIBUTION_ID || 'ENHPEBEMIV02' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: purplechilly-website
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build static export
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ vars.PURPLECHILLY_SITE_URL || 'https://www.purplechilly.com' }}
+          NEXT_PUBLIC_LEAD_WEBHOOK_URL: ${{ vars.PURPLECHILLY_LEAD_WEBHOOK_URL }}
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Sync to S3
+        run: |
+          echo "Target bucket: ${PURPLECHILLY_S3_BUCKET}"
+          test -n "${PURPLECHILLY_S3_BUCKET}"
+          aws s3 sync out/ "s3://${PURPLECHILLY_S3_BUCKET}/" --delete --region ap-south-1
+
+      - name: Invalidate CloudFront
+        id: invalidate
+        continue-on-error: true
+        run: |
+          echo "CloudFront distribution: ${PURPLECHILLY_CLOUDFRONT_DISTRIBUTION_ID}"
+          aws cloudfront create-invalidation \
+            --distribution-id "${PURPLECHILLY_CLOUDFRONT_DISTRIBUTION_ID}" \
+            --paths "/*"
+
+      - name: Deploy summary
+        if: steps.invalidate.outcome == 'failure'
+        run: |
+          echo "::warning::S3 sync succeeded but CloudFront invalidation failed."
+          echo "::warning::Run a manual /* invalidation in the CloudFront console for distribution ENHPEBEMIV02."
