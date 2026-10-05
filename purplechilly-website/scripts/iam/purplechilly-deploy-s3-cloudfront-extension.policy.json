@@ -5,7 +5,7 @@
       "Sid": "PurpleChillyBucketList",
       "Effect": "Allow",
       "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
-      "Resource": "arn:aws:s3:::purplechilly-www-site"
+      "Resource": "arn:aws:s3:::purplechilly"
     },
     {
       "Sid": "PurpleChillyBucketObjects",
@@ -16,7 +16,7 @@
         "s3:DeleteObject",
         "s3:PutObjectAcl"
       ],
-      "Resource": "arn:aws:s3:::purplechilly-www-site/*"
+      "Resource": "arn:aws:s3:::purplechilly/*"
     },
     {
       "Sid": "PurpleChillyCloudFrontInvalidate",
