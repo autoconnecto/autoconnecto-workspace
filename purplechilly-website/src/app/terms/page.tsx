@@ -39,7 +39,7 @@ export default function Terms() {
         <h2>Contact</h2>
         <p>
           For any questions, write to{' '}
-          <a href="mailto:hello@purplechilly.com">hello@purplechilly.com</a>.
+          <a href="mailto:ceo@purplechilly.com">ceo@purplechilly.com</a>.
         </p>
       </div>
     </section>

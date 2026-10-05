@@ -40,7 +40,7 @@ export default function Privacy() {
         <h2>Contact</h2>
         <p>
           For privacy-related queries, email us at{' '}
-          <a href="mailto:hello@purplechilly.com">hello@purplechilly.com</a>.
+          <a href="mailto:ceo@purplechilly.com">ceo@purplechilly.com</a>.
         </p>
       </div>
     </section>

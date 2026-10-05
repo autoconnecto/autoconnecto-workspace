@@ -45,8 +45,8 @@ export default function Footer() {
                 </a>
               </p>
               <p>
-                <a href="mailto:hello@purplechilly.com" className="hover:text-white transition-colors">
-                  hello@purplechilly.com
+                <a href="mailto:ceo@purplechilly.com" className="hover:text-white transition-colors">
+                  ceo@purplechilly.com
                 </a>
               </p>
               <p className="text-xs text-gray-500 leading-relaxed">

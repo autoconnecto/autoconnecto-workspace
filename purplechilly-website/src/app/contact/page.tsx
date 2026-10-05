@@ -73,8 +73,8 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Email</p>
-                    <a href="mailto:hello@purplechilly.com" className="text-gray-800 hover:text-brand-700 font-medium transition-colors">
-                      hello@purplechilly.com
+                    <a href="mailto:ceo@purplechilly.com" className="text-gray-800 hover:text-brand-700 font-medium transition-colors">
+                      ceo@purplechilly.com
                     </a>
                   </div>
                   <div>
@@ -89,17 +89,15 @@ export default function Contact() {
               </div>
 
               <div className="border-t border-gray-100 pt-8">
-                <h3 className="text-sm font-bold text-gray-900 mb-3">Platform enquiries</h3>
+                <h3 className="text-sm font-bold text-gray-900 mb-3">Autoconnecto Platform</h3>
                 <p className="text-sm text-gray-500 mb-2">
-                  For Autoconnecto platform questions, demos, or deployments:
+                  For platform questions, demos, or deployments:
                 </p>
                 <a
-                  href="https://autoconnecto.in/#contact"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brand-700 text-sm font-medium hover:text-brand-800 transition-colors"
+                  href="mailto:founder@autoconnecto.in"
+                  className="text-brand-700 text-sm font-medium hover:text-brand-800 transition-colors block"
                 >
-                  autoconnecto.in →
+                  founder@autoconnecto.in
                 </a>
               </div>
 

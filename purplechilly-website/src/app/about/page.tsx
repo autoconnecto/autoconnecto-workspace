@@ -117,8 +117,8 @@ export default function About() {
                     </a>
                   </p>
                   <p>
-                    <a href="mailto:hello@purplechilly.com" className="hover:text-brand-700 transition-colors">
-                      hello@purplechilly.com
+                    <a href="mailto:ceo@purplechilly.com" className="hover:text-brand-700 transition-colors">
+                      ceo@purplechilly.com
                     </a>
                   </p>
                 </div>
