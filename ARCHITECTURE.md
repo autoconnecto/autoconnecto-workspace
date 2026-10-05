@@ -113,18 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v0.1.5` | 2026-05-12 ~16:15 UTC | `git -C ~/autoconnecto/backend describe --tags --always` → `v0.1.5` (commit `a55d94e`). Migration `0011_add_solution_icon_name.sql` applied (verified via `information_schema.columns` and `schema_migrations`). `docker compose ps backend emqx` both `healthy`. EMQX recreated with the new env-var overrides; `docker compose logs emqx \| grep cert_file_not_found` after last start returns **0** (noise eliminated). `/healthz` returns `{status:"ok", postgres:"ok", redis:"ok", timestamp:"2026-05-12T16:15:36.276Z"}`. |
-| Frontend (`app.autoconnecto.in`) | `v0.1.5` | 2026-05-12 ~16:03 UTC | `curl -sS https://app.autoconnecto.in/` references hashed bundle `index-BGHioVAO.js` (CSS hash `index-CqJNeAJo.css` unchanged from v0.1.4 — no global style changes shipped); CloudFront invalidation `IDM7EKDPVL99SUOWRS9D6YU8XD`. |
-| SDK (`autoconnecto-sdk`) | `v0.1.5` *(tagged for version consistency; source identical to v0.1.4)* | 2026-05-12 ~16:00 UTC | `git -C ~/autoconnecto/sdk describe --tags --always` → `v0.1.5`. SDK has no server-side deploy; in-field devices keep running whatever firmware they were last flashed with. Existing fleet remains on the v0.1.3 single-root (ISRG Root X1) trust bundle; reflash to v0.1.4 or v0.1.5 to pick up the X1 + X2 multi-CA bundle (same firmware on both tags). |
+| Backend (`api.autoconnecto.in`) | `v1.6.1` | 2026-10-05 | Deploy target: `bash scripts/ec2-release-deploy.sh v1.6.1 --sync-docs` (migration `0036`). Confirm with `git describe` + `/healthz` after EC2. |
+| Frontend (`app.autoconnecto.in`) | `v1.6.1` | 2026-10-05 | CI deploy from `main` on tag/push. |
+| Docs (`docs.autoconnecto.in`) | `v1.6.1` | 2026-10-05 | CI deploy from `main`. |
+| Website (`www.autoconnecto.in`) | `v1.6.1` | 2026-10-05 | CI deploy from `main`. |
+| SDK (`autoconnecto-sdk`) | `v1.6.1` | 2026-10-05 | `library.properties` `version=1.6.1` (FOTA + SOTA). |
+| Mobile (Android APK) | `v1.6.1` | 2026-10-05 | Tag workflow; `versionName` 1.6.1 / `versionCode` 12. |
 
-**What v0.1.5 actually shipped (delta vs v0.1.4):**
+**What v1.6.1 shipped (delta vs v1.6.0):**
 
-- **`solutions.is_active` admin toggle** (`p13`) — per-card Switch on the Solutions page (admin-only) flips `is_active`; non-active solutions are hidden from tenants on their next list call. A "Show inactive" page-header toggle lets admins still see paused solutions, dimmed and tagged "Inactive". Backend `PATCH /api/solutions/:id` accepts `is_active: boolean`; `GET /api/solutions?include_inactive=true` is admin-gated server-side (silently downgraded for non-admins, no info leak).
-- **`solutions.icon_name` curated picker** (`p14a`) — schema migration `0011` adds nullable `icon_name TEXT`. Edit modal contains a 28-icon grid (DashboardOutlined, LineChartOutlined, EnvironmentOutlined, ThunderboltOutlined, etc.) plus a "no icon" slot. Cards render the chosen icon (48px primary blue) centered above the title. Unknown / NULL icon_name falls back to DashboardOutlined.
-- **`SolutionsController` guard refactor** (`p11`) — write endpoints (POST / PATCH / DELETE) now gated by `@UseGuards(PlatformAdminGuard)`. Inline `isAllowed(userEmail)` checks removed from `SolutionsService`. Single source of truth for the platform-admin allow-list: `PLATFORM_ADMIN_EMAILS` env var, evaluated once by `PlatformAdminGuard` (same guard `PlatformAdminController` already uses).
-- **EMQX schema-validation noise silenced** (`p7`) — 5 env var overrides in `backend/docker-compose.yml` (`ssl:default` + `wss:default` cacertfile, plus dashboard `https` certfile/keyfile/cacertfile) eliminate the recurring `cert_file_not_found` errors that EMQX 6.0 emits during startup. No functional change — same listener bindings, same served cert chain. Removes log-flooding that would otherwise mask a real cert problem during a future incident.
-- **Backend Docker build now fully reviewable in git** (`p15` + `p15b`) — `Dockerfile`, `scripts/run-migrations.sh`, and `.dockerignore` are no longer `.gitignore`'d. A fresh clone of the backend repo can build the production image end-to-end with no host-local dependencies. Same governance reversal as the v0.1.4 `docker-compose.yml` move.
-- **EMQX 6.0 BSL license trade-off documented** (`p8`) — new "Strategic decisions pending" section above. Three real options (A: stay on 6.0 Community, B: roll back to 5.8.x Apache-2.0, C: buy 6.0 Enterprise). Operator call still required; until recorded, default is **A** with the SaaS-clause legal ambiguity noted.
+- Admin `ENERGYFLEET_TRIAL` plan + day-15 docs; OTA safety + SOTA SDK path; public Telegram community; marketing/docs honesty pass.
 
 **Versioning convention (confirmed in repos):**
 
@@ -219,7 +217,7 @@ curl -sS https://api.autoconnecto.in/health
 
 **Configuration:** production secrets and env live **on the server** in `~/autoconnecto/backend/.env.production` (loaded by compose via `env_file`; not committed). See `backend/ENVIRONMENT.md` for the full variable list, including **self-serve signup OTP** (`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `SIGNUP_OTP_HMAC_SECRET`), Cognito pool config, and AWS region.
 
-**IAM:** the runtime identity (EC2 instance role) must include Cognito **admin** actions required by `CognitoSignupAdminService` (scoped to the user pool ARN). Confirmed working on the current EC2 instance role as of v0.1.5. See `backend/ENVIRONMENT.md` for the policy shape.
+**IAM:** the runtime identity (EC2 instance role) must include Cognito **admin** actions required by `CognitoSignupAdminService` (scoped to the user pool ARN). Confirmed working on the current EC2 instance role (verified through v1.6.0). See `backend/ENVIRONMENT.md` for the policy shape.
 
 **Rollback (backend):** `git checkout` the previous known-good tag on the host, then `docker compose up -d --build --no-deps backend`. Run forward migrations only if the prior tag actually had unmigrated changes; otherwise prefer pure code rollback that matches the DB schema already in place.
 
@@ -285,46 +283,27 @@ Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts u
 
 ## Current Status
 
-**Production release (as of 2026-05-12, evening):** all four artefacts of `v0.1.5` (backend, frontend, SDK, workspace) are live and verified.
+**Production release (as of 2026-10-05):** platform **v1.6.1** is the current release line (CI for app/docs/website; EC2 backend via `ec2-release-deploy.sh v1.6.1`). See the production table above.
 
-- Backend `api.autoconnecto.in` — pulled to EC2 at ~16:15 UTC, container rebuilt from tag `v0.1.5`, reported `healthy`. EMQX was recreated in a follow-up step at ~16:15 UTC to pick up the `p7` schema-validation silencer env vars; post-recreate the EMQX log shows **zero** `cert_file_not_found` lines after the last "is running now". Migration `0011_add_solution_icon_name.sql` applied successfully (`information_schema.columns` confirms `solutions.icon_name TEXT NULL`).
-- Frontend `app.autoconnecto.in` — built from tag `v0.1.5`, synced to `s3://app.autoconnecto.in/`, CloudFront `E21R9QJBLA5QZB` invalidation `IDM7EKDPVL99SUOWRS9D6YU8XD` issued and edge confirmed serving the new bundle (`index-BGHioVAO.js`). Cross-version compatibility: the v0.1.5 frontend talks to either v0.1.4 or v0.1.5 backend; the new admin-only fields (`is_active`, `icon_name`) silently no-op on the older backend.
-- SDK `autoconnecto-sdk` — tagged `v0.1.5` for version consistency across the release set. Source is byte-identical to `v0.1.4`. In-field devices keep running whatever firmware they were last flashed with; reflash to `v0.1.4` or `v0.1.5` (same firmware) to pick up the X1 + X2 multi-CA trust bundle.
-- Self-serve signup (Brevo OTP + Cognito Admin) and login flows continue to function end-to-end in production.
-- In-app documentation pipeline (Swagger + developer + user docs) operational; runs nightly at 02:30 UTC and on demand via `repository_dispatch` from backend/frontend pushes.
-- Public documentation site `docs.autoconnecto.in` operational with CloudFront SPA-rewrite function deployed via CI (`infra/cloudfront/deploy-spa-rewrite.sh`).
+- Backend — deploy tag `v1.6.1` on EC2; ensure migration `0036` and `BILLING_LIFECYCLE_CRON_ENABLED=true` for EnergyFleet trial expiry.
+- Frontend / docs / website — CI deploys from `main` for the v1.6.1 release line.
+- Self-serve signup (Brevo OTP + Cognito Admin) and login flows continue to function.
+- Public documentation site `docs.autoconnecto.in` and marketing site `www.autoconnecto.in` operational.
+- Community Telegram: https://t.me/autoconnecto_community
 
-**What v0.1.5 actually shipped** (delta against v0.1.4):
-
-- **Backend** — six commits under the same tag:
-  - `feat(solutions): is_active in PATCH + admin GET filter` (`p13a`, commit `c5e1ba3`) — non-destructive pause for sample solutions. PATCH body accepts `is_active: boolean`; GET accepts `?include_inactive=true` admin-gated server-side.
-  - `feat(solutions): icon_name column + PATCH support` (`p14a-be`, commit `a55d94e`) — schema migration `0011` (additive, nullable). PATCH accepts `icon_name?: string | null`; service validates shape (PascalCase, ≤64 chars) but not the specific name (frontend picker is single source of truth).
-  - `refactor(solutions): PlatformAdminGuard at controller` (`p11`, commit `ec028c5`) — write endpoints (POST/PATCH/DELETE) gated by the same guard `PlatformAdminController` uses. Inline `isAllowed` checks removed from the service.
-  - `fix(emqx): silence cert_file_not_found schema noise` (`p7`, commit `6b8a991`) — 5 env var overrides in `docker-compose.yml`. No listener behavior change.
-  - `chore(governance): un-gitignore backend Dockerfile` (`p15`, commit `7e7610b`) — Dockerfile now under git, same reversal as `docker-compose.yml` was in v0.1.4.
-  - `chore(governance): bring run-migrations.sh + .dockerignore under git` (`p15b`, commit `2dad7ec`) — closes the host-local Docker build gap. Fresh clone of the repo can now build the production image end-to-end.
-- **Frontend** — single commit: Solutions page admin enhancements. Per-card `is_active` Switch (top-right). "Show inactive" page-header toggle. Inactive cards dim + "Inactive" Tag. Edit modal gains a 28-icon curated picker (DashboardOutlined, LineChartOutlined, EnvironmentOutlined, etc.) plus a "no icon" slot. Cards render the chosen icon (48px, primary blue) centered above the title.
-- **SDK** — no code change. Tagged `v0.1.5` only for version consistency.
-- **Workspace** — three doc/governance commits ahead of the release: `p17` submodule pointer bumps to v0.1.4 (`c4d0044`), `p8` EMQX 6.0 BSL license trade-off section (`669180d`), and this update (submodule pointer bumps to v0.1.5 + release table refresh).
-
-**What v0.1.4 shipped** (historical, delta against v0.1.3):
-
-- **Backend** — two commits under the same tag:
-  - `fix(infra)`: certbot deploy-hook now writes `privkey.pem` at mode `0644` (was `0640`) so the in-container `emqx` user (uid 1000) can read it after every auto-renewal. Without this, the silent failure mode was: renewal succeeds, hook copies the new file, `emqx ctl listeners restart` fails to bind, broker keeps serving the cached cert until restart. See `backend/ops/letsencrypt/README.md` for full rationale.
-  - `feat(solutions)`: new `PATCH /api/solutions/:id` endpoint accepting `{ title?, description? }`. Allow-listed against `PLATFORM_ADMIN_EMAILS` using the same inline check as the existing `POST`/`DELETE`. No schema migration.
-- **Frontend** — single commit: Solutions page now exposes an `Edit` button on each card (gated on `canPublishSolutions()` like Delete already is); admin actions row was restructured from a single `flex-wrap` row to a deterministic two-row vertical container so the per-card action layout is no longer viewport-width-dependent.
-- **SDK** — PEM trust store lives in `sdk/src/AutoconnectoIsrgRoots.h` as the `AUTOCONNECTO_ROOT_CA` macro (ISRG Root X1 + X2). `AutoconnectoSDK.h` includes it; HTTPS-only example sketches include it explicitly. `mbedtls` validates if the server chain terminates at any root in the bundle.
+**Earlier releases:** `v1.6.0` (2026-09-25) shipped Rule Engine polish, Telegram L1–L3, EnergyFleet free offer on the website. `v0.1.5` (2026-05-12) shipped solutions admin toggle / icon picker and Docker governance.
 
 **Known gaps (tracked):**
 
-- No runtime version reporting on `/health` — "what's deployed" is verified by SSH + git tag, not via HTTP. See **Version visibility (gap)** above; was scoped for `v0.1.4`, deferred again at `v0.1.5`. Carried forward as a future release item.
-- First-login UX on tenants with zero dashboards/devices may transiently show "failed to load resources" splash errors (observation pending field reports — defer until reproduced).
+- No runtime version reporting on `/health` — "what's deployed" is verified by SSH + git tag (or this table), not via HTTP. See **Version visibility (gap)** above; deferred through `v1.6.0`.
+- Single Nest process on one EC2 host: cloud Modbus auto-poll stops if that process is down.
+- First-login UX on tenants with zero dashboards/devices may transiently show splash errors (defer until reproduced).
 - Several GitHub Actions workflows still on Node.js 20 (deprecation warning, not blocking).
 
 ## Next Priorities (recommended)
 
-- Version-self-reporting on `/health` and in the frontend footer (deferred from `v0.1.4` and `v0.1.5`; carried into the next release).
+- Version-self-reporting on `/health` and in the frontend footer.
+- Land one named EnergyFleet plant; keep commercial packaging (`ENERGYFLEET_TRIAL`) aligned with ops.
 - Define a single authoritative transport contract (MQTT topics + Socket.IO events + payload shapes) and keep backend/frontend/sdk aligned.
-- Introduce explicit backend readiness phases so realtime/mqtt consumers do not run before dependencies are ready.
-- Consolidate frontend realtime connection lifecycle.
+- Explicit backend readiness phases; consolidate frontend realtime connection lifecycle.
 

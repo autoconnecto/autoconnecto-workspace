@@ -1,36 +1,33 @@
 # Autoconnecto Community
 
-Welcome to the **community-first** home for Autoconnecto builders, makers, and IoT teams.
+Public home for Autoconnecto builders, operators, and trial users.
 
-- **Discord** — day-to-day chat, showcases, and peer help ([join link](https://discord.gg/REPLACE_WITH_INVITE))
-- **GitHub Discussions** (this repo) — searchable Q&A, ideas, and announcements
-- **Product** — [app.autoconnecto.in](https://app.autoconnecto.in) · [Docs](https://docs.autoconnecto.in) · [Pricing](https://docs.autoconnecto.in/about/pricing)
+- **Telegram** — day-to-day chat and peer help: [t.me/autoconnecto_community](https://t.me/autoconnecto_community) (`@autoconnecto_community`)
+- **Docs** — [Community guide](https://docs.autoconnecto.in/about/community) · [Full docs](https://docs.autoconnecto.in)
+- **Product** — [app.autoconnecto.in](https://app.autoconnecto.in) · [Pricing](https://docs.autoconnecto.in/about/pricing)
 
-## What belongs here
+Plant **alarm** notifications use private L1/L2/L3 Telegram groups under **Users → Alarm Escalation**. Do not use the public community for live alarms.
 
-| Channel / area | Use for |
-|----------------|---------|
-| Discord `#showcase` | Photos, dashboards, demos, “I shipped this” |
-| Discord `#build-logs` | Work-in-progress, experiments, questions while building |
-| Discord `#help` | Stuck? Get unblocked (use the question template) |
-| **Discussions → Show and tell** | Longer write-ups, links, reproducible project posts |
-| **Discussions → Q&A** | How-to questions with accepted answers |
-| **Issues** | Confirmed bugs in Autoconnecto repos only (link the right repo) |
+## What belongs in Telegram
+
+| Topic | Use for |
+|-------|---------|
+| Setup / how-to | Connecting devices, dashboards, Telegram L1 setup |
+| Issues | Offline devices, missing alarms (no secrets) |
+| Ideas | Feature requests and feedback |
+
+Never paste bot tokens, passwords, `.env` files, or device tokens.
 
 ## Quick links
 
 | Resource | URL |
 |----------|-----|
+| Community Telegram | https://t.me/autoconnecto_community |
 | ESP32 SDK | https://github.com/autoconnecto/autoconnecto-sdk |
 | Mobile app | https://github.com/autoconnecto/autoconnecto-mobile/releases/latest |
-| Worker app (factory BLE) | https://github.com/autoconnecto/autoconnecto-workspace/releases/latest/download/autoconnecto-worker.apk |
 | API | https://api.autoconnecto.in |
 | Support email | support@autoconnecto.in |
 | Enterprise | founder@autoconnecto.in |
-
-## For maintainers
-
-See [docs/solo-maintainer-playbook.md](./docs/solo-maintainer-playbook.md) and [docs/discord-setup.md](./docs/discord-setup.md).
 
 ## Code of conduct
 
