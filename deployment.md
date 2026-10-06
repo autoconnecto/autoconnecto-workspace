@@ -108,6 +108,19 @@ curl -sS https://api.autoconnecto.in/healthz
 docker compose exec backend sh -lc "node -p \"require('./package.json').version\""
 ```
 
+### Solutions catalog seed (one-time / after empty DB)
+
+Deploy does **not** insert Solution rows. After a fresh DB (or if Solutions is empty), run inside the backend container:
+
+```bash
+cd ~/autoconnecto/backend
+for s in 0 1 2 3 4 5 6; do
+  docker compose exec backend node "scripts/_seed-phase${s}-solutions.cjs"
+done
+```
+
+Phase **0** = EnergyFleet + ClimateFleet. Phases 1–6 = remaining fleets/analytics. Idempotent upserts.
+
 ### Manual fallback (only if script fails)
 
 ```bash
@@ -249,7 +262,14 @@ curl -sS http://127.0.0.1:3000/api/documentation/navigation \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('sections', len(d.get('sections',[])))"
 ```
 
-Ensure `.env.production` has `DOCS_GENERATED_DIR=/app/docs/generated`.
+Ensure `.env.production` has `DOCS_GENERATED_DIR=/app/docs/generated` **for the Nest container only**. Do not `source .env.production` into the ubuntu shell before `--sync-docs` (or `unset DOCS_GENERATED_DIR` first). Host sync always writes to `~/autoconnecto/backend/docs/generated`.
+
+### Platform Admin billing (v1.7.2+)
+
+- **Unsuspend** — `ACTIVE` only; does not change `end_at` or usage.
+- **Renew period** — selectable days; `end_at = max(now, end_at) + days` and **resets telemetry usage** (`usage_reset_at`).
+- **+7d grace** — overdue breathing room; no usage reset.
+- Customer Dodo payment / subscription fulfill also resets usage.
 
 ---
 
