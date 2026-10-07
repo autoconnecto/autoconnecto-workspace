@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.6.1` | 2026-10-05 | Deploy target: `bash scripts/ec2-release-deploy.sh v1.6.1 --sync-docs` (migration `0036`). Confirm with `git describe` + `/healthz` after EC2. |
-| Frontend (`app.autoconnecto.in`) | `v1.6.1` | 2026-10-05 | CI deploy from `main` on tag/push. |
-| Docs (`docs.autoconnecto.in`) | `v1.6.1` | 2026-10-05 | CI deploy from `main`. |
-| Website (`www.autoconnecto.in`) | `v1.6.1` | 2026-10-05 | CI deploy from `main`. |
-| SDK (`autoconnecto-sdk`) | `v1.6.1` | 2026-10-05 | `library.properties` `version=1.6.1` (FOTA + SOTA). |
-| Mobile (Android APK) | `v1.6.1` | 2026-10-05 | Tag workflow; `versionName` 1.6.1 / `versionCode` 12. |
+| Backend (`api.autoconnecto.in`) | `v1.7.8` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.8 --sync-docs`. Confirm `git describe` + `/healthz`. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.8` | 2026-10-07 | CI deploy from `main` on push (`273dc8e`). |
+| Docs (`docs.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
+| Website (`www.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
+| SDK (`autoconnecto-sdk`) | `v1.6.1` | 2026-10-05 | Unchanged this cut. |
+| Mobile (Android APK) | `v1.6.3` | 2026-10-07 | CI APK on tag `v1.6.3` (Show demos preference). |
+
+**What v1.7.0 ships (delta vs v1.6.1):**
+
+- Solution sandboxes + Sample On; analytics hub (forecast caps / fleet risk / saved views); optional StatsForecast worker; geofences; multi-fleet solution packs; map/route industry UX (cluster/stale/geofence/playback/trips).
 
 **What v1.6.1 shipped (delta vs v1.6.0):**
 
