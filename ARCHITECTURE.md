@@ -113,8 +113,8 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.13` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.13 --sync-docs`. EnergyFleet/ClimateFleet Sample On gateway + children. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.13` | 2026-10-07 | CI deploy from `main` on push (`4e9dda8`). Gateways empty-state points at demo hubs. |
+| Backend (`api.autoconnecto.in`) | `v1.7.14` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.14 --sync-docs`. Gateway Active rollup + Modbus fleet Sample hubs. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.14` | 2026-10-07 | CI deploy from `main` on push (`9bb17de`). Gateways onboarding + Active UX. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.9` | 2026-10-07 | CI deploy from `main` (`ded7c78`) — integration examples + mobile companion notes. |
 | Website (`www.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
 | SDK (`autoconnecto-sdk`) | `v1.6.2` | 2026-10-07 | Tag `v1.6.2` — gateway-relay webhook samples + Integrations Hub README. |
