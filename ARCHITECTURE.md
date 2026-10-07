@@ -114,11 +114,16 @@ Operational values below are confirmed for the current production layout; substi
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
 | Backend (`api.autoconnecto.in`) | `v1.7.16` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.16 --sync-docs`. Plan gates on bulk + pre-queue ingest. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.14` | 2026-10-07 | CI deploy from `main` on push (`9bb17de`). Gateways onboarding + Active UX. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.17` | 2026-10-07 | CI deploy from `main` (`53ad8f0`). Widget pack: html/video URL/mimic/heatmap/forms/zones. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.9`+ | 2026-10-07 | Public site + fleet checklists for Modbus fleets (`5c7cee9`); in-app nav via S3 `backend-generated/`. |
 | Website (`www.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
 | SDK (`autoconnecto-sdk`) | `v1.6.2` | 2026-10-07 | Tag `v1.6.2` — gateway-relay webhook samples + Integrations Hub README. |
-| Mobile (Android APK) | `v1.6.3` | 2026-10-07 | Unchanged this cut (Show demos preference). |
+| Mobile (Android APK) | `v1.6.4` | 2026-10-07 | Tag `v1.6.4` — route new dashboard widget types. |
+
+**What v1.7.17 ships (delta vs v1.7.16):**
+
+- Frontend dashboard widgets: `htmlPanel`, `videoPanel` (URL/HLS/embed), `dualColorLed`, `timeWindowControl`, `attributeForm`, `hierarchyTree`, `heatmap`, `floorPlanZones`, richer mimic symbols, table/LED/nav actions.
+- Mobile routes the new widget types (`v1.6.4`).
 
 **What v1.7.16 ships (delta vs v1.7.15):**
 
