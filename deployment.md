@@ -110,16 +110,47 @@ docker compose exec backend sh -lc "node -p \"require('./package.json').version\
 
 ### Solutions catalog seed (one-time / after empty DB)
 
-Deploy does **not** insert Solution rows. After a fresh DB (or if Solutions is empty), run inside the backend container:
+Deploy does **not** insert Solution rows by default. After a fresh DB (or if Solutions is empty), either:
+
+```bash
+# During deploy (recommended on the catalog host)
+bash scripts/ec2-release-deploy.sh vX.Y.Z --sync-docs --seed-solutions
+# or: SOLUTIONS_SEED_ON_DEPLOY=1 bash scripts/ec2-release-deploy.sh vX.Y.Z --sync-docs
+```
+
+Or run inside the backend container:
 
 ```bash
 cd ~/autoconnecto/backend
 for s in 0 1 2 3 4 5 6; do
   docker compose exec backend node "scripts/_seed-phase${s}-solutions.cjs"
 done
+docker compose exec backend node scripts/stamp-catalog-template-dashboards.mjs
 ```
 
-Phase **0** = EnergyFleet + ClimateFleet. Phases 1–6 = remaining fleets/analytics. Idempotent upserts.
+Phase **0** = EnergyFleet + ClimateFleet. Phases 1–6 = remaining fleets/analytics. Idempotent upserts.  
+`stamp-catalog-template-dashboards.mjs` marks catalog source dashboards so they stay hidden unless **Show samples** is on.
+
+### Post-deploy smoke (production)
+
+Golden path:
+
+`Signup / login → Home clean (Show samples OFF) → Solutions → Sample On → preview alarm → Use → real dashboard visible → Billing`
+
+Checklist:
+
+1. **Show samples OFF** (sidebar) — Devices / Profiles / Dashboards / Generators / Alarms / Home show no Demo · inventory and no sample-driven Critical.
+2. **Home** — Plan capacity uses billable devices/telemetry/dashboards only.
+3. **Solutions** — Catalog has templates; Sample On works; Home stays clean.
+4. **Show samples ON** — Demo tags appear; capacity still billable-only.
+5. **Use solution** — New dashboard appears in Dashboards (not a catalog template).
+6. **Analytics KPI** — `kpiPeriodSummary` loads without HTTP 400 on fleet packs.
+
+Re-run live audit (from backend container, with admin token):
+
+```bash
+docker compose exec backend node scripts/audit-solutions-live.mjs
+```
 
 ### Manual fallback (only if script fails)
 

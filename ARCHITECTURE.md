@@ -113,12 +113,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.8` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.8 --sync-docs`. Confirm `git describe` + `/healthz`. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.8` | 2026-10-07 | CI deploy from `main` on push (`273dc8e`). |
-| Docs (`docs.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
+| Backend (`api.autoconnecto.in`) | `v1.7.9` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.9 --sync-docs`. Confirm `git describe` + `/healthz`. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.9` | 2026-10-07 | CI deploy from `main` on push (`169bf2d`). |
+| Docs (`docs.autoconnecto.in`) | `v1.7.9` | 2026-10-07 | CI deploy from `main` (`ded7c78`) — integration examples + mobile companion notes. |
 | Website (`www.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
-| SDK (`autoconnecto-sdk`) | `v1.6.1` | 2026-10-05 | Unchanged this cut. |
-| Mobile (Android APK) | `v1.6.3` | 2026-10-07 | CI APK on tag `v1.6.3` (Show demos preference). |
+| SDK (`autoconnecto-sdk`) | `v1.6.2` | 2026-10-07 | Tag `v1.6.2` — gateway-relay webhook samples + Integrations Hub README. |
+| Mobile (Android APK) | `v1.6.3` | 2026-10-07 | Unchanged this cut (Show demos preference). |
+
+**What v1.7.9 ships (delta vs v1.7.8):**
+
+- Integrations: in-app **Examples & recipes** (sample JSON, docs/SDK links, Create shortcuts); gateway relay + Modbus/DTU Solutions pointers.
+- Docs/SDK: runnable ChirpStack/TTN/generic/gateway-relay scripts surfaced; CONNECTIVITY paths corrected.
 
 **What v1.7.0 ships (delta vs v1.6.1):**
 
