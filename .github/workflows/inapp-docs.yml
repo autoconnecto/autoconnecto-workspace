@@ -275,18 +275,28 @@ jobs:
             echo "::group::EC2 sync attempt $attempt/$max_attempts"
             # shellcheck disable=SC2086
             # EC2 usually has only ~/autoconnecto/backend (no workspace monorepo).
-            # Ship the backend sync script from this job's checkout; fall back to workspace helper.
+            # Always ship the wipe-safe backend sync script (stage + validate).
+            # Do NOT fall back to a live --delete sync against S3.
             SYNC_SCRIPT="backend/scripts/sync-generated-docs-from-s3.sh"
             REMOTE_SCRIPT="/tmp/autoconnecto-sync-generated-docs.sh"
             if [ ! -f "$SYNC_SCRIPT" ]; then
-              SYNC_SCRIPT=".github/scripts/ec2-remote-pull-backend-docs.sh"
-              REMOTE_SCRIPT="/tmp/ec2-remote-pull-backend-docs.sh"
+              echo "::error::Missing ${SYNC_SCRIPT} in checkout — refusing unsafe docs sync."
+              exit 1
             fi
+            # Optional companion: safe wrapper that also refreshes manual-inapp.
+            WRAPPER=".github/scripts/ec2-remote-pull-backend-docs.sh"
             # shellcheck disable=SC2086
             if scp $SCP_OPTS "$SYNC_SCRIPT" \
                  "${REMOTE}@${EC2_SYNC_HOST}:${REMOTE_SCRIPT}" \
+               && { [ ! -f "$WRAPPER" ] || scp $SCP_OPTS "$WRAPPER" \
+                    "${REMOTE}@${EC2_SYNC_HOST}:/tmp/ec2-remote-pull-backend-docs.sh"; } \
                && ssh $SCP_OPTS "${REMOTE}@${EC2_SYNC_HOST}" \
-                    "chmod +x ${REMOTE_SCRIPT} && BACKEND_DIR=/home/ubuntu/autoconnecto/backend bash ${REMOTE_SCRIPT}"; then
+                    "chmod +x ${REMOTE_SCRIPT} /tmp/ec2-remote-pull-backend-docs.sh 2>/dev/null || true; \
+                     if [ -f /tmp/ec2-remote-pull-backend-docs.sh ]; then \
+                       BACKEND_DIR=/home/ubuntu/autoconnecto/backend bash /tmp/ec2-remote-pull-backend-docs.sh; \
+                     else \
+                       BACKEND_DIR=/home/ubuntu/autoconnecto/backend bash ${REMOTE_SCRIPT}; \
+                     fi"; then
               echo "::endgroup::"
               echo "✓ EC2 sync succeeded on attempt $attempt"
               break

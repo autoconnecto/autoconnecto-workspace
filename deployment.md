@@ -344,16 +344,25 @@ aws cloudfront create-invalidation --distribution-id E3UPPLM5N2GQ5Z --paths "/*"
 
 ### Docs
 
+Public VitePress site only. **Never** sync the VitePress `dist/` over
+`backend-generated/` or `manual-inapp/` — those prefixes feed in-app docs on EC2.
+
 ```bash
 cd docs && npm ci && npm run docs:build
 aws s3 sync docs/.vitepress/dist/ s3://autoconnecto-docs-site/ --delete \
   --cache-control "public, max-age=31536000, immutable" \
-  --exclude "*.html" --exclude "sitemap.xml"
+  --exclude "*.html" --exclude "sitemap.xml" \
+  --exclude "backend-generated/*" --exclude "manual-inapp/*"
 aws s3 sync docs/.vitepress/dist/ s3://autoconnecto-docs-site/ --delete \
   --cache-control "public, max-age=0, must-revalidate" \
-  --include "*.html" --include "sitemap.xml"
+  --include "*.html" --include "sitemap.xml" \
+  --exclude "backend-generated/*" --exclude "manual-inapp/*"
 aws cloudfront create-invalidation --distribution-id E30AD6N6537JGX --paths "/*"
 ```
+
+In-app docs on EC2: `bash scripts/sync-generated-docs-from-s3.sh` (stage +
+validate `navigation.json` before replace). Do not use a live `aws s3 sync
+… --delete` into `docs/generated/`.
 
 ---
 

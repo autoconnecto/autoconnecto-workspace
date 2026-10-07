@@ -113,16 +113,28 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.14` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.14 --sync-docs`. Gateway Active rollup + Modbus fleet Sample hubs. |
+| Backend (`api.autoconnecto.in`) | `v1.7.15` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.15 --sync-docs`. Docs sync abort no longer fails release. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.14` | 2026-10-07 | CI deploy from `main` on push (`9bb17de`). Gateways onboarding + Active UX. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.9` | 2026-10-07 | CI deploy from `main` (`ded7c78`) — integration examples + mobile companion notes. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.9`+ | 2026-10-07 | Public site + fleet checklists for Modbus fleets (`5c7cee9`); in-app nav via S3 `backend-generated/`. |
 | Website (`www.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
 | SDK (`autoconnecto-sdk`) | `v1.6.2` | 2026-10-07 | Tag `v1.6.2` — gateway-relay webhook samples + Integrations Hub README. |
 | Mobile (Android APK) | `v1.6.3` | 2026-10-07 | Unchanged this cut (Show demos preference). |
 
-**What v1.7.10 ships (delta vs v1.7.9):**
+**What v1.7.15 ships (delta vs v1.7.14):**
 
-- Hotfix: in-app Documentation restore; S3 docs sync stages + validates `navigation.json` before replacing live files (empty S3 can no longer wipe docs).
+- Backend deploy: `--sync-docs` warns (does not fail the release) when S3 staging is empty; live in-app docs stay intact.
+- Workspace: wipe-safe EC2 docs pull wrapper; `inapp-docs.yml` refuses unsafe fallback; public docs `aws s3 sync` excludes `backend-generated/` + `manual-inapp/`.
+
+**What v1.7.14 ships (delta vs v1.7.13):**
+
+- Modbus fleets (Energy / Climate / Fuel / Water / Generator): Sample On = demo gateway + children; hub `gateway.heartbeat` pulse; setup guides match hub topology.
+- Gateway **Active** = hub telemetry/heartbeat **or** any linked child Active; Gateways create/detail onboarding steps (hub → link → child → data).
+
+**What v1.7.10–1.7.13 shipped (selected):**
+
+- In-app Documentation restore; staged S3 docs sync (empty S3 cannot wipe live files).
+- Device profiles uuid/text tenant cast; Devices list independent of profile fetch failures.
+- EnergyFleet/ClimateFleet Sample On gateway topology (extended to five fleets in 1.7.14).
 
 **What v1.7.9 ships (delta vs v1.7.8):**
 
