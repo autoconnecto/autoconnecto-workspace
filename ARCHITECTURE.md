@@ -120,6 +120,10 @@ Operational values below are confirmed for the current production layout; substi
 | SDK (`autoconnecto-sdk`) | `v1.6.2` | 2026-10-07 | Tag `v1.6.2` — gateway-relay webhook samples + Integrations Hub README. |
 | Mobile (Android APK) | `v1.6.3` | 2026-10-07 | Unchanged this cut (Show demos preference). |
 
+**What v1.7.16 ships (delta vs v1.7.15):**
+
+- Plan telemetry enforcement on the live path: bulk writer + BullMQ pre-enqueue soft-ignore for subscription, `min_telemetry_interval_sec`, and minute/day caps (production uses `TELEMETRY_BULK_MODE` + queue).
+
 **What v1.7.15 ships (delta vs v1.7.14):**
 
 - Backend deploy: `--sync-docs` warns (does not fail the release) when S3 staging is empty; live in-app docs stay intact.
