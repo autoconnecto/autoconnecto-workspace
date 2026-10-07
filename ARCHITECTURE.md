@@ -113,7 +113,7 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.15` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.15 --sync-docs`. Docs sync abort no longer fails release. |
+| Backend (`api.autoconnecto.in`) | `v1.7.16` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.16 --sync-docs`. Plan gates on bulk + pre-queue ingest. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.14` | 2026-10-07 | CI deploy from `main` on push (`9bb17de`). Gateways onboarding + Active UX. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.9`+ | 2026-10-07 | Public site + fleet checklists for Modbus fleets (`5c7cee9`); in-app nav via S3 `backend-generated/`. |
 | Website (`www.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
