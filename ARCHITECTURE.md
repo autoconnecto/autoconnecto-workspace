@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.9` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.9 --sync-docs`. Confirm `git describe` + `/healthz`. |
+| Backend (`api.autoconnecto.in`) | `v1.7.10` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.10 --sync-docs`. Confirm `git describe` + `/healthz` + nav sections > 0. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.9` | 2026-10-07 | CI deploy from `main` on push (`169bf2d`). |
 | Docs (`docs.autoconnecto.in`) | `v1.7.9` | 2026-10-07 | CI deploy from `main` (`ded7c78`) — integration examples + mobile companion notes. |
 | Website (`www.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
 | SDK (`autoconnecto-sdk`) | `v1.6.2` | 2026-10-07 | Tag `v1.6.2` — gateway-relay webhook samples + Integrations Hub README. |
 | Mobile (Android APK) | `v1.6.3` | 2026-10-07 | Unchanged this cut (Show demos preference). |
+
+**What v1.7.10 ships (delta vs v1.7.9):**
+
+- Hotfix: in-app Documentation restore; S3 docs sync stages + validates `navigation.json` before replacing live files (empty S3 can no longer wipe docs).
 
 **What v1.7.9 ships (delta vs v1.7.8):**
 

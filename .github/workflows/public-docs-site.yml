@@ -140,20 +140,40 @@ jobs:
         working-directory: docs
         run: npm run docs:build
 
+      # IMPORTANT: this bucket also hosts in-app docs under backend-generated/ and
+      # manual-inapp/. Root sync --delete must never wipe those prefixes — that
+      # caused empty in-app Documentation (Swagger-only) after a concurrent deploy.
       - name: Deploy docs site to S3 (immutable assets)
         run: |
           aws s3 sync docs/docs/.vitepress/dist s3://autoconnecto-docs-site/ \
             --delete \
             --exclude "*.html" --exclude "sitemap.xml" \
+            --exclude "backend-generated" \
             --exclude "backend-generated/*" \
+            --exclude "manual-inapp" \
+            --exclude "manual-inapp/*" \
             --cache-control "public, max-age=31536000, immutable"
 
       - name: Deploy docs site to S3 (HTML)
         run: |
           aws s3 sync docs/docs/.vitepress/dist s3://autoconnecto-docs-site/ \
             --include "*.html" --include "sitemap.xml" \
+            --exclude "backend-generated" \
             --exclude "backend-generated/*" \
+            --exclude "manual-inapp" \
+            --exclude "manual-inapp/*" \
             --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Guard in-app docs prefixes still present on S3
+        run: |
+          set -euo pipefail
+          if ! aws s3 ls "s3://autoconnecto-docs-site/backend-generated/navigation.json" --region ap-south-1; then
+            echo "::error::backend-generated/navigation.json missing after public site deploy — in-app docs were wiped."
+            exit 1
+          fi
+          if ! aws s3 ls "s3://autoconnecto-docs-site/manual-inapp/navigation.json" --region ap-south-1; then
+            echo "::warning::manual-inapp/navigation.json missing (optional bundle)."
+          fi
 
       # Reconciles the CloudFront Function that rewrites /foo/ -> /foo/index.html
       # so that VitePress's directory URLs resolve against the S3 REST origin.
