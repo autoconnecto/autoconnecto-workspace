@@ -72,7 +72,7 @@ On device restart, the device subscribes to its shared attributes (MQTT retained
 
 **Design intent:** Shared attributes are the source of truth for desired state. Client attributes are the source of truth for confirmed device state. The feedback loop ensures the dashboard always reflects actual hardware state, not just the last command sent.
 
-**Platform differentiator:** This attribute feedback loop solves a known pain point in platforms like ThingsBoard, where a device reboot causes the dashboard to show stale state until the user manually re-issues a command. In Autoconnecto, the device self-heals on every boot — it reads its own retained shared attributes, restores hardware state, and pushes confirmed client attributes back — making the dashboard resync automatically with zero user intervention. This is a core platform USP and must be preserved in all future control widget designs.
+**Platform differentiator:** This attribute feedback loop solves a common IoT operator pain: after reboot, dashboards often show stale control state until someone re-issues a command. In Autoconnecto, the device self-heals on every boot — it reads its own retained shared attributes, restores hardware state, and pushes confirmed client attributes back — making the dashboard resync automatically with zero user intervention. This is a core platform USP and must be preserved in all future control widget designs.
 
 ---
 
@@ -113,12 +113,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.16` | 2026-10-07 | EC2: `bash scripts/ec2-release-deploy.sh v1.7.16 --sync-docs`. Plan gates on bulk + pre-queue ingest. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.17` | 2026-10-07 | CI deploy from `main` (`53ad8f0`). Widget pack: html/video URL/mimic/heatmap/forms/zones. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.9`+ | 2026-10-07 | Public site + fleet checklists for Modbus fleets (`5c7cee9`); in-app nav via S3 `backend-generated/`. |
-| Website (`www.autoconnecto.in`) | `v1.7.0` | 2026-10-06 | Unchanged this cut. |
-| SDK (`autoconnecto-sdk`) | `v1.6.2` | 2026-10-07 | Tag `v1.6.2` — gateway-relay webhook samples + Integrations Hub README. |
+| Backend (`api.autoconnecto.in`) | `v1.7.18` | 2026-10-08 | EC2 deploy v1.7.18. Competitor-name scrub. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.18` | 2026-10-08 | CI deploy from main (d3cf5cc). Competitor-name scrub in UI. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.9`+ | 2026-10-08 | Public docs deploy from main (a41e996). Competitor comparison page removed. |
+| Website (`www.autoconnecto.in`) | `v1.7.17` | 2026-10-08 | CI deploy from main (1ac1b3b). 80+ widgets, ClimateFleet, no competitor comparisons. |
+| SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
 | Mobile (Android APK) | `v1.6.4` | 2026-10-07 | Tag `v1.6.4` — route new dashboard widget types. |
+
+**What v1.7.18 ships (delta vs v1.7.17):**
+
+- Remove competitor-name references from website, app UI, public docs, SDK guides, and backend docs. Delete public competitor comparison page.
+- Website: **80+ widgets**, add **ClimateFleet** solution.
 
 **What v1.7.17 ships (delta vs v1.7.16):**
 
