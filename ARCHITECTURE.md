@@ -113,12 +113,19 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.18` | 2026-10-08 | EC2 deploy v1.7.18. Competitor-name scrub. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.18` | 2026-10-08 | CI deploy from main (d3cf5cc). Competitor-name scrub in UI. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.9`+ | 2026-10-08 | Public docs deploy from main (a41e996). Competitor comparison page removed. |
-| Website (`www.autoconnecto.in`) | `v1.7.17` | 2026-10-08 | CI deploy from main (1ac1b3b). 80+ widgets, ClimateFleet, no competitor comparisons. |
+| Backend (`api.autoconnecto.in`) | `v1.7.19` | 2026-10-08 | EC2 deploy v1.7.19. Dynamic alarm limits. Health ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.19` | 2026-10-08 | CI deploy from main (cd13331). Dynamic alarm screens, HLS/MJPEG, EnergyFleet trial banner. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.19` | 2026-10-08 | Public docs deploy from main (39c7502). Static and dynamic alarm limits. |
+| Website (`www.autoconnecto.in`) | `v1.7.18` | 2026-10-08 | Already on main (96059b0). Homepage leads with the free EnergyFleet trial. |
 | SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
 | Mobile (Android APK) | `v1.6.4` | 2026-10-07 | Tag `v1.6.4` — route new dashboard widget types. |
+
+**What v1.7.19 ships (delta vs v1.7.18):**
+
+- Alarm rules: static number, or one device attribute as a dynamic limit (percent or offset per severity). Saving that attribute rechecks the latest value immediately. A missing attribute does not fire the rule.
+- Solution sample devices echo a shared attribute write as a client attribute about one second later. Real devices are unchanged.
+- Alarm list and details: shorter actions, Ack and Clear on the details page, severity colors aligned.
+- Video panels play HLS and MJPEG. EnergyFleet trial countdown stays visible in the app.
 
 **What v1.7.18 ships (delta vs v1.7.17):**
 
