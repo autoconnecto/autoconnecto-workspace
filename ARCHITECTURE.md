@@ -113,12 +113,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.21` | 2026-10-09 | EC2 deploy v1.7.21 (7e89fe5). Alarm mail by severity, rules can wait before they open. Health ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.21` | 2026-10-09 | CI deploy from main (e8b4fb4). Help Wizard order, daily-path copy, one date format. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.19` | 2026-10-08 | Public docs deploy from main (39c7502). Static and dynamic alarm limits. |
+| Backend (`api.autoconnecto.in`) | `v1.7.22` | 2026-10-09 | EC2 deploy v1.7.22 (df0bef7). Quiet hours hold alarm mail and messages. Health ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.22` | 2026-10-09 | CI deploy from main (db9b832). Users card can hold mail and messages at night. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.22` | 2026-10-09 | Public docs deploy from main (beb7bb9). Setup order, alarm open types, quiet hours. |
 | Website (`www.autoconnecto.in`) | `v1.7.18` | 2026-10-08 | Already on main (96059b0). Homepage leads with the free EnergyFleet trial. |
 | SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
 | Mobile (Android APK) | `v1.6.4` | 2026-10-07 | Tag `v1.6.4` — route new dashboard widget types. |
+
+**What v1.7.22 ships (delta vs v1.7.21):**
+
+- Quiet hours are off until an admin turns them on. When on, the alarm still appears on the Alarms page. Mail, Telegram, and messages wait, then go out when the India-time window ends. The default window is 22:00–06:00.
+- Public docs describe the Help Wizard setup order, Simple / Duration / Repeating alarm opens, the mail table, and quiet hours.
 
 **What v1.7.21 ships (delta vs v1.7.20 frontend / v1.7.19 backend):**
 
