@@ -113,12 +113,20 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.19` | 2026-10-08 | EC2 deploy v1.7.19. Dynamic alarm limits. Health ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.20` | 2026-10-09 | CI deploy from main (191bd91). Grouped navigation, account menu, home status ignores samples. |
+| Backend (`api.autoconnecto.in`) | `v1.7.21` | 2026-10-09 | EC2 deploy v1.7.21 (7e89fe5). Alarm mail by severity, rules can wait before they open. Health ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.21` | 2026-10-09 | CI deploy from main (e8b4fb4). Help Wizard order, daily-path copy, one date format. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.19` | 2026-10-08 | Public docs deploy from main (39c7502). Static and dynamic alarm limits. |
 | Website (`www.autoconnecto.in`) | `v1.7.18` | 2026-10-08 | Already on main (96059b0). Homepage leads with the free EnergyFleet trial. |
 | SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
 | Mobile (Android APK) | `v1.6.4` | 2026-10-07 | Tag `v1.6.4` — route new dashboard widget types. |
+
+**What v1.7.21 ships (delta vs v1.7.20 frontend / v1.7.19 backend):**
+
+- Help Wizard is the setup order and covers every left-menu item. A solution is the start, so the copied profile is edited rather than created again.
+- Alarm rules open as Simple, Duration, or Repeating. Clear uses the same three choices.
+- Alarm mail follows a tenant table. With no saved policy, Critical mail and messages go immediately, Major mail goes immediately, and Warning, Minor, and Clear wait for one combined mail. A flickering alarm stops call-outs after three returns in one minute. New users start with mail off.
+- Operator screens use one day-first date, such as 08 Oct 2026, 07:20 pm. Analytics forecast choices appear after a ranking exists.
+- Billing tells the customer when checkout is unavailable. The current plan stays.
 
 **What v1.7.20 ships (delta vs v1.7.19):**
 
