@@ -113,12 +113,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.22` | 2026-10-09 | EC2 deploy v1.7.22 (df0bef7). Quiet hours hold alarm mail and messages. Health ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.22` | 2026-10-09 | CI deploy from main (db9b832). Users card can hold mail and messages at night. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.22` | 2026-10-09 | Public docs deploy from main (beb7bb9). Setup order, alarm open types, quiet hours. |
-| Website (`www.autoconnecto.in`) | `v1.7.18` | 2026-10-08 | Already on main (96059b0). Homepage leads with the free EnergyFleet trial. |
+| Backend (`api.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | EC2 deploy v1.7.23 (dbd1d8a). Monday energy mail. Health ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | CI deploy from main (33fe235). Monday energy mail switch. Android download shows v1.6.5. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | Public docs deploy from main (9cbddb5). Android download names v1.6.5. |
+| Website (`www.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | CI deploy from main (7c1285d). Footer downloads Android app v1.6.5. |
 | SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
-| Mobile (Android APK) | `v1.6.4` | 2026-10-07 | Tag `v1.6.4` — route new dashboard widget types. |
+| Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Tag `v1.6.5` (6e39440). Live meters, open alarm, version on the sign-in screen. |
+
+**What v1.7.23 ships (delta vs v1.7.22):**
+
+- Monday energy mail is off until an admin turns it on from Reports. On Monday at 8:00 am India time it mails last week's energy for the plant's meters to owners and admins.
+- Android app v1.6.5 is the download on the app, the docs, and the website. The file name is `autoconnecto-mobile-v1.6.5.apk`. The installed app shows v1.6.5 on the sign-in screen and on Home. The phone home lists each energy meter with live power, voltage, current, and the open alarm.
 
 **What v1.7.22 ships (delta vs v1.7.21):**
 
