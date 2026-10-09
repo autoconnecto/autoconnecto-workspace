@@ -114,11 +114,17 @@ Operational values below are confirmed for the current production layout; substi
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
 | Backend (`api.autoconnecto.in`) | `v1.7.19` | 2026-10-08 | EC2 deploy v1.7.19. Dynamic alarm limits. Health ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.19` | 2026-10-08 | CI deploy from main (cd13331). Dynamic alarm screens, HLS/MJPEG, EnergyFleet trial banner. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.20` | 2026-10-09 | CI deploy from main (191bd91). Grouped navigation, account menu, home status ignores samples. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.19` | 2026-10-08 | Public docs deploy from main (39c7502). Static and dynamic alarm limits. |
 | Website (`www.autoconnecto.in`) | `v1.7.18` | 2026-10-08 | Already on main (96059b0). Homepage leads with the free EnergyFleet trial. |
 | SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
 | Mobile (Android APK) | `v1.6.4` | 2026-10-07 | Tag `v1.6.4` — route new dashboard widget types. |
+
+**What v1.7.20 ships (delta vs v1.7.19):**
+
+- Sidebar groups: Monitor, Build, Account. Header is the product name and one Account menu.
+- Home status counts the customer’s own devices. Sample devices stay out of that summary.
+- Dashboard view mode keeps state, time, and live status. Theme and structure controls appear in Edit. Widget cards keep one title.
 
 **What v1.7.19 ships (delta vs v1.7.18):**
 
