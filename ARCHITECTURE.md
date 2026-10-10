@@ -113,12 +113,20 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | EC2 deploy v1.7.23 (dbd1d8a). Monday energy mail. Health ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | CI deploy from main (33fe235). Monday energy mail switch. Android download shows v1.6.5. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | Public docs deploy from main (9cbddb5). Android download names v1.6.5. |
-| Website (`www.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | CI deploy from main (7c1285d). Footer downloads Android app v1.6.5. |
+| Backend (`api.autoconnecto.in`) | `v1.7.24` | 2026-10-10 | EC2 deploy v1.7.24 (64cf84f). Ask, learned watches, migration 0044. Health ok. In-app docs 11 sections. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.24` | 2026-10-10 | CI deploy from main (762b6e0). Ask tab and Platform Admin presentations. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.24` | 2026-10-10 | Public docs deploy from main (600335d). Ask, watches, and how to name a fleet. |
+| Website (`www.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | Unchanged this release. CI deploy from main (7c1285d). |
 | SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Tag `v1.6.5` (6e39440). Live meters, open alarm, version on the sign-in screen. |
+
+**What v1.7.24 ships (delta vs v1.7.23):**
+
+- Analytics Ask answers a sentence for any fleet this tenant already has. Suggestion buttons are built from those device types and readings. The device type and reading dropdowns still drive Run.
+- A learned watch stays off until someone asks. It opens a warning alarm when a reading leaves its normal band, and clears the alarm when the reading returns.
+- Ask can say when a limit will be hit, what the next period totals, and can draw a vibration spectrum when a vibration reading exists.
+- Platform Admin has a Presentations tab. The two films play in the page. The slideshows download.
+- Public docs describe Ask, the watch, and how to say a device type and a reading.
 
 **What v1.7.23 ships (delta vs v1.7.22):**
 
