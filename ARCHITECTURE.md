@@ -113,12 +113,19 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.25` | 2026-10-10 | EC2 deploy v1.7.25 (d86c844). Audit log, rule-engine state, migrations 0045 and 0046. Health ok. In-app docs left at the previous 11 sections; the generated bundle on S3 was incomplete and live docs were not replaced. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.25` | 2026-10-10 | CI deploy from main (c96c742). Audit log, Home recent activity, rule-engine canvas. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.25` | 2026-10-10 | Public docs deploy from main (8a4a986). Audit log, access, and the new rule-engine nodes. |
+| Backend (`api.autoconnecto.in`) | `v1.7.26` | 2026-10-12 | EC2 deploy v1.7.26 (f7b14c7). Field protocols, tenant mail and SMS, migrations 0047 and 0048. Health ok. In-app docs still 11 sections; the docs deploy does not replace `backend-generated`. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.26` | 2026-10-12 | CI deploy from main (c60fe2a). Dashboard opens by name. Tenant Settings mail and SMS. Gateway field protocols. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.26` | 2026-10-12 | Public docs deploy from main (13cb5e3). Tenant mail and SMS, field protocols, dashboard opens by name. |
 | Website (`www.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | Unchanged this release. CI deploy from main (7c1285d). |
 | SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Tag `v1.6.5` (6e39440). Live meters, open alarm, version on the sign-in screen. |
+
+**What v1.7.26 ships (delta vs v1.7.25):**
+
+- A device no longer has a target dashboard. The devices list opens the device page. A dashboard table, alarm row, asset row, device count, or navigation button opens another dashboard only when that widget names one. The form shows the dashboard name.
+- A gateway can poll OPC UA or BACnet, or take Sparkplug B from the broker. OPC UA and BACnet run from the API host. Sparkplug matches group, edge node, and device id.
+- Tenant Settings connects one email account and one SMS account. Email: Brevo, Resend, Postmark, SendGrid. SMS in India: MSG91, Fast2SMS, SMSLane. SMS elsewhere: Twilio, Plivo. Alarm mail, reports, Monday energy mail, and rule-engine mail use the email account. Alarm texts use the SMS account. An empty account does not send. Signup, password reset, email verification, and invites stay on the platform Brevo account. Telegram is unchanged.
+- Monday energy mail and quiet hours stay off.
 
 **What v1.7.25 ships (delta vs v1.7.24):**
 
