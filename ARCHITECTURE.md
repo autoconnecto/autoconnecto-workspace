@@ -113,12 +113,18 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.26` | 2026-10-12 | EC2 deploy v1.7.26 (f7b14c7). Field protocols, tenant mail and SMS, migrations 0047 and 0048. Health ok. In-app docs still 11 sections; the docs deploy does not replace `backend-generated`. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.26` | 2026-10-12 | CI deploy from main (c60fe2a). Dashboard opens by name. Tenant Settings mail and SMS. Gateway field protocols. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.26` | 2026-10-12 | Public docs deploy from main (13cb5e3). Tenant mail and SMS, field protocols, dashboard opens by name. |
+| Backend (`api.autoconnecto.in`) | `v1.7.28` | 2026-10-13 | EC2 deploy v1.7.28 (23386d1). Health ok. Postgres and Redis ok. In-app docs still 11 sections. `AUTH_MODE` is unset, so cloud login stays on Cognito. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.28` | 2026-10-13 | CI deploy from main (fc83f3b). Rule engine adds shift, rate, sequence, roll-up, and period total. Public login is unchanged. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.28` | 2026-10-13 | Public docs deploy from main (96ba34b). Mail and SMS guide includes Gmail, Microsoft 365, and any other mail server. |
 | Website (`www.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | Unchanged this release. CI deploy from main (7c1285d). |
 | SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Tag `v1.6.5` (6e39440). Live meters, open alarm, version on the sign-in screen. |
+
+**What v1.7.28 ships (delta vs v1.7.26):**
+
+- Rule engine nodes: shift clock, rate per minute, sequence, roll-up, and period total. Profile Duration is unchanged. Profile alarm rules still run when a chain also has an alarm node.
+- Tenant email can be Gmail, Microsoft 365, or another mail server, in addition to the accounts already there. An empty account still does not send. Monday energy mail and quiet hours stay off.
+- The server-install code is in the API. The public site does not set `AUTH_MODE`, so login stays on Cognito.
 
 **What v1.7.26 ships (delta vs v1.7.25):**
 
