@@ -10,10 +10,9 @@
 #   EC2_USER           (optional) Remote user; defaults to "ubuntu".
 #
 # Contract owned by this workflow (in-app docs delivery):
-#   1. Generate backend/docs/generated/ from backend + frontend sources (Node, no DB/Redis/MQTT).
+#   1. Clone autoconnecto-docs and copy the written pages listed in customer-pages.json.
 #   2. aws s3 sync to s3://autoconnecto-docs-site/backend-generated/.
-#   3. Clone autoconnecto-docs via DOCS_DEPLOY_KEY and sync docs/manual-inapp → S3 manual-inapp/.
-#   4. SSH into EC2 and run .github/scripts/ec2-remote-pull-backend-docs.sh which:
+#   3. SSH into EC2 and run .github/scripts/ec2-remote-pull-backend-docs.sh which:
 #        aws s3 sync -> /home/ubuntu/autoconnecto/backend/docs/generated/
 #        docker compose up -d --no-deps backend
 #   5. Backend container reads ./docs:/app/docs (generated at /app/docs/generated) and serves
@@ -23,7 +22,7 @@
 # It is independent of the public docs site (docs.autoconnecto.in); see
 # public-docs-site.yml.
 
-name: Docs — In-app (generate + deploy to backend)
+name: Docs — In-app (written pages to backend)
 
 # Triple-redundant trigger (production grade):
 #   1. repository_dispatch — fired by notify-workspace-docs.yml in the
@@ -46,7 +45,7 @@ on:
       - ".github/workflows/inapp-docs.yml"
       - ".github/scripts/ec2-remote-pull-backend-docs.sh"
   repository_dispatch:
-    types: [upstream-source-changed]
+    types: [docs-changed]
   workflow_dispatch:
   schedule:
     - cron: "30 2 * * *"
@@ -106,17 +105,7 @@ jobs:
           path: backend
           token: ${{ env.CHECKOUT_PAT }}
 
-      - name: Checkout frontend
-        uses: actions/checkout@v4
-        with:
-          repository: autoconnecto/autoconnecto-frontend
-          ref: main
-          path: frontend
-          token: ${{ env.CHECKOUT_PAT }}
-
-      # Same auth path as public-docs-site.yml. Do NOT use GIT_READ_TOKEN here —
-      # that PAT is scoped to backend+frontend only and returns 403 on autoconnecto-docs.
-      - name: Clone docs repo (manual in-app pages, SSH)
+      - name: Clone docs repo (SSH)
         env:
           DOCS_DEPLOY_KEY: ${{ secrets.DOCS_DEPLOY_KEY }}
         run: |
@@ -133,83 +122,31 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
 
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm ci
-
-      - name: Generate documentation
+      - name: Publish written pages into the in-app bundle
         working-directory: backend
         env:
-          DOCS_FRONTEND_ROOT: ${{ github.workspace }}/frontend/src
-          NODE_ENV: production
-        run: npm run docs:generate:standalone
+          DOCS_CONTENT_ROOT: ${{ github.workspace }}/docs-repo/docs
+          CUSTOMER_PAGES: ${{ github.workspace }}/docs-repo/customer-pages.json
+        run: node scripts/publish-written-docs.mjs
 
-      - name: Verify both backend and frontend sources were checked out
-        run: |
-          set -e
-          if [ ! -d "backend/src" ]; then
-            echo "::error::backend/src missing — backend checkout failed."
-            exit 1
-          fi
-          if [ ! -d "frontend/src" ]; then
-            echo "::error::frontend/src missing — frontend checkout failed."
-            exit 1
-          fi
-          FE_FEATURE_FILES=$(find frontend/src/features -type f 2>/dev/null | wc -l)
-          if [ "$FE_FEATURE_FILES" -lt 50 ]; then
-            echo "::error::frontend/src/features has only $FE_FEATURE_FILES files; checkout likely incomplete (got an empty repo or wrong ref)."
-            exit 1
-          fi
-          BE_SRC_FILES=$(find backend/src -type f -name '*.ts' 2>/dev/null | wc -l)
-          if [ "$BE_SRC_FILES" -lt 50 ]; then
-            echo "::error::backend/src has only $BE_SRC_FILES TypeScript files; checkout likely incomplete."
-            exit 1
-          fi
-          echo "OK — backend/src: $BE_SRC_FILES *.ts files | frontend/src/features: $FE_FEATURE_FILES files"
-
-      - name: Verify generated docs
+      - name: Verify written docs
         working-directory: backend
         run: |
           set -e
           if [ ! -s docs/generated/navigation.json ]; then
-            echo "::error::navigation.json is missing or empty after generation."
+            echo "::error::navigation.json is missing after publishing written pages."
             exit 1
           fi
-          echo "=== Generated section folders ==="
-          ls docs/generated/
-          echo "=== navigation.json (head) ==="
-          python3 -m json.tool < docs/generated/navigation.json | head -40
-
-          # The user-guide sections (dashboards, devices, ...) are frontend-derived.
-          # If they are missing pages, the frontend extractors saw an empty tree
-          # even though checkout looked OK — fail loudly rather than ship a
-          # half-empty Documentation menu.
           python3 - <<'PY'
           import json, sys
-          REQUIRED_WITH_PAGES = [
-              "dashboards", "devices", "device-profiles", "assets",
-              "users", "alarms", "rulechains", "tenant", "home", "developer",
-          ]
           data = json.load(open("docs/generated/navigation.json"))
           sections = { s["key"]: s for s in data.get("sections", []) }
-          missing = []
-          empty = []
-          for key in REQUIRED_WITH_PAGES:
-              s = sections.get(key)
-              if s is None:
-                  missing.append(key)
-              elif not s.get("pages"):
-                  empty.append(key)
-          if missing or empty:
-              if missing:
-                  print(f"::error::Missing sections: {missing}")
-              if empty:
-                  print(f"::error::Sections with zero pages (extractor produced nothing): {empty}")
+          guide = sections.get("guide")
+          if not guide or len(guide.get("pages") or []) < 10:
+              print("::error::Using Autoconnecto section is missing or too small.")
               sys.exit(1)
-          print(f"OK — {len(REQUIRED_WITH_PAGES)} required sections present and non-empty.")
+          print(f"OK — guide has {len(guide['pages'])} pages.")
           PY
 
       - name: Upload generated docs artifact (consumed by public-docs-site workflow)
@@ -230,18 +167,6 @@ jobs:
         run: |
           aws s3 sync backend/docs/generated/ \
             s3://autoconnecto-docs-site/backend-generated/ \
-            --delete \
-            --cache-control "public, max-age=0, must-revalidate"
-
-      - name: Upload manual in-app docs bundle to S3 (manual-inapp/)
-        run: |
-          set -e
-          if [ ! -d "docs-repo/docs/manual-inapp" ]; then
-            echo "::error::docs-repo/docs/manual-inapp missing. Add manual pages there (see autoconnecto-docs/CONTRIBUTING.md)."
-            exit 1
-          fi
-          aws s3 sync docs-repo/docs/manual-inapp/ \
-            s3://autoconnecto-docs-site/manual-inapp/ \
             --delete \
             --cache-control "public, max-age=0, must-revalidate"
 

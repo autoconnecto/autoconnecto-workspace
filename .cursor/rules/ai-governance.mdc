@@ -50,6 +50,7 @@ For any change to MQTT topics, WS message types, Socket.IO events, or payloads:
 
 ## Documentation maintenance
 
+- Customer docs follow `.cursor/rules/documentation.mdc`. A customer-visible change updates the written page, the in-app bundle, and the public site from that same page. A public claim also updates `website/`.
 - Docs must separate **confirmed behavior** from **recommendations**.
 - Any discovered mismatch (e.g., SDK topic vs backend subscribe topic) must be documented explicitly as a risk with a deterministic resolution plan.
 
