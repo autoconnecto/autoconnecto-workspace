@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.29` | 2026-10-13 | EC2 deploy v1.7.29 (90d9b02). Health ok. Postgres and Redis ok. In-app Documentation menu is the written guide (5 sections). `AUTH_MODE` is unset, so cloud login stays on Cognito. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.29` | 2026-10-13 | CI deploy from main (5e1ad23). Rule links meet the node. New palette nodes are in the editor. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.29` | 2026-10-13 | Public docs deploy from main (e6aa10c). `/guide/` is the operator guide. The dispatch secret is not on the docs repo yet, so this in-app refresh came from the workspace workflow. |
+| Backend (`api.autoconnecto.in`) | `v1.7.30` | 2026-10-14 | EC2 deploy v1.7.30 (80090f5). Health ok. Postgres and Redis ok. `AUTH_MODE` is unset, so cloud login stays on Cognito. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.30` | 2026-10-14 | CI deploy from main (fb06a2b). Example rule engines show an Example tag. Start, save, make default, and delete stay off. Duplicate stays on. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.30` | 2026-10-14 | Public docs deploy from main (f72e02b). The rule-engine page describes the shipped examples. The dispatch secret is still empty on the docs repo, so the in-app refresh is the workspace workflow. |
 | Website (`www.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | Unchanged this release. CI deploy from main (7c1285d). |
 | SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Tag `v1.6.5` (6e39440). Live meters, open alarm, version on the sign-in screen. |
+
+**What v1.7.30 ships (delta vs v1.7.29):**
+
+- Rule engines named Example are created for each account the first time the list opens. Each node appears in one of them. They stay drafts, they are not on a device profile, and they cannot be deleted, started, or saved over. Duplicate makes an editable copy. Preview does not send mail, create an alarm, or store a reading.
 
 **What v1.7.29 ships (delta vs v1.7.28):**
 
