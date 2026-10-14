@@ -117,7 +117,7 @@ Operational values below are confirmed for the current production layout; substi
 | Frontend (`app.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | CI deploy from main (9b9b7fd). Protocol example cards are on Solutions. Edit and delete stay off. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | Public docs deploy from main (a93dd59). Solution preview says a reading is sent about every 5 seconds and Sample stops 30 minutes after the preview is closed. |
 | Website (`www.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | CI deploy from main (648563d). CoAP and AMQP are listed with the other device protocols. |
-| SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-14 | Transport note on main (560b9be). The Arduino library tag remains v1.6.2. |
+| SDK (`autoconnecto-sdk`) | `v1.7.31` | 2026-10-14 | Tag v1.7.31 (b8f11d6). `library.properties` is 1.7.31. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
 
 **What v1.7.31 ships (delta vs v1.7.30):**
