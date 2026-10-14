@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.30` | 2026-10-14 | EC2 deploy v1.7.30 (80090f5). Health ok. Postgres and Redis ok. `AUTH_MODE` is unset, so cloud login stays on Cognito. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.30` | 2026-10-14 | CI deploy from main (fb06a2b). Example rule engines show an Example tag. Start, save, make default, and delete stay off. Duplicate stays on. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.30` | 2026-10-14 | Public docs deploy from main (f72e02b). The rule-engine page describes the shipped examples. The dispatch secret is still empty on the docs repo, so the in-app refresh is the workspace workflow. |
-| Website (`www.autoconnecto.in`) | `v1.7.23` | 2026-10-09 | Unchanged this release. CI deploy from main (7c1285d). |
-| SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-08 | Docs scrub on main (c3f3aaf); tag remains v1.6.2. |
-| Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Tag `v1.6.5` (6e39440). Live meters, open alarm, version on the sign-in screen. |
+| Backend (`api.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | EC2 deploy v1.7.31 (f1d3897). Health ok. Postgres and Redis ok. CoAP listens on UDP 5683. AMQP stays idle until `AMQP_URL` is set. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | CI deploy from main (9b9b7fd). Protocol example cards are on Solutions. Edit and delete stay off. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | Public docs deploy from main (a93dd59). Solution preview says a reading is sent about every 5 seconds and Sample stops 30 minutes after the preview is closed. |
+| Website (`www.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | CI deploy from main (648563d). CoAP and AMQP are listed with the other device protocols. |
+| SDK (`autoconnecto-sdk`) | `v1.6.2`+ | 2026-10-14 | Transport note on main (560b9be). The Arduino library tag remains v1.6.2. |
+| Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.31 ships (delta vs v1.7.30):**
+
+- Eleven solution examples, one per protocol: HTTP, MQTT, WebSocket, CoAP, AMQP, LoRaWAN webhook, Gateway, Modbus, OPC UA, BACnet, and Sparkplug B. Sample sends a reading about every 5 seconds on that protocol. The chart stays empty until the packet arrives. Sample turns off 30 minutes after the preview is closed. CoAP listens on UDP 5683. AMQP stays idle until a broker URL is set.
 
 **What v1.7.30 ships (delta vs v1.7.29):**
 
