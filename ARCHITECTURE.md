@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.36` | 2026-10-15 | EC2 deploy v1.7.36 (44d3c5d). Health ok. Latest value follows the reading time. A past batch is stored when the row times are far enough apart. A 60-second job is counted from the time it was due. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.36` | 2026-10-15 | CI deploy from main (59d6407). Tag v1.7.36 is 258b838. The live app includes the build fix. Home alarm wording, attribute count, and scheduler last run. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.36` | 2026-10-15 | Public docs and the in-app guide from main (12d2d39). Latest value follows the reading time. The scheduler is checked every 15 seconds. |
+| Backend (`api.autoconnecto.in`) | `v1.7.37` | 2026-10-15 | EC2 deploy v1.7.37 (3e67ea2). Health ok. OTA files are stored on the server disk at `/var/lib/autoconnecto/ota` and kept across a redeploy. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.36` | 2026-10-15 | Unchanged this release. CI deploy from main (59d6407). Tag v1.7.36 is 258b838. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.37` | 2026-10-15 | Public docs and the in-app guide from main (65188d1). Firmware is stored on the server disk. |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
-| SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Unchanged this release. Tag v1.7.32 (b1ddcbf). The Arduino library stays MQTT. |
+| SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Tag v1.7.32 (b1ddcbf) is unchanged. Main (14d3bfa) says firmware stays on the server disk. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.37 ships (delta vs v1.7.36):**
+
+- Firmware and software packages are stored on the server disk at `/var/lib/autoconnecto/ota`. A release checkout does not delete that folder. The hosted box and a single-server install use the same path. S3 is optional.
 
 **What v1.7.36 ships (delta vs v1.7.35):**
 
