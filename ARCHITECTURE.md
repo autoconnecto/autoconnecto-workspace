@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | EC2 deploy v1.7.33 (470eb42). Health ok. Postgres and Redis ok. An HTTP reading answers after it is stored. A profile alarm runs on the reading the device sent. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | CI deploy from main (caa3533). Solution Use shows the plan sentence. A latest-value card and a KPI stat card have no time window. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | Public docs and the in-app guide from main (1ac8eeb). |
-| Website (`www.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | Unchanged this release. CI deploy from main (648563d). |
+| Backend (`api.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | Unchanged this release. EC2 deploy v1.7.33 (470eb42). Health ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | Unchanged this release. CI deploy from main (caa3533). |
+| Docs (`docs.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | Public docs and the in-app guide from main (ad06d86). Analytics calculates from stored readings. On-premises is available. Scaling past the catalog is available when needed. |
+| Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Unchanged this release. Tag v1.7.32 (b1ddcbf). The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.34 ships (delta vs v1.7.33):**
+
+- The public site and the guide say what the platform does. Analytics answers from stored readings. The hosted app is the public service. An on-premises install is available, and one server installation is ready. Published plans run to Enterprise (500 devices). If more is needed, it can be scaled.
 
 **What v1.7.33 ships (delta vs v1.7.32):**
 
