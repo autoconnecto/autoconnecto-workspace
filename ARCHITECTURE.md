@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.35` | 2026-10-15 | EC2 deploy v1.7.35 (c2b33a6). Health ok. Platform Admin can delete a tenant. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | Unchanged this release. CI deploy from main (caa3533). |
-| Docs (`docs.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | Public docs and the in-app guide from main (ad06d86). Analytics calculates from stored readings. On-premises is available. Scaling past the catalog is available when needed. |
+| Backend (`api.autoconnecto.in`) | `v1.7.36` | 2026-10-15 | EC2 deploy v1.7.36 (44d3c5d). Health ok. Latest value follows the reading time. A past batch is stored when the row times are far enough apart. A 60-second job is counted from the time it was due. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.36` | 2026-10-15 | CI deploy from main (59d6407). Tag v1.7.36 is 258b838. The live app includes the build fix. Home alarm wording, attribute count, and scheduler last run. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.36` | 2026-10-15 | Public docs and the in-app guide from main (12d2d39). Latest value follows the reading time. The scheduler is checked every 15 seconds. |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Unchanged this release. Tag v1.7.32 (b1ddcbf). The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.36 ships (delta vs v1.7.35):**
+
+- The latest value of a key is the reading with the newest time. An older row that arrives later stays in history. The plan interval is the gap between reading times, so a device can upload buffered rows. A 60-second scheduled job is counted from the time it was due. The checker still runs every 15 seconds.
 
 **What v1.7.35 ships (delta vs v1.7.34):**
 
