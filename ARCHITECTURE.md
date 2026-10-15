@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.32` | 2026-10-15 | EC2 deploy v1.7.32 (581921c). Health ok. Postgres and Redis ok. A reading the plan refuses is HTTP 429. CoAP is 4.29. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.32` | 2026-10-15 | CI deploy from main (59c7a1a). Tag v1.7.32 is e2e0883; that commit did not build. The live app is the follow-up on main, still version 1.7.32. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.32` | 2026-10-15 | Public docs and the in-app guide from main (844c5ee). |
+| Backend (`api.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | EC2 deploy v1.7.33 (470eb42). Health ok. Postgres and Redis ok. An HTTP reading answers after it is stored. A profile alarm runs on the reading the device sent. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | CI deploy from main (caa3533). Solution Use shows the plan sentence. A latest-value card and a KPI stat card have no time window. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | Public docs and the in-app guide from main (1ac8eeb). |
 | Website (`www.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | Unchanged this release. CI deploy from main (648563d). |
-| SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Tag v1.7.32 (b1ddcbf). `library.properties` is 1.7.32. The Arduino library stays MQTT. RPC response topic is `devices/{deviceToken}/rpc/response/{requestId}`. |
+| SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Unchanged this release. Tag v1.7.32 (b1ddcbf). The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.33 ships (delta vs v1.7.32):**
+
+- A profile alarm rule runs on the reading the device sent, including when a rule engine rewrites or drops that reading. An HTTP post answers after the row is stored, with `stored: true`. A plan-refused batch item says `success: false`. Solution Use shows the plan sentence. A latest-value card and a KPI stat card have no time window.
 
 **What v1.7.32 ships (delta vs v1.7.31):**
 
