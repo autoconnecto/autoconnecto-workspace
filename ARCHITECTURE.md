@@ -113,12 +113,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | EC2 deploy v1.7.31 (f1d3897). Health ok. Postgres and Redis ok. CoAP listens on UDP 5683. AMQP stays idle until `AMQP_URL` is set. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | CI deploy from main (9b9b7fd). Protocol example cards are on Solutions. Edit and delete stay off. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | Public docs deploy from main (a93dd59). Solution preview says a reading is sent about every 5 seconds and Sample stops 30 minutes after the preview is closed. |
-| Website (`www.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | CI deploy from main (648563d). CoAP and AMQP are listed with the other device protocols. |
-| SDK (`autoconnecto-sdk`) | `v1.7.31` | 2026-10-14 | Tag v1.7.31 (b8f11d6). `library.properties` is 1.7.31. The Arduino library stays MQTT. |
+| Backend (`api.autoconnecto.in`) | `v1.7.32` | 2026-10-15 | EC2 deploy v1.7.32 (581921c). Health ok. Postgres and Redis ok. A reading the plan refuses is HTTP 429. CoAP is 4.29. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.32` | 2026-10-15 | CI deploy from main (59c7a1a). Tag v1.7.32 is e2e0883; that commit did not build. The live app is the follow-up on main, still version 1.7.32. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.32` | 2026-10-15 | Public docs and the in-app guide from main (844c5ee). |
+| Website (`www.autoconnecto.in`) | `v1.7.31` | 2026-10-14 | Unchanged this release. CI deploy from main (648563d). |
+| SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Tag v1.7.32 (b1ddcbf). `library.properties` is 1.7.32. The Arduino library stays MQTT. RPC response topic is `devices/{deviceToken}/rpc/response/{requestId}`. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.32 ships (delta vs v1.7.31):**
+
+- A reading the plan refuses is not a success. HTTP returns 429. CoAP returns 4.29. A batch counts only stored keys. The broker in Check connectivity is mqtt.autoconnecto.in port 8883. A generator interval cannot be shorter than the plan minimum. On Free that is 30 seconds.
+- The screen says the plan limit when a second dashboard, a solution Use, or a second user is refused. Compare plans still lists the catalog when checkout is off. Upgrade stays disabled. Generic HTTP says it only receives. A gateway that does not answer stops loading. An analytics answer with no chart shows the sentence.
 
 **What v1.7.31 ships (delta vs v1.7.30):**
 
