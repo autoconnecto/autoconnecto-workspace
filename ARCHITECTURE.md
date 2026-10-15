@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | Unchanged this release. EC2 deploy v1.7.33 (470eb42). Health ok. |
+| Backend (`api.autoconnecto.in`) | `v1.7.35` | 2026-10-15 | EC2 deploy v1.7.35 (c2b33a6). Health ok. Platform Admin can delete a tenant. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.33` | 2026-10-15 | Unchanged this release. CI deploy from main (caa3533). |
 | Docs (`docs.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | Public docs and the in-app guide from main (ad06d86). Analytics calculates from stored readings. On-premises is available. Scaling past the catalog is available when needed. |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Unchanged this release. Tag v1.7.32 (b1ddcbf). The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.35 ships (delta vs v1.7.34):**
+
+- Platform Admin delete writes the audit row with typed values, so Postgres accepts the delete. The tenant row and its data are removed after that.
 
 **What v1.7.34 ships (delta vs v1.7.33):**
 
