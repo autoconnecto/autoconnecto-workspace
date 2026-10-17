@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.37` | 2026-10-15 | EC2 deploy v1.7.37 (3e67ea2). Health ok. OTA files are stored on the server disk at `/var/lib/autoconnecto/ota` and kept across a redeploy. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.36` | 2026-10-15 | Unchanged this release. CI deploy from main (59d6407). Tag v1.7.36 is 258b838. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.37` | 2026-10-15 | Public docs and the in-app guide from main (65188d1). Firmware is stored on the server disk. |
+| Backend (`api.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | EC2 deploy v1.7.38 (d39e495). Health ok. A solution dashboard saves. One rule output can feed every next node. An empty field protocol cannot be switched on. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | CI deploy from main (d2aeda9). Tag v1.7.38. A blank canvas is Message in only. The alarm list shows when it cleared. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | Public docs and the in-app guide from main (2ba021e). |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Tag v1.7.32 (b1ddcbf) is unchanged. Main (14d3bfa) says firmware stays on the server disk. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.38 ships (delta vs v1.7.37):**
+
+- A dashboard copied from a solution can save its time range. A blank rule engine opens with Message in only, and one output can feed more than one node. The alarm list shows when an alarm cleared. A new tenant already has the Default profile. A command can stay locked until a reading matches. Metric Explorer shows the device name. OPC UA, BACnet, and Sparkplug cannot be switched on with an empty address. Platform Admin stays on the stored mail ids.
 
 **What v1.7.37 ships (delta vs v1.7.36):**
 
