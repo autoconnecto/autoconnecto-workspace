@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.47` | 2026-10-18 | EC2 deploy v1.7.47. A full database pool waits for a free connection and does not drop the reading. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | CI deploy from main (d2aeda9). Tag v1.7.38. A blank canvas is Message in only. The alarm list shows when it cleared. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | Public docs and the in-app guide from main (2ba021e). |
+| Backend (`api.autoconnecto.in`) | `v1.7.48` | 2026-10-18 | EC2 deploy v1.7.48 (b9815d0). Reports and charts aggregate from stored readings. Command log and OTA cancel are in the schema. Quiet hours and Monday energy mail were not applied. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.48` | 2026-10-18 | CI deploy from main (591fa1b). Tag v1.7.48. Screens show names. The device token is masked. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.48` | 2026-10-18 | Public docs and the in-app guide from main (34c4031). A reading is answered when it is queued. |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Tag v1.7.32 (b1ddcbf) is unchanged. Main (14d3bfa) says firmware stays on the server disk. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.48 ships (delta vs v1.7.47):**
+
+- Average, minimum, maximum, and sum read the stored telemetry table. A queued batch item counts as accepted. The alarm list filters by severity. A person can read a client attribute and cannot change it. An asset stores server attributes only. The device token is masked and can be rotated. An OTA package that has not finished can be cancelled. A draft schedule has no next run. Home counts devices and gateways separately. The command log is stored. Website, SDK, and mobile are unchanged.
 
 **What v1.7.47 ships (delta vs v1.7.44):**
 
