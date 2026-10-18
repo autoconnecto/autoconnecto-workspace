@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.41` | 2026-10-18 | EC2 deploy v1.7.41. Three writers drain the telemetry queue. A device stays on one writer. |
+| Backend (`api.autoconnecto.in`) | `v1.7.42` | 2026-10-18 | EC2 deploy v1.7.42. The device is answered when the reading is queued. The writers store it after that. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | CI deploy from main (d2aeda9). Tag v1.7.38. A blank canvas is Message in only. The alarm list shows when it cleared. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | Public docs and the in-app guide from main (2ba021e). |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Tag v1.7.32 (b1ddcbf) is unchanged. Main (14d3bfa) says firmware stays on the server disk. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.42 ships (delta vs v1.7.41):**
+
+- The device is answered when the reading is on the queue. HTTP, MQTT, CoAP, AMQP, and the device socket use that same queue. A bad token, a too-soon reading, and a plan cap are refused before the answer. The writers store the reading after the answer, and the next batch does not wait for alarms or the activity update. A rule-engine drop is not stored. Frontend, docs, website, SDK, and mobile are unchanged.
 
 **What v1.7.41 ships (delta vs v1.7.40):**
 
@@ -154,7 +158,7 @@ Operational values below are confirmed for the current production layout; substi
 
 **What v1.7.33 ships (delta vs v1.7.32):**
 
-- A profile alarm rule runs on the reading the device sent, including when a rule engine rewrites or drops that reading. An HTTP post answers after the row is stored, with `stored: true`. A plan-refused batch item says `success: false`. Solution Use shows the plan sentence. A latest-value card and a KPI stat card have no time window.
+- A profile alarm rule runs on the reading the device sent, including when a rule engine rewrites or drops that reading. The device is answered when the reading is on the queue. A too-soon reading and a plan cap are refused before that. A rule-engine drop is not stored. Solution Use shows the plan sentence. A latest-value card and a KPI stat card have no time window.
 
 **What v1.7.32 ships (delta vs v1.7.31):**
 
