@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.43` | 2026-10-18 | EC2 deploy v1.7.43. Three separate threads store telemetry. A device stays on one thread. |
+| Backend (`api.autoconnecto.in`) | `v1.7.44` | 2026-10-18 | EC2 deploy v1.7.44. Eight shared subscribers take MQTT telemetry. The broker session queue is 100,000. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | CI deploy from main (d2aeda9). Tag v1.7.38. A blank canvas is Message in only. The alarm list shows when it cleared. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | Public docs and the in-app guide from main (2ba021e). |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Tag v1.7.32 (b1ddcbf) is unchanged. Main (14d3bfa) says firmware stays on the server disk. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.44 ships (delta vs v1.7.43):**
+
+- MQTT ingest uses eight subscribers in one shared group. A device still publishes `devices/{token}/telemetry`. The broker session queue and the connection mailbox are 100,000. Frontend, docs, website, SDK, and mobile are unchanged.
 
 **What v1.7.43 ships (delta vs v1.7.42):**
 
