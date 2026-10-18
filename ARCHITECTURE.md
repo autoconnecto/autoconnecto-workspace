@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.40` | 2026-10-18 | EC2 deploy v1.7.40. Plan usage is counted in memory and corrected once a minute. A device with no rules skips those lookups. |
+| Backend (`api.autoconnecto.in`) | `v1.7.41` | 2026-10-18 | EC2 deploy v1.7.41. Three writers drain the telemetry queue. A device stays on one writer. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | CI deploy from main (d2aeda9). Tag v1.7.38. A blank canvas is Message in only. The alarm list shows when it cleared. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.38` | 2026-10-17 | Public docs and the in-app guide from main (2ba021e). |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Tag v1.7.32 (b1ddcbf) is unchanged. Main (14d3bfa) says firmware stays on the server disk. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.41 ships (delta vs v1.7.40):**
+
+- Telemetry is queued in memory and drained by three writers. A device stays on one writer. A writer flushes on 10,000 readings or 100 milliseconds and commits history, the latest value, and device runtime together. Alarm rules for a profile stay in memory for a minute. One activity update covers the batch. The queue warns when it is longer than one batch and drops only past 100,000 waiting readings. An HTTP post still answers after the row is stored. Frontend, docs, website, SDK, and mobile are unchanged.
 
 **What v1.7.40 ships (delta vs v1.7.39):**
 
