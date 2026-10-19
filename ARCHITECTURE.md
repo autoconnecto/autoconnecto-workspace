@@ -118,7 +118,7 @@ Operational values below are confirmed for the current production layout; substi
 | Docs (`docs.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | Public docs from main (ec197ea). Tag v1.7.54. Port 8084, the MQTT timestamp, and checkout in the app. Extensionless docs URLs rewrite to `.html`. |
 | Website (`www.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | CI deploy from main (95789be). Tag v1.7.54 is 5918bc2. Get Started opens the app. The public pages match the docs. |
 | SDK (`autoconnecto-sdk`) | `v1.7.54` | 2026-10-19 | Tag v1.7.54 (d64d702). ESP8266 and Pico W HTTPS examples. A finished firmware update does not download again. |
-| Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+| Mobile (Android APK) | `v1.6.6` | 2026-10-19 | Tag v1.6.6 (abb1504). Same app as v1.6.2, before solution demos. versionCode 17 so it installs over v1.6.5. |
 
 **What v1.7.54 ships (delta vs v1.7.53):**
 
