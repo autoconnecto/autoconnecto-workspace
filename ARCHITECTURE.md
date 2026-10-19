@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | EC2 deploy v1.7.54 (7aae34a). Health is ok. A flat MQTT `ts` is the reading time. nginx accepts a 100 MB firmware upload. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | Package stays v1.7.53. Main 40c4e32. The Android download is v1.6.6. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | Public docs from main (0e099c0). Tag v1.7.54 is ec197ea. The install page is v1.6.6. |
+| Backend (`api.autoconnecto.in`) | `v1.7.55` | 2026-10-19 | EC2 deploy v1.7.55 (59f23f0). An attribute request for one scope returns only that scope. A Modbus slave ID outside 1–247 is refused. A host that already contains a port is refused. Asset and profile names stop at 200 characters. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.55` | 2026-10-19 | Package v1.7.55. Main 03b11f2. A profile name stops at 200 characters. The gateway badge does not add a second port. The Android download stays v1.6.6. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.55` | 2026-10-19 | Public docs from main (811f85b). The guide states the scope filter, the slave ID range, and the 200-character profile name. |
 | Website (`www.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | CI deploy from main (8fd0ae6). Tag v1.7.54 is 5918bc2. The download is v1.6.6. |
 | SDK (`autoconnecto-sdk`) | `v1.7.54` | 2026-10-19 | Tag v1.7.54 (d64d702). ESP8266 and Pico W HTTPS examples. A finished firmware update does not download again. |
 | Mobile (Android APK) | `v1.6.6` | 2026-10-19 | Tag v1.6.6 (abb1504). Same app as v1.6.2, before solution demos. versionCode 17 so it installs over v1.6.5. |
+
+**What v1.7.55 ships (delta vs v1.7.54):**
+
+- `GET /api/devices/{id}/attributes?scope=` returns only that scope. A Modbus slave ID must be an integer from 1 to 247, from the platform or from the device. The gateway host is the address only. Asset and device-profile names stop at 200 characters. The app sidebar is v1.7.55. Website, SDK, and mobile are unchanged.
 
 **What v1.7.54 ships (delta vs v1.7.53):**
 
