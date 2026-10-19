@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.48` | 2026-10-18 | EC2 deploy v1.7.48 (b9815d0). Reports and charts aggregate from stored readings. Command log and OTA cancel are in the schema. Quiet hours and Monday energy mail were not applied. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.48` | 2026-10-18 | CI deploy from main (591fa1b). Tag v1.7.48. Screens show names. The device token is masked. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.48` | 2026-10-18 | Public docs and the in-app guide from main (34c4031). A reading is answered when it is queued. |
+| Backend (`api.autoconnecto.in`) | `v1.7.50` | 2026-10-19 | EC2 deploy v1.7.50 (12ff7ad). MQTT connect requires the current device token. A rotated token is refused at connect. The connect check answers HTTP 200. Quiet hours and Monday energy mail were not applied. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.49` | 2026-10-19 | CI deploy from main (3d6834c). Tag v1.7.49. Delete stays on the dashboard list. A missing dashboard is not found. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.49` | 2026-10-19 | Public docs and the in-app guide from main (876d549). JSON only. A rotated token is refused at connect. A delete keeps the name. |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
-| SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-15 | Tag v1.7.32 (b1ddcbf) is unchanged. Main (14d3bfa) says firmware stays on the server disk. The Arduino library stays MQTT. |
+| SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-19 | Tag v1.7.32 is unchanged. Main (b7eb56d) says a rotated token is refused at connect. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.50 ships (delta vs v1.7.48):**
+
+- Assigning firmware after a cancel queues a new update. Both signed-in routes refuse a client attribute write. A missing dashboard is not found. A delete keeps the name in the audit log. Readings are JSON. MQTT connect is allowed when the username is the current device token. This server's own clients use a separate username. The connect check answers HTTP 200. The app is v1.7.49. Website and mobile are unchanged.
 
 **What v1.7.48 ships (delta vs v1.7.47):**
 
@@ -193,7 +197,6 @@ Operational values below are confirmed for the current production layout; substi
 
 - The customer guide is written. The public site and the in-app Documentation menu serve those pages. Swagger in the app stays the API reference. The generate endpoints no longer rebuild the guide.
 - Rule engine: profile switch, alarm status, alarm count, history, delete attribute, split, continue as, MQTT publish, and command and wait. Run another engine executes on preview. A schedule can start an engine. The line joins the next node.
-
 **What v1.7.28 ships (delta vs v1.7.26):**
 
 - Rule engine nodes: shift clock, rate per minute, sequence, roll-up, and period total. Profile Duration is unchanged. Profile alarm rules still run when a chain also has an alarm node.
