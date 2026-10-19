@@ -114,15 +114,17 @@ Operational values below are confirmed for the current production layout; substi
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
 | Backend (`api.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | EC2 deploy v1.7.54 (7aae34a). Health is ok. A flat MQTT `ts` is the reading time. nginx accepts a 100 MB firmware upload. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | Unchanged this release. Tag v1.7.53 (526b196). |
-| Docs (`docs.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | Public docs from main (ec197ea). Tag v1.7.54. Port 8084, the MQTT timestamp, and checkout in the app. Extensionless docs URLs rewrite to `.html`. |
-| Website (`www.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | CI deploy from main (95789be). Tag v1.7.54 is 5918bc2. Get Started opens the app. The public pages match the docs. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | Package stays v1.7.53. Main 40c4e32. The Android download is v1.6.6. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | Public docs from main (0e099c0). Tag v1.7.54 is ec197ea. The install page is v1.6.6. |
+| Website (`www.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | CI deploy from main (8fd0ae6). Tag v1.7.54 is 5918bc2. The download is v1.6.6. |
 | SDK (`autoconnecto-sdk`) | `v1.7.54` | 2026-10-19 | Tag v1.7.54 (d64d702). ESP8266 and Pico W HTTPS examples. A finished firmware update does not download again. |
 | Mobile (Android APK) | `v1.6.6` | 2026-10-19 | Tag v1.6.6 (abb1504). Same app as v1.6.2, before solution demos. versionCode 17 so it installs over v1.6.5. |
 
 **What v1.7.54 ships (delta vs v1.7.53):**
 
-- A flat numeric `ts` on MQTT telemetry is the reading time and is not stored as a key. The API nginx body limit is 100 MB. The guide states port 8084 and that checkout is in the app. The website drops the public CoAP claim, points Get Started at signup, and fixes the docs links. The SDK compiles ESP8266 and Pico W and does not repeat a firmware download. The app and the mobile build are unchanged.
+- A flat numeric `ts` on MQTT telemetry is the reading time and is not stored as a key. The API nginx body limit is 100 MB. The guide states port 8084 and that checkout is in the app. The website drops the public CoAP claim, points Get Started at signup, and fixes the docs links. The SDK compiles ESP8266 and Pico W and does not repeat a firmware download.
+
+After that tag, the Android app was rebuilt as v1.6.6 from the last build before solution demos. The website, the public docs, the in-app guide, and the signed-in app all download that APK.
 
 **What v1.7.53 ships (delta vs v1.7.52):**
 
