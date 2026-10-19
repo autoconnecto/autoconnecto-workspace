@@ -26,7 +26,7 @@ This document reflects the architecture confirmed from the current codebase. Any
 - Arduino/ESP32 SDK (C++)
 - `AutoconnectoSDK` orchestrates WiFi + `ConnectionManager`
 - `ConnectionManager` owns `MQTTTransport`
-- `MQTTTransport` builds broker URI as WSS (`wss://{host}:{wssPort}/mqtt`) and subscribes to shared attrs + RPC request topics
+- `MQTTTransport` builds broker URI as WSS (`wss://{host}:{wssPort}/mqtt`). The SDK default `wssPort` is 8084. It subscribes to shared attrs + RPC request topics. A top-level numeric `ts` on a telemetry publish is the reading time and is not stored as a key.
 
 ### Docs (`docs/`) — confirmed
 
@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | EC2 deploy v1.7.53 (08cda75). Health is ok. Names and keys stop at 200 characters. A non-finite threshold is refused. Quiet hours and Monday energy mail were not applied. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | CI deploy from main (526b196). Tag v1.7.53. Every demo switch says Show solution demos. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | Public docs and the in-app guide from main (3900970). Tag v1.7.53. |
-| Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
-| SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-19 | Tag v1.7.32 is unchanged. Main (b7eb56d) says a rotated token is refused at connect. The Arduino library stays MQTT. |
+| Backend (`api.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | EC2 deploy v1.7.54 (7aae34a). Health is ok. A flat MQTT `ts` is the reading time. nginx accepts a 100 MB firmware upload. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | Unchanged this release. Tag v1.7.53 (526b196). |
+| Docs (`docs.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | Public docs from main (ec197ea). Tag v1.7.54. Port 8084, the MQTT timestamp, and checkout in the app. Extensionless docs URLs rewrite to `.html`. |
+| Website (`www.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | CI deploy from main (95789be). Tag v1.7.54 is 5918bc2. Get Started opens the app. The public pages match the docs. |
+| SDK (`autoconnecto-sdk`) | `v1.7.54` | 2026-10-19 | Tag v1.7.54 (d64d702). ESP8266 and Pico W HTTPS examples. A finished firmware update does not download again. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.54 ships (delta vs v1.7.53):**
+
+- A flat numeric `ts` on MQTT telemetry is the reading time and is not stored as a key. The API nginx body limit is 100 MB. The guide states port 8084 and that checkout is in the app. The website drops the public CoAP claim, points Get Started at signup, and fixes the docs links. The SDK compiles ESP8266 and Pico W and does not repeat a firmware download. The app and the mobile build are unchanged.
 
 **What v1.7.53 ships (delta vs v1.7.52):**
 

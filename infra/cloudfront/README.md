@@ -8,7 +8,7 @@ every run.
 
 | File | Purpose |
 |---|---|
-| `viewer-request-spa-rewrite.js` | CloudFront Function: rewrites `/foo/` → `/foo/index.html` so VitePress directory URLs work over the secure S3 REST origin. |
+| `viewer-request-spa-rewrite.js` | CloudFront Function: rewrites `/foo` and `/foo/` to `/foo.html`. VitePress publishes each page as a file, and the S3 REST origin 403s an extensionless key. |
 | `deploy-spa-rewrite.sh` | Idempotent reconcile script (used by CI). Creates/updates the function and attaches it to distribution `E30AD6N6537JGX`. |
 
 ## How it runs in CI
@@ -116,9 +116,9 @@ so re-attaching later is a one-line CI run.
 ## Verifying the fix is live
 
 ```bash
-for p in / /dashboards/ /api/ /devices/ /alarms/; do
-  printf '%-15s -> ' "$p"
+for p in / /about/faq /about/faq.html /about/pricing /developer/device-connectivity; do
+  printf '%-32s -> ' "$p"
   curl -s -o /dev/null -w '%{http_code}\n' "https://docs.autoconnecto.in$p"
 done
-# expected: all 200
+# expected: all 200 after the function is published
 ```
