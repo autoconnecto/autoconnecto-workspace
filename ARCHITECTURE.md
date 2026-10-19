@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.52` | 2026-10-19 | EC2 deploy v1.7.52 (e3d822e). Health is ok. Gateway setup is stored as server attributes. A gateway with children cannot be deleted. Quiet hours and Monday energy mail were not applied. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.52` | 2026-10-19 | CI deploy from main (21ee2a2). Tag v1.7.52. The operator widgets and the ten rule nodes are on the screens. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.52` | 2026-10-19 | Public docs and the in-app guide from main (b35224d). Tag v1.7.52. |
+| Backend (`api.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | EC2 deploy v1.7.53 (08cda75). Health is ok. Names and keys stop at 200 characters. A non-finite threshold is refused. Quiet hours and Monday energy mail were not applied. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | CI deploy from main (526b196). Tag v1.7.53. Every demo switch says Show solution demos. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.53` | 2026-10-19 | Public docs and the in-app guide from main (3900970). Tag v1.7.53. |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-19 | Tag v1.7.32 is unchanged. Main (b7eb56d) says a rotated token is refused at connect. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.53 ships (delta vs v1.7.52):**
+
+- A name or a key longer than 200 characters is refused. A blank name says "Name is required". A threshold that is not a finite number, or whose absolute value is over 1e12, is refused. The demo switch says Show solution demos. Shift board, Energy desk, and Service and lamp are sample solutions. Six rule-engine examples ship as drafts. Cancelling firmware is recorded as Cancelled. Website, SDK, and mobile are unchanged.
 
 **What v1.7.52 ships (delta vs v1.7.50):**
 
