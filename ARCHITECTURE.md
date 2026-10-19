@@ -113,12 +113,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.50` | 2026-10-19 | EC2 deploy v1.7.50 (12ff7ad). MQTT connect requires the current device token. A rotated token is refused at connect. The connect check answers HTTP 200. Quiet hours and Monday energy mail were not applied. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.49` | 2026-10-19 | CI deploy from main (3d6834c). Tag v1.7.49. Delete stays on the dashboard list. A missing dashboard is not found. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.49` | 2026-10-19 | Public docs and the in-app guide from main (876d549). JSON only. A rotated token is refused at connect. A delete keeps the name. |
+| Backend (`api.autoconnecto.in`) | `v1.7.52` | 2026-10-19 | EC2 deploy v1.7.52 (e3d822e). Health is ok. Gateway setup is stored as server attributes. A gateway with children cannot be deleted. Quiet hours and Monday energy mail were not applied. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.52` | 2026-10-19 | CI deploy from main (21ee2a2). Tag v1.7.52. The operator widgets and the ten rule nodes are on the screens. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.52` | 2026-10-19 | Public docs and the in-app guide from main (b35224d). Tag v1.7.52. |
 | Website (`www.autoconnecto.in`) | `v1.7.34` | 2026-10-15 | CI deploy from main (40cb764). Tag v1.7.34 is 500bf07. The live page includes the footer. Analytics, the hosted service, an on-premises install, and scaling when needed. |
 | SDK (`autoconnecto-sdk`) | `v1.7.32` | 2026-10-19 | Tag v1.7.32 is unchanged. Main (b7eb56d) says a rotated token is refused at connect. The Arduino library stays MQTT. |
 | Mobile (Android APK) | `v1.6.5` | 2026-10-09 | Unchanged this release. Tag `v1.6.5` (6e39440). |
+
+**What v1.7.52 ships (delta vs v1.7.50):**
+
+- Gateway setup, the Modbus map, a child slave ID, and a typed LoRa DevEUI are stored as server attributes. A gateway can be deleted from the list and from its page after its child devices are gone. A slave ID, a port, a BACnet address, and an OPC UA endpoint that are not valid are refused. Device delete names the device. Editing an attribute changes the value and leaves the scope and the key. A profile or asset name made only of spaces is refused. The alarm row opens the dashboard. The device alarm tab counts the rows it shows. The scheduler refuses a timezone that is not a real zone. A deleted firmware package and a deleted user leave the list.
+- Ten rule-engine checks are on the canvas. The operator widgets are on the dashboard, including asset calculated fields. A profile can store keys, and a site can total them. The app and the guide are v1.7.52. Website, SDK, and mobile are unchanged.
 
 **What v1.7.50 ships (delta vs v1.7.48):**
 
