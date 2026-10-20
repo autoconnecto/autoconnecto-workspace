@@ -10,10 +10,11 @@ When the user asks to deploy, release, or ship — or when a task is clearly mer
 ## Order (see `deployment.md`)
 
 1. Bump `package.json` (and mobile `versionCode`) → commit → tag `vX.Y.Z` → push `main` + tag per repo.
-2. **Backend:** `ssh -o BatchMode=yes ec2-autoconnecto "cd ~/autoconnecto/backend && bash scripts/ec2-release-deploy.sh vX.Y.Z --sync-docs"`
-3. **Frontend:** push `autoconnecto-frontend` `main` (Actions `deploy-s3.yml` deploys S3 + CloudFront).
-4. **Mobile:** tag `vX.Y.Z` on `autoconnecto-mobile`; confirm **Android APK (release)** workflow succeeds.
-5. **Workspace:** pin submodule SHAs + update `ARCHITECTURE.md` production table; push `autoconnecto-workspace`.
+2. **Frontend gate (mandatory):** in `frontend/`, run `npm run build` and wait for exit 0 **before** any `git push` of frontend. CI runs the same command; a local failure = S3 deploy will fail. Do not push “and hope CI fixes it.”
+3. **Backend:** `ssh -o BatchMode=yes ec2-autoconnecto "cd ~/autoconnecto/backend && bash scripts/ec2-release-deploy.sh vX.Y.Z --sync-docs"`
+4. **Frontend:** push `autoconnecto-frontend` `main` (Actions `deploy-s3.yml` deploys S3 + CloudFront). Confirm the run is **success**, not just that push returned.
+5. **Mobile:** tag `vX.Y.Z` on `autoconnecto-mobile`; confirm **Android APK (release)** workflow succeeds.
+6. **Workspace:** pin submodule SHAs + update `ARCHITECTURE.md` production table; push `autoconnecto-workspace`.
 
 ## Verify
 

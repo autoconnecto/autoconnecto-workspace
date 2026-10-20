@@ -66,6 +66,8 @@ grep '^version=' sdk/library.properties
 
 ## Step 1 — Commit, tag, push (each repo)
 
+**Frontend only — before commit/push:** from `frontend/`, run `npm run build` (`tsc -b && vite build`). Exit must be 0. The S3 Action runs the same command; skipping this is why FE deploys fail after a green local TypeScript edit.
+
 Run in **backend**, **frontend**, **docs**, **website**, **sdk**, **autoconnecto-mobile**:
 
 ```bash

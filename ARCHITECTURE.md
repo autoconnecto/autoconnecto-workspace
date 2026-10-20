@@ -113,12 +113,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.55` | 2026-10-19 | EC2 deploy v1.7.55 (59f23f0). An attribute request for one scope returns only that scope. A Modbus slave ID outside 1–247 is refused. A host that already contains a port is refused. Asset and profile names stop at 200 characters. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.55` | 2026-10-19 | Package v1.7.55. Main 03b11f2. A profile name stops at 200 characters. The gateway badge does not add a second port. The Android download stays v1.6.6. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.55` | 2026-10-19 | Public docs from main (811f85b). The guide states the scope filter, the slave ID range, and the 200-character profile name. |
-| Website (`www.autoconnecto.in`) | `v1.7.54` | 2026-10-19 | CI deploy from main (8fd0ae6). Tag v1.7.54 is 5918bc2. The download is v1.6.6. |
-| SDK (`autoconnecto-sdk`) | `v1.7.54` | 2026-10-19 | Tag v1.7.54 (d64d702). ESP8266 and Pico W HTTPS examples. A finished firmware update does not download again. |
-| Mobile (Android APK) | `v1.6.6` | 2026-10-19 | Tag v1.6.6 (abb1504). Same app as v1.6.2, before solution demos. versionCode 17 so it installs over v1.6.5. |
+| Backend (`api.autoconnecto.in`) | `v1.7.56` | 2026-10-20 | EC2 deploy v1.7.56 (20a79d4). Command `requestId` defaulted. Swagger export/check. Dashboard create/execute and telemetry maxDataPoints fixes. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.56` | 2026-10-20 | Package v1.7.56. Main daba6af (CI green after findAttr + battery scope typing). Controls: Shared attribute or RPC, Sent/Failed/Confirmed toasts. Indicators: telemetry or attribute source. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.56` | 2026-10-20 | Public docs from main (e57bb0e). Command-and-control guide; Shared attribute vs RPC; widget data keys. |
+| Website (`www.autoconnecto.in`) | `v1.7.56` | 2026-10-20 | CI deploy from main (d2edd83). Version pin only. |
+| SDK (`autoconnecto-sdk`) | `v1.7.56` | 2026-10-20 | Tag v1.7.56 (00f4d79). CLIENT confirm and two-way RPC notes for control widgets. |
+| Mobile (Android APK) | `v1.7.56` | 2026-10-20 | Tag v1.7.56 (1df99b2). versionCode 18. |
+
+**What v1.7.56 ships (delta vs v1.7.55):**
+
+- Dashboard controls choose Shared attribute or RPC. Sent / Failed / Confirmed toasts. Indicators can read telemetry or an attribute. Scoped attribute store. Compact control/indicator tile sizes. Command-and-control customer guide. Backend swagger export gate and API hardenings from the audit wave.
 
 **What v1.7.55 ships (delta vs v1.7.54):**
 
