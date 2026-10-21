@@ -114,12 +114,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.63` | 2026-10-21 | Sample pack interval; JoinedPlantScada plant overview + alarms; SDK · Solutions seeded. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.63` | 2026-10-21 | Solutions one searchable list; Sample stays on plant overview. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.63` | 2026-10-21 | JoinedPlantScada + SDK Solutions titles; device-sdk → Solutions. |
-| Website (`www.autoconnecto.in`) | `v1.7.63` | 2026-10-21 | Version bump. |
-| SDK (`autoconnecto-sdk`) | `v1.7.63` | 2026-10-21 | Docs point to Solutions for example dashboards. |
-| Mobile (Android APK) | `v1.7.63` | 2026-10-21 | Tag v1.7.63. versionCode 24. |
+| Backend (`api.autoconnecto.in`) | `v1.7.64` | 2026-10-21 | ProcessSymbols and PowerSymbols seeded in the catalog. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.64` | 2026-10-21 | Process and DISCOM symbols; pipe route straight or elbow. Asset `index-DmeZSd1W.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.64` | 2026-10-21 | Process and power symbol guides; in-app nav synced. |
+| Website (`www.autoconnecto.in`) | `v1.7.64` | 2026-10-21 | Version bump. |
+| SDK (`autoconnecto-sdk`) | `v1.7.64` | 2026-10-21 | Version bump. |
+| Mobile (Android APK) | `v1.7.64` | 2026-10-21 | Tag v1.7.64. versionCode 25. |
+
+**What v1.7.64 ships (delta vs v1.7.63):**
+
+- SCADA symbol pack for a process plant and a DISCOM bay. Join pipe is straight or one elbow. Catalog solutions ProcessSymbols and PowerSymbols are seeded.
 
 **What v1.7.63 ships (delta vs v1.7.62):**
 
@@ -407,7 +411,7 @@ curl -sS  https://app.autoconnecto.in/ | grep -E 'index-[A-Za-z0-9_-]+\.(js|css)
 
 **Host:** EC2 instance (Ubuntu) running the backend in **Docker Compose**. Compose project root: `~/autoconnecto/backend/` on the host. Services include `backend`, `timescaledb` (Postgres + Timescale), `redis`, `autoconnecto-emqx` (MQTT broker), optional `qwen-worker` / forecast sidecars.
 
-**SCADA Boards:** Nest module `scada-boards` persists plant mimic documents (`scada_boards` table). FE builder at `/scada-boards`; dashboards embed via widget type `scadaBoard`. Fleet-tool ACL (same class as Rule Engines).
+**SCADA Boards:** Nest module `scada-boards` persists plant mimic documents (`scada_boards` table). FE builder at `/scada-boards`; dashboards embed via widget type `scadaBoard`. Symbol pack covers process equipment and a DISCOM single-line set (breaker, isolator, transformer, bus, CT/PT, feeder, RMU, and the rest). A pipe is straight or one elbow. Existing kind strings are unchanged. Fleet-tool ACL (same class as Rule Engines).
 
 **Confirmed release flow:** see **[`deployment.md`](deployment.md)** (single source of truth for backend, frontend, website, docs, SDK, and mobile).
 
