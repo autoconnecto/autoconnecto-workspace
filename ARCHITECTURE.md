@@ -14,6 +14,7 @@ This document reflects the architecture confirmed from the current codebase. Any
 - Storage dependencies:
   - Postgres via `pg` pool (`DatabaseService`)
   - Redis via `ioredis` (presence; also BullMQ when enabled)
+  - Production backup/restore: `backend/docs/BACKUP_RESTORE.md` (code rollback ≠ DB restore). Daily `pg_dump` cron on EC2 → `~/backups/` (14-day retain); off-box copy still recommended.
 
 ### Frontend (`frontend/`) — confirmed
 
@@ -113,12 +114,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.56` | 2026-10-20 | EC2 deploy v1.7.56 (20a79d4). Command `requestId` defaulted. Swagger export/check. Dashboard create/execute and telemetry maxDataPoints fixes. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.56` | 2026-10-20 | Package v1.7.56. Main daba6af (CI green after findAttr + battery scope typing). Controls: Shared attribute or RPC, Sent/Failed/Confirmed toasts. Indicators: telemetry or attribute source. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.56` | 2026-10-20 | Public docs from main (e57bb0e). Command-and-control guide; Shared attribute vs RPC; widget data keys. |
-| Website (`www.autoconnecto.in`) | `v1.7.56` | 2026-10-20 | CI deploy from main (d2edd83). Version pin only. |
-| SDK (`autoconnecto-sdk`) | `v1.7.56` | 2026-10-20 | Tag v1.7.56 (00f4d79). CLIENT confirm and two-way RPC notes for control widgets. |
-| Mobile (Android APK) | `v1.7.56` | 2026-10-20 | Tag v1.7.56 (1df99b2). versionCode 18. |
+| Backend (`api.autoconnecto.in`) | `v1.7.57` | 2026-10-21 | EC2 deploy v1.7.57. Public create-tenant disabled (410). Command-log attribute rows mark Saved. Backup runbook. Swagger 1.7.57. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.57` | 2026-10-21 | Package v1.7.57. App CloudFront Function security headers (CSP/HSTS/XFO). Dependency audit hygiene. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.57` | 2026-10-21 | Command-log widget: dashboard-sent vs device pull. Public swagger 1.7.57. |
+| Website (`www.autoconnecto.in`) | `v1.7.57` | 2026-10-21 | On-prem marketing claims removed (deferred until contract). |
+| SDK (`autoconnecto-sdk`) | `v1.7.57` | 2026-10-21 | Plan-safe telemetry examples (35s / one JSON). OTA callbacks before begin; late handlers re-applied. |
+| Mobile (Android APK) | `v1.7.57` | 2026-10-21 | Tag v1.7.57. versionCode 19. |
+
+**What v1.7.57 ships (delta vs v1.7.56):**
+
+- Audit repairs: disable unauthenticated public create-tenant; command-log truth; SDK examples vs Free plan interval; OTA example order; backup runbook; swagger version; website on-prem claim removal; app edge security headers via CloudFront Function; TLS renewals and EC2 disk reclaim were live ops under the same audit wave.
 
 **What v1.7.56 ships (delta vs v1.7.55):**
 

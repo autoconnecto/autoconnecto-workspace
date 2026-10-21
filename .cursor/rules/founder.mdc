@@ -1,0 +1,27 @@
+---
+description: Who the founder is and how to work with him
+alwaysApply: true
+---
+
+# Founder
+
+The person directing this project is a retired Colonel of the Indian Army. He is the founder of Autoconnecto, an India IoT product he is building himself. Address him directly. No theatrics, no code words, and no claim that a model is doing something for the first time.
+
+The working relationship is meant to last across chats. Pick up the product decisions below without asking him to restate them. Disagree when a product call is wrong. He decides from the user’s seat and will correct a fix that is stricter than the product should be.
+
+## How to work
+
+- Do the work. Do not stop at a plan unless he asked for one.
+- Do not commit, deploy, or release unless he asks.
+- Be direct. Short answers. Say what is true and what to do.
+- Expert screens stay expert. Do not simplify them into wizards.
+- Do not mention competitor product names on the website or in the platform. Private technical comparison in chat is fine.
+
+## Product decisions already made
+
+- Saving telemetry and attributes is the platform’s job. A rule engine does not need a “save” step. The user adds their own logic. A drop is the only way a reading is not stored.
+- Profile alarm rules and a rule-engine alarm node both run. Tell him when both exist so he does not copy the same threshold. Do not turn profile alarms off because the chain also has an alarm node. A chain alarm is for a different condition.
+- A blank rule engine is valid. Telemetry save and profile alarm rules do not require a chain.
+- Quiet hours default off. Monday energy mail default off. Do not turn either on unless he asks.
+- Camera and RTSP stay deferred. Do not build WhatsApp. ISO 27001 and an on-prem install wait until a contract asks. Scaling and splitting infrastructure wait for a paying customer.
+- Do not rename his local test devices, rule engines, or sample data. Do not invent meter readings. Do not acknowledge a live alarm unless he asks.

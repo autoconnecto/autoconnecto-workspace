@@ -1,0 +1,33 @@
+---
+description: Every repo change must end with the CHANGE_MANAGEMENT checklist
+alwaysApply: true
+---
+
+# Change management (always)
+
+Source of truth: [`CHANGE_MANAGEMENT.md`](CHANGE_MANAGEMENT.md).
+
+## On every change that edits the workspace
+
+1. One sentence: what the customer or integrator will notice.
+2. Walk the impact matrix (rows 1–15). Do not skip a row because the diff looked “backend only.”
+3. **Before the final reply**, paste the **Short checklist** from `CHANGE_MANAGEMENT.md` with each row marked `N/A`, `Updated`, or founder action.
+4. End with **You (founder):** only the manual items (YouTube, verify Platform Admin → Presentations, ask-to-deploy, etc.) or `none`.
+
+## Split of work
+
+- **Cursor:** FE, BE, docs, swagger export/check, website/mobile/SDK/architecture/migrations/solutions when impacted; flag or update lesson scripts and presentation sources; update Admin Presentations file list/assets when film paths change.
+- **Founder:** YouTube upload/replace; confirm Presentations tab after FE deploy; commit/push/deploy only when he asks.
+
+## Hard expectations from sibling rules
+
+- Customer-visible → written `docs/docs/` (+ `website/` if public claim).
+- Nest API surface → `npm run swagger:export`, sync `docs/docs/public/swagger.json`, `npm run swagger:check`. Never hand-edit swagger JSON.
+- No commit / push / deploy / YouTube unless he asks.
+- **Hard gates** in `CHANGE_MANAGEMENT.md`: one intent per ship; `npm run build` exit 0 before any frontend push; SES MAIL FROM / DKIM / `_amazonses` checklist before nameserver or zone replacement.
+- **Platform audit:** follow `PLATFORM_AUDIT_STANDARD.md` only when frozen; audit ≠ release; findings go to `audits/` backlog until he orders a ship.
+
+## Exceptions
+
+Pure Q&A with **no file edits**: checklist optional.  
+If media must trail: mark **Deferred** and say he must accept — never silent skip.

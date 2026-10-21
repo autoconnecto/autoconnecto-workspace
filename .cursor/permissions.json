@@ -1,0 +1,48 @@
+{
+  "terminalAllowlist": [
+    "git status",
+    "git diff",
+    "git log",
+    "git rev-parse",
+    "git describe",
+    "git branch",
+    "git show",
+    "git fetch",
+    "git ls-remote",
+    "git tag -l",
+    "npm run build",
+    "npm run swagger:check",
+    "npm run swagger:export",
+    "npx tsc",
+    "curl.exe",
+    "curl",
+    "gh run list",
+    "gh run view",
+    "gh api",
+    "aws sts get-caller-identity",
+    "aws ses get-identity",
+    "aws sesv2 get-email-identity",
+    "aws cognito-idp describe-user-pool",
+    "aws route53 list-hosted-zones",
+    "aws route53 list-resource-record-sets",
+    "aws cloudwatch list-metrics",
+    "Resolve-DnsName",
+    "Select-String",
+    "Get-Content",
+    "Get-ChildItem",
+    "Get-FileHash"
+  ],
+  "autoRun": {
+    "allow_instructions": [
+      "Allow Full platform audits under PLATFORM_AUDIT_STANDARD: read code, run local builds and tsc, swagger check/export, curl public health and TLS, gh run list/view, AWS read-only (SES identity status, Cognito describe, Route53 list, CloudWatch list), DNS Resolve-DnsName, and SSH to ec2-autoconnecto only for read-only commands such as git describe, docker compose ps, health curls, and viewing logs.",
+      "Allow creating and updating audit working files under audits/ and screenshots/audit/.",
+      "Allow npm install and npm ci in frontend/backend for local verification during audit."
+    ],
+    "block_instructions": [
+      "Block production deployment: any ec2-release-deploy.sh, docker compose up/recreate on EC2 for release, or SSH commands that restart/redeploy the production backend unless the user message explicitly contains deploy or ship.",
+      "Block git push to origin main, git push of version tags v*, force push, and creating annotated release tags unless the user explicitly asked to deploy or ship.",
+      "Block AWS writes that change production: Route53 change-resource-record-sets, SES identity delete, S3 sync --delete to app/docs/website buckets, CloudFront create-invalidation for production, IAM policy changes — unless the user explicitly ordered that specific fix.",
+      "Block deleting production databases, docker compose down -v on EC2, and any command that drops volumes or truncates customer data."
+    ]
+  }
+}

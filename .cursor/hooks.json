@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "type": "prompt",
+        "timeout": 15,
+        "loop_limit": 2,
+        "prompt": "You are enforcing Autoconnecto change management.\n\nIf this agent turn edited any workspace files (code, docs, config, swagger, training-videos, presentations, website, mobile, sdk), the agent's final reply MUST include a filled 'Change management' short checklist covering rows 1–15 (Frontend through Deploy) and a 'You (founder):' line.\n\nIf the checklist is present and complete enough (each row N/A or Updated/Deferred/founder action), respond with: {\"followup_message\": \"\"} or omit follow-up.\n\nIf the checklist is missing or clearly incomplete after a coding change, respond with a followup_message that tells the agent to paste the short checklist from CHANGE_MANAGEMENT.md now — do not redo the whole task, only add the checklist and founder actions.\n\nPure Q&A with no edits: no follow-up needed.\n\nHook input: $ARGUMENTS"
+      }
+    ]
+  }
+}

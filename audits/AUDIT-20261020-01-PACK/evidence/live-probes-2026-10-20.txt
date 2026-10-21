@@ -1,0 +1,44 @@
+# Redacted live probes — 2026-10-20 (UTC)
+
+## healthz
+GET https://api.autoconnecto.in/healthz
+→ {"status":"ok","postgres":"ok","redis":"ok","timestamp":"2026-10-20T16:14:38.129Z"}
+
+## EC2
+git describe → v1.7.56
+df -h / → 75G/96G 78%
+docker: backend/emqx/timescaledb/redis healthy
+
+## plans (excerpt)
+GET /api/plans
+FREE min_telemetry_interval_sec=30
+HOBBY=10 STARTER=5 GROWTH=1 ENTERPRISE=1
+
+## TLS notAfter
+api.autoconnecto.in → Nov 18 2026 GMT
+www.autoconnecto.in → Nov 12 2026 GMT
+app.autoconnecto.in → Apr 8 2027 GMT
+docs.autoconnecto.in → Apr 7 2027 GMT
+
+## security headers
+www: CSP + HSTS + XFO + XCTO present
+app: Server AmazonS3; CSP/HSTS set not observed on spot-check
+
+## public create-tenant
+POST /public/create-tenant {} → HTTP 500 (no 401)
+
+## documentation generate
+POST /api/documentation/generate-all → 400
+message: Customer documentation is written. The API reference is Swagger in the app.
+
+## solutions
+GET /api/solutions unauthenticated → 401
+
+## widget registry
+93 type strings counted in widgetRegistry.ts
+
+## customer-pages.json
+85 pages / 5 sections
+
+## swagger committed
+info.version 1.7.55; paths 233; package.json 1.7.56

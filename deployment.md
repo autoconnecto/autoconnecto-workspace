@@ -179,6 +179,10 @@ curl -sS https://api.autoconnecto.in/healthz
 ```bash
 cd ~/autoconnecto/backend
 bash scripts/ec2-release-deploy.sh vPREVIOUS
+
+## Database backup / restore
+
+Code rollback above does **not** restore Postgres. Production dump/restore procedure: [`backend/docs/BACKUP_RESTORE.md`](backend/docs/BACKUP_RESTORE.md).
 ```
 
 Prefer forward-fix on a **new** tag if the bad tag pointed at the wrong commit.

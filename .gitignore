@@ -1,0 +1,23 @@
+server-package/
+
+# Local secrets (never commit)
+tools/.env
+tools/.env.*
+!tools/.env.example
+**/.env
+**/.env.local
+**/.env.development
+**/.env.production
+!**/.env.example
+!**/.env*.example
+
+# Local noise (not product)
+infra/local-dev/logs/
+*.tsbuildinfo
+AVH-*.pdf
+AVH-*.txt
+AVH-page-*.png
+presentations/
+training-videos/
+screenshots/
+
