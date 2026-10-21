@@ -114,7 +114,7 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.60` | 2026-10-21 | Hotfix: qwen-worker image installs git so llama-cpp-python builds (Ask the guide). |
+| Backend (`api.autoconnecto.in`) | `v1.7.61` | 2026-10-21 | Ask hallucination fixes + SCADA Boards; esp8266 CI board index; predictive AutoETS. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Documentation Ask the guide; Analytics Ask hint; 1d IST buckets. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Analytics hub + stored-keys docs for Ask the guide / ingest paths. |
 | Website (`www.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Version bump. |
@@ -401,7 +401,9 @@ curl -sS  https://app.autoconnecto.in/ | grep -E 'index-[A-Za-z0-9_-]+\.(js|css)
 
 ### Backend API (`api.autoconnecto.in`)
 
-**Host:** EC2 instance (Ubuntu) running the backend in **Docker Compose**. Compose project root: `~/autoconnecto/backend/` on the host. Services include `backend`, `timescaledb` (Postgres + Timescale), `redis`, `autoconnecto-emqx` (MQTT broker).
+**Host:** EC2 instance (Ubuntu) running the backend in **Docker Compose**. Compose project root: `~/autoconnecto/backend/` on the host. Services include `backend`, `timescaledb` (Postgres + Timescale), `redis`, `autoconnecto-emqx` (MQTT broker), optional `qwen-worker` / forecast sidecars.
+
+**SCADA Boards:** Nest module `scada-boards` persists plant mimic documents (`scada_boards` table). FE builder at `/scada-boards`; dashboards embed via widget type `scadaBoard`. Fleet-tool ACL (same class as Rule Engines).
 
 **Confirmed release flow:** see **[`deployment.md`](deployment.md)** (single source of truth for backend, frontend, website, docs, SDK, and mobile).
 
