@@ -114,12 +114,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.58` | 2026-10-21 | EC2 deploy v1.7.58 + seed solutions 0–7/SDK. Command log on `POST /api/devices/:id/commands`. MQTT shared-attr publish always attempted. Phase 7 + SDK example Solutions. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.58` | 2026-10-21 | Rule-engine create-from-template coverage (incl. message-type split). Package v1.7.58. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.58` | 2026-10-21 | Phase 7 / SDK example Solutions; rule-engine split-by-type; board-verify gate documented in CM. |
-| Website (`www.autoconnecto.in`) | `v1.7.58` | 2026-10-21 | Version bump (no public claim change). |
-| SDK (`autoconnecto-sdk`) | `v1.7.58` | 2026-10-21 | OTA chunk loop fix; switch/RPC/`set_channel_state`; non-blocking telemetry_burst; WidgetCoverage_mqtt; BOARD_VERIFY.md; FleetSimulator secret scrub. |
-| Mobile (Android APK) | `v1.7.58` | 2026-10-21 | Tag v1.7.58. versionCode 20. |
+| Backend (`api.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Analytics audit fixes; Qwen docs assistant (`qwen-worker`); Ask how-to routing. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Documentation Ask the guide; Analytics Ask hint; 1d IST buckets. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Analytics hub + stored-keys docs for Ask the guide / ingest paths. |
+| Website (`www.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Version bump. |
+| SDK (`autoconnecto-sdk`) | `v1.7.59` | 2026-10-21 | Version bump. |
+| Mobile (Android APK) | `v1.7.59` | 2026-10-21 | Tag v1.7.59. versionCode 21. |
+
+**What v1.7.59 ships (delta vs v1.7.58):**
+
+- Analytics audit: stored keys on bulk/batch ingest; fleet risk counts every sample; Ask next-period total; predictive worker wiring; IST day buckets. Documentation **Ask the guide** via local Qwen2.5-0.5B; Analytics Ask routes how-to to the same engine.
 
 **What v1.7.58 ships (delta vs v1.7.57):**
 
