@@ -114,7 +114,7 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.61` | 2026-10-21 | Ask hallucination fixes + SCADA Boards; esp8266 CI board index; predictive AutoETS. |
+| Backend (`api.autoconnecto.in`) | `v1.7.62` | 2026-10-21 | Sample On respects plan min interval; Solutions search + JoinedPlantScada in catalog. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Documentation Ask the guide; Analytics Ask hint; 1d IST buckets. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Analytics hub + stored-keys docs for Ask the guide / ingest paths. |
 | Website (`www.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Version bump. |
