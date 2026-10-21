@@ -114,7 +114,7 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Analytics audit fixes; Qwen docs assistant (`qwen-worker`); Ask how-to routing. |
+| Backend (`api.autoconnecto.in`) | `v1.7.60` | 2026-10-21 | Hotfix: qwen-worker image installs git so llama-cpp-python builds (Ask the guide). |
 | Frontend (`app.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Documentation Ask the guide; Analytics Ask hint; 1d IST buckets. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Analytics hub + stored-keys docs for Ask the guide / ingest paths. |
 | Website (`www.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Version bump. |
