@@ -1,0 +1,30 @@
+---
+description: Device/dashboard path must be board-verified; external audit faults must stay exceptional
+alwaysApply: true
+---
+
+# Board verify (always)
+
+Source of truth: [`sdk/BOARD_VERIFY.md`](sdk/BOARD_VERIFY.md). Also listed as a **hard gate** in `CHANGE_MANAGEMENT.md`.
+
+## Standard
+
+An **external auditor** catching device/control/OTA/RPC/command-log faults must be an **exception**, not routine. That means the agent closes those loops **before** claiming the work works.
+
+## When the gate applies
+
+Any edit to SDK transport/examples/OTA, backend device push (MQTT attrs, commands/RPC, OTA download, command log), or FE widgets that **send** control (Switch, Slider, RPC, GPIO, attribute controls, Command Log).
+
+## Required behaviour
+
+1. Trace the **exact UI → HTTP route** before implementing logging or device push.
+2. Run or explicitly mark every applicable row in `sdk/BOARD_VERIFY.md` (B1–B7).
+3. **Do not** say fixed / verified / confirmed working / ready as done for those surfaces unless each relevant row is **Pass**, or **Blocked (founder: no board)** with that phrase in the reply.
+4. If the board is unavailable: write **Code review + static only — not board-verified** in the reply (and CHANGELOG Unreleased if shipping notes).
+5. Paste board-verify status in the change-management closing block when this gate applies (`Board verify: …`).
+
+## Forbidden
+
+- Treating `tsc`, seed audits, or “I read the code” as board proof.
+- Confirming MQTT/RPC/OTA from a controller the widget does not call.
+- Writing CHANGELOG as if hardware retest already passed.

@@ -70,6 +70,18 @@ Also keep app / API / www records (CloudFront / API host) and Brevo TXT if they 
 
 Release command detail: `deployment.md` and `.cursor/rules/release-deploy.mdc`.
 
+### 4 — Board / device path: verify before “fixed”
+
+**Policy:** An external auditor finding faults on telemetry, switches, RPC, command log, or OTA must be an **exception**, not routine.
+
+Applies when the change touches SDK transport/examples/OTA, backend device push (MQTT shared attrs, commands/RPC, OTA chunks, command log), or FE widgets that **send** control.
+
+- Follow [`sdk/BOARD_VERIFY.md`](sdk/BOARD_VERIFY.md) (rows B1–B7).
+- Cursor rule: `.cursor/rules/board-verify.mdc` (`alwaysApply`).
+- **Do not** claim fixed / verified / confirmed working for those surfaces unless each relevant row is **Pass**, or mark **Code review + static only — not board-verified** (board offline / founder blocked).
+- `tsc`, seed audits, and reading source are **not** board proof.
+- Always trace the **widget’s real HTTP route** before adding logging or device push.
+
 ---
 
 ## Who does what
@@ -140,6 +152,7 @@ Change management — <one sentence>
 14 CI gates           Passed | N/A
 15 Deploy             Not asked | Asked → follow deployment.md
    Hard gates         FE build 0 before push | DNS SES MAIL FROM N/A or done | One intent
+   Board verify       N/A | Pass B1–B7 (see sdk/BOARD_VERIFY.md) | Not board-verified (static only)
 
 You (founder): <bullet list of only your actions, or “none”>
 ```
@@ -165,6 +178,7 @@ If media (5–7) must trail: say **Deferred — founder accepted** with reason. 
 ## Related
 
 - Release: `deployment.md`
+- **Board / device path:** `sdk/BOARD_VERIFY.md` + `.cursor/rules/board-verify.mdc` — external device-path findings should stay exceptional
 - **Platform audit (exhaustive / external-ready):** `PLATFORM_AUDIT_STANDARD.md` — audit ≠ release; freeze before Full audit
 - Docs rule: `.cursor/rules/documentation.mdc`
 - Agent rule: `.cursor/rules/change-management.mdc`

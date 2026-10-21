@@ -24,7 +24,7 @@ Source of truth: [`CHANGE_MANAGEMENT.md`](CHANGE_MANAGEMENT.md).
 - Customer-visible → written `docs/docs/` (+ `website/` if public claim).
 - Nest API surface → `npm run swagger:export`, sync `docs/docs/public/swagger.json`, `npm run swagger:check`. Never hand-edit swagger JSON.
 - No commit / push / deploy / YouTube unless he asks.
-- **Hard gates** in `CHANGE_MANAGEMENT.md`: one intent per ship; `npm run build` exit 0 before any frontend push; SES MAIL FROM / DKIM / `_amazonses` checklist before nameserver or zone replacement.
+- **Hard gates** in `CHANGE_MANAGEMENT.md`: one intent per ship; `npm run build` exit 0 before any frontend push; SES MAIL FROM / DKIM / `_amazonses` checklist before nameserver or zone replacement; **board verify** (`sdk/BOARD_VERIFY.md`) for device/control/OTA/RPC/command-log — external auditor faults on those paths must stay exceptional, not routine.
 - **Platform audit:** follow `PLATFORM_AUDIT_STANDARD.md` only when frozen; audit ≠ release; findings go to `audits/` backlog until he orders a ship.
 
 ## Exceptions

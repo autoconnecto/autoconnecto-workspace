@@ -10,6 +10,7 @@ alwaysApply: true
 - **Deterministic engineering over convenience**: prefer explicit ownership, explicit lifecycle, explicit ordering, explicit config.
 - **Rollback-first**: for any operational change, define the rollback path before implementation.
 - **No invented systems**: if the codebase does not show it, mark it “unconfirmed” and avoid asserting it as truth.
+- **No false “fixed” on the device path**: SDK / MQTT attrs / RPC / command log / OTA / control widgets require [`sdk/BOARD_VERIFY.md`](sdk/BOARD_VERIFY.md). Static checks are not board proof. External audit catching those faults must stay exceptional.
 - **Minimize blast radius**: prefer small, isolated diffs that preserve behavior.
 - **Contracts are products**: transport contracts (MQTT topics, Socket.IO events, payload shapes) are versioned and protected.
 

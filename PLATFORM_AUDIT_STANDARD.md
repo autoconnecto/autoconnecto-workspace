@@ -36,6 +36,7 @@ This standard is **future-proof**: new products, transports, or clouds are added
 | L5 | **Invented systems are Fail.** If the codebase or console does not show it, say **unconfirmed** — never invent “we have X.” |
 | L6 | **Founder command.** Cursor may recommend severity and order. Only the founder freezes this standard, prioritises the backlog, and says deploy. |
 | L7 | **Production safety.** Live probes use agreed test devices / tenants. Do not rename the founder’s test devices, invent meter readings, or acknowledge live alarms unless asked. |
+| L8 | **External device-path faults stay exceptional.** Build and ship under `sdk/BOARD_VERIFY.md` / `CHANGE_MANAGEMENT.md` Hard gate 4 so telemetry, switch/RPC, command log, and OTA are proven before “fixed.” A Full audit that re-discovers those as routine Fail is a process breach, not only a product bug. |
 
 ---
 
