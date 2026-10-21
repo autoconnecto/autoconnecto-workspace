@@ -114,12 +114,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.62` | 2026-10-21 | Sample On respects plan min interval; Solutions search + JoinedPlantScada in catalog. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Documentation Ask the guide; Analytics Ask hint; 1d IST buckets. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Analytics hub + stored-keys docs for Ask the guide / ingest paths. |
-| Website (`www.autoconnecto.in`) | `v1.7.59` | 2026-10-21 | Version bump. |
-| SDK (`autoconnecto-sdk`) | `v1.7.59` | 2026-10-21 | Version bump. |
-| Mobile (Android APK) | `v1.7.59` | 2026-10-21 | Tag v1.7.59. versionCode 21. |
+| Backend (`api.autoconnecto.in`) | `v1.7.63` | 2026-10-21 | Sample pack interval; JoinedPlantScada plant overview + alarms; SDK · Solutions seeded. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.63` | 2026-10-21 | Solutions one searchable list; Sample stays on plant overview. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.63` | 2026-10-21 | JoinedPlantScada + SDK Solutions titles; device-sdk → Solutions. |
+| Website (`www.autoconnecto.in`) | `v1.7.63` | 2026-10-21 | Version bump. |
+| SDK (`autoconnecto-sdk`) | `v1.7.63` | 2026-10-21 | Docs point to Solutions for example dashboards. |
+| Mobile (Android APK) | `v1.7.63` | 2026-10-21 | Tag v1.7.63. versionCode 24. |
+
+**What v1.7.63 ships (delta vs v1.7.62):**
+
+- Solutions: one catalog list + search (no Show inactive); Sample On stays on overview; Sample uses pack interval (not plan min). JoinedPlantScada plant overview (SCADA hero, KPIs, working alarms). SDK example Solutions titled `SDK · …` and seeded in production. SDK/docs tell integrators to find matching dashboards under Solutions.
 
 **What v1.7.59 ships (delta vs v1.7.58):**
 

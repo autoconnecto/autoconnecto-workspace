@@ -131,7 +131,7 @@ docker compose exec backend node scripts/_seed-sdk-example-solutions.cjs
 docker compose exec backend node scripts/stamp-catalog-template-dashboards.mjs
 ```
 
-Phase **0** = EnergyFleet + ClimateFleet. Phases 1–6 = remaining fleets/analytics. Phase **7** = widget palette coverage. SDK example Solutions match `sdk/examples/<name>`. Idempotent upserts.  
+Phase **0** = EnergyFleet + ClimateFleet. Phases 1–6 = remaining fleets/analytics. Phase **7** = widget palette coverage. SDK example Solutions are titled `SDK · <name>` and match `sdk/examples/<name>`. Idempotent upserts.  
 `stamp-catalog-template-dashboards.mjs` marks catalog source dashboards so they stay hidden unless **Show samples** is on.
 
 ### Post-deploy smoke (production)
