@@ -114,12 +114,19 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.64` | 2026-10-21 | ProcessSymbols and PowerSymbols seeded in the catalog. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.64` | 2026-10-21 | Process and DISCOM symbols; pipe route straight or elbow. Asset `index-DmeZSd1W.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.64` | 2026-10-21 | Process and power symbol guides; in-app nav synced. |
-| Website (`www.autoconnecto.in`) | `v1.7.64` | 2026-10-21 | Version bump. |
-| SDK (`autoconnecto-sdk`) | `v1.7.64` | 2026-10-21 | Version bump. |
-| Mobile (Android APK) | `v1.7.64` | 2026-10-21 | Tag v1.7.64. versionCode 25. |
+| Backend (`api.autoconnecto.in`) | `v1.7.65` | 2026-10-22 | `git describe` v1.7.65. healthz ok. Migration 0012 applied. Forecast worker healthy. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.65` | 2026-10-22 | S3 deploy success. Asset `index-CS4Reqfu.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.65` | 2026-10-22 | Guide matches timestamp, Use, and forecast. In-app nav synced (5 sections). |
+| Website (`www.autoconnecto.in`) | `v1.7.65` | 2026-10-22 | Version bump. |
+| SDK (`autoconnecto-sdk`) | `v1.7.65` | 2026-10-22 | Version bump. |
+| Mobile (Android APK) | `v1.7.65` | 2026-10-22 | Tag v1.7.65. versionCode 26. APK workflow success. |
+
+**What v1.7.65 ships (delta vs v1.7.64):**
+
+- A valid client timestamp is the stored time; otherwise the server time. The same device, key, and time replaces that row. An older time does not become latest. Drop replies `dropped: true`.
+- Use copies a solution into Dashboards without the sample generator or demo devices. A SCADA board on that solution is copied and linked.
+- Predictive chart says Forecast engine down when the sidecar is not returning its own model. Profile forecast alarms stay a straight line on stored readings.
+- Widget edit keeps an existing device binding. Energy Bill adds last−first per meter. Ask refuses an unknown device or a reading the device does not have.
 
 **What v1.7.64 ships (delta vs v1.7.63):**
 
