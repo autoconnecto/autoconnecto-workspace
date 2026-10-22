@@ -114,12 +114,19 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | `git describe` v1.7.68. healthz ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | S3 deploy success. Asset `index-8ei8zCLH.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Swagger version 1.7.68. Plant operations page is in the in-app menu. |
-| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Version bump. |
-| SDK (`autoconnecto-sdk`) | `v1.7.68` | 2026-10-22 | Claim-code example. Not board-verified. |
-| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Tag v1.7.68. versionCode 29. APK workflow success. |
+| Backend (`api.autoconnecto.in`) | `v1.7.69` | 2026-10-23 | `git describe` v1.7.69. healthz ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.69` | 2026-10-23 | S3 deploy success. Asset `index-DHnsI_SZ.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.69` | 2026-10-23 | Swagger version 1.7.69. |
+| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Version bump. Unchanged in v1.7.69. |
+| SDK (`autoconnecto-sdk`) | `v1.7.68` | 2026-10-22 | Claim-code example. Not board-verified. Unchanged in v1.7.69. |
+| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Tag v1.7.68. versionCode 29. Unchanged in v1.7.69. |
+
+**What v1.7.69 ships (delta vs v1.7.68):**
+
+- A shared dashboard lists only the devices on that dashboard. A wrong password says "Password is wrong". Ten wrong passwords in one minute return "Too many attempts".
+- A trip is stored from `speed`, `speed_kmh`, or ignition, including a reading the plan interval does not store.
+- Fuel thresholds can be read back. Saving the CO2 defaults 0.716 and 2.68 clears the custom flag.
+- A cancelled OTA update is not treated as already installed. The pre-flight refusal names how many devices were busy, already on the version, or not the target hardware. Code review + static only — not board-verified.
 
 **What v1.7.68 ships (delta vs v1.7.67):**
 
