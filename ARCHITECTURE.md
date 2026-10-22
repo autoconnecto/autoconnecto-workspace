@@ -114,12 +114,18 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.66` | 2026-10-22 | `git describe` v1.7.66. healthz ok. Migrations 0013 and 0052 applied. In-app nav synced (5 sections). |
-| Frontend (`app.autoconnecto.in`) | `v1.7.66` | 2026-10-22 | S3 deploy success. Asset `index-fproyn7z.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.66` | 2026-10-22 | API keys, OTA rollout, and Use cleanup. In-app nav synced (5 sections). |
-| Website (`www.autoconnecto.in`) | `v1.7.66` | 2026-10-22 | Version bump. |
-| SDK (`autoconnecto-sdk`) | `v1.7.66` | 2026-10-22 | Version bump. |
-| Mobile (Android APK) | `v1.7.66` | 2026-10-22 | Tag v1.7.66. versionCode 27. APK workflow success. |
+| Backend (`api.autoconnecto.in`) | `v1.7.67` | 2026-10-22 | `git describe` v1.7.67. healthz ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.67` | 2026-10-22 | S3 deploy success. Asset `index-B7X4LxYb.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.67` | 2026-10-22 | Swagger version 1.7.67. |
+| Website (`www.autoconnecto.in`) | `v1.7.67` | 2026-10-22 | Version bump. |
+| SDK (`autoconnecto-sdk`) | `v1.7.67` | 2026-10-22 | Version bump. |
+| Mobile (Android APK) | `v1.7.67` | 2026-10-22 | Tag v1.7.67. versionCode 28. APK workflow success. |
+
+**What v1.7.67 ships (delta vs v1.7.66):**
+
+- An API key can call the API. The user id join no longer fails. A rejected key returns 401.
+- Use accepts the dashboard name. A blank name still returns "Dashboard name is required".
+- A halted rollout releases a device after its update is cancelled. Continue before soak says soak has not elapsed. Rollback with nothing in that scope returns 400.
 
 **What v1.7.66 ships (delta vs v1.7.65):**
 
