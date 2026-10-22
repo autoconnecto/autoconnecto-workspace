@@ -114,12 +114,18 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.65` | 2026-10-22 | `git describe` v1.7.65. healthz ok. Migration 0012 applied. Forecast worker healthy. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.65` | 2026-10-22 | S3 deploy success. Asset `index-CS4Reqfu.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.65` | 2026-10-22 | Guide matches timestamp, Use, and forecast. In-app nav synced (5 sections). |
-| Website (`www.autoconnecto.in`) | `v1.7.65` | 2026-10-22 | Version bump. |
-| SDK (`autoconnecto-sdk`) | `v1.7.65` | 2026-10-22 | Version bump. |
-| Mobile (Android APK) | `v1.7.65` | 2026-10-22 | Tag v1.7.65. versionCode 26. APK workflow success. |
+| Backend (`api.autoconnecto.in`) | `v1.7.66` | 2026-10-22 | `git describe` v1.7.66. healthz ok. Migrations 0013 and 0052 applied. In-app nav synced (5 sections). |
+| Frontend (`app.autoconnecto.in`) | `v1.7.66` | 2026-10-22 | S3 deploy success. Asset `index-fproyn7z.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.66` | 2026-10-22 | API keys, OTA rollout, and Use cleanup. In-app nav synced (5 sections). |
+| Website (`www.autoconnecto.in`) | `v1.7.66` | 2026-10-22 | Version bump. |
+| SDK (`autoconnecto-sdk`) | `v1.7.66` | 2026-10-22 | Version bump. |
+| Mobile (Android APK) | `v1.7.66` | 2026-10-22 | Tag v1.7.66. versionCode 27. APK workflow success. |
+
+**What v1.7.66 ships (delta vs v1.7.65):**
+
+- Tenant owner or admin can create an API key (`ac_…`, shown once). Scope is read-only, read-write, or limited to chosen devices and assets. A login token still wins when both are sent. Revoke is immediate.
+- OTA Rollout sends a package in waves, soaks, and halts on failures. Rollback is a separate child rollout. Assign to a device, profile, or type is unchanged when Rollout is not used.
+- Use requires a dashboard name. Deleting that copied dashboard deletes its copied SCADA board when no other dashboard uses it.
 
 **What v1.7.65 ships (delta vs v1.7.64):**
 
