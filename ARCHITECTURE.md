@@ -114,12 +114,24 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.67` | 2026-10-22 | `git describe` v1.7.67. healthz ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.67` | 2026-10-22 | S3 deploy success. Asset `index-B7X4LxYb.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.67` | 2026-10-22 | Swagger version 1.7.67. |
-| Website (`www.autoconnecto.in`) | `v1.7.67` | 2026-10-22 | Version bump. |
-| SDK (`autoconnecto-sdk`) | `v1.7.67` | 2026-10-22 | Version bump. |
-| Mobile (Android APK) | `v1.7.67` | 2026-10-22 | Tag v1.7.67. versionCode 28. APK workflow success. |
+| Backend (`api.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | `git describe` v1.7.68. healthz ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | S3 deploy success. Asset `index-8ei8zCLH.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Swagger version 1.7.68. Plant operations page is in the in-app menu. |
+| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Version bump. |
+| SDK (`autoconnecto-sdk`) | `v1.7.68` | 2026-10-22 | Claim-code example. Not board-verified. |
+| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Tag v1.7.68. versionCode 29. APK workflow success. |
+
+**What v1.7.68 ships (delta vs v1.7.67):**
+
+- An owner or admin can share a dashboard. The link is read-only. The secret is shown once. Password and expiry are optional. Revoke is immediate.
+- A claim code is the QR. Redeeming it creates a device. The device token is returned once. Code review + static only — not board-verified.
+- Alarm push is sent only when `FCM_SERVER_KEY` is set. A tap opens the alarm and does not acknowledge it. Quiet hours stay off.
+- OEE uses on-load time, cycle count, and good/reject counts when those points exist. Missing counts stay blank.
+- A work order is opened by hand, from the alarm button, from Service due at zero hours, or from an Open work order node. An alarm does not open a job by itself. Profile alarm rules still run.
+- Fuel records a refill or a drain.
+- Trips are stored when speed or ignition is present. The route map still counts stops on the screen. Hourly trip mail stays off until a schedule is enabled.
+- CO2 uses editable defaults (grid 0.716 kg/kWh, diesel 2.68 kg/L). It is not a legal filing.
+- The GT06 listener stays off until `TRACKER_GT06_PORT` and `TRACKER_GT06_TENANT_ID` are set. Teltonika is not in this release. Code review + static only — not board-verified.
 
 **What v1.7.67 ships (delta vs v1.7.66):**
 
