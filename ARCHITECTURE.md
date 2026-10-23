@@ -114,12 +114,20 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.72` | 2026-10-23 | `git describe` v1.7.72. healthz ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.72` | 2026-10-23 | S3 deploy success. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.72` | 2026-10-23 | Swagger version 1.7.72. |
-| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Unchanged in v1.7.72. |
-| SDK (`autoconnecto-sdk`) | `v1.7.72` | 2026-10-23 | secrets.h examples; OTA state retries. OTA close not board-reverified. |
-| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged in v1.7.72. |
+| Backend (`api.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | `git describe` v1.7.73. healthz ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | S3 deploy success. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.72` | 2026-10-23 | Unchanged in v1.7.73. |
+| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Unchanged in v1.7.73. |
+| SDK (`autoconnecto-sdk`) | `v1.7.73` | 2026-10-23 | Token-redacted MQTT logs; OfflineBuffer NTP. Not board-reverified. |
+| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged in v1.7.73. |
+
+**What v1.7.73 ships (delta vs v1.7.72):**
+
+- Ask: snake_case keys never fuzzy-substituted (`qa172_missing` → no reading).
+- Generator: in-process HTTP ingest; Start awaits first emit; default MQTT.
+- OTA rollout COMPLETED when the device reports UPDATED.
+- Switch size / Create Device preload; SDK token log redact + OfflineBuffer NTP.
+- Audit: `audits/v1.7.73-response-2026-10-23.md`.
 
 **What v1.7.72 ships (delta vs v1.7.71):**
 
