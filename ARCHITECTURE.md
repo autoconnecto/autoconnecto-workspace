@@ -114,12 +114,20 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.71` | 2026-10-23 | `git describe` v1.7.71. healthz ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.71` | 2026-10-23 | S3 deploy success. Asset `index-LVtBtbjx.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.71` | 2026-10-23 | Swagger version 1.7.71. |
-| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Version bump. Unchanged in v1.7.71. |
-| SDK (`autoconnecto-sdk`) | `v1.7.68` | 2026-10-22 | Claim-code example. Not board-verified. Unchanged in v1.7.71. |
-| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Tag v1.7.68. versionCode 29. Unchanged in v1.7.71. |
+| Backend (`api.autoconnecto.in`) | `v1.7.72` | 2026-10-23 | `git describe` v1.7.72. healthz ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.72` | 2026-10-23 | S3 deploy success. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.72` | 2026-10-23 | Swagger version 1.7.72. |
+| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Unchanged in v1.7.72. |
+| SDK (`autoconnecto-sdk`) | `v1.7.72` | 2026-10-23 | secrets.h examples; OTA state retries. OTA close not board-reverified. |
+| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged in v1.7.72. |
+
+**What v1.7.72 ships (delta vs v1.7.71):**
+
+- Ask quotes stored latest readings for custom keys (no guide invent).
+- Device list/GET show `tokenHint` only; full token on create/rotate/reveal.
+- Control widgets sized so Switch is not clipped; cancelled OTA rollouts can be deleted.
+- Generator Start emits immediately; OTA progress hardened (SDK + HTTPS chunks).
+- Audit response: `audits/v1.7.72-response-2026-10-23.md`.
 
 **What v1.7.71 ships (delta vs v1.7.70):**
 

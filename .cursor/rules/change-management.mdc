@@ -13,6 +13,7 @@ Source of truth: [`CHANGE_MANAGEMENT.md`](CHANGE_MANAGEMENT.md).
 2. Walk the impact matrix (rows 1–15). Do not skip a row because the diff looked “backend only.”
 3. **Before the final reply**, paste the **Short checklist** from `CHANGE_MANAGEMENT.md` with each row marked `N/A`, `Updated`, or founder action.
 4. End with **You (founder):** only the manual items (YouTube, verify Platform Admin → Presentations, ask-to-deploy, etc.) or `none`.
+5. **Audit note (mandatory when closing audit findings):** if the work answers an `audits/` report or external FAIL/PARTIAL/board list, write `audits/<release-or-date>-response.md` and paste an **Audit note** block in the checklist (see `CHANGE_MANAGEMENT.md` § Audit note). Do not leave the auditor’s map only in chat.
 
 ## Split of work
 

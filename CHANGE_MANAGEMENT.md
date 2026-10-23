@@ -130,6 +130,23 @@ Applies when the change touches SDK transport/examples/OTA, backend device push 
 
 ---
 
+## Audit note (required when closing audit findings)
+
+When the change answers an **audit / full-check / board report** (anything under `audits/`, or an external auditor’s FAIL/PARTIAL/Blocked list):
+
+1. Write a short **Audit note** in the same turn as the ship (or when he asks to deploy).
+2. Put it in **`audits/<release-or-date>-response.md`** (example: `audits/v1.7.72-response-2026-10-23.md`).
+3. Paste a **copy of that note** in the closing change-management block under **Audit note**.
+4. The note must say, in plain language:
+   - which audit file / date it answers
+   - each FAIL / PARTIAL / board finding → **Fixed (shipped)** / **Fixed (code, not board-reverified)** / **Open** / **N/A**
+   - version tag if deploying
+   - what the next auditor should retest
+
+Do not bury this only in chat. The file under `audits/` is the durable record.
+
+---
+
 ## Short checklist (Cursor pastes this)
 
 ```text
@@ -153,6 +170,9 @@ Change management — <one sentence>
 15 Deploy             Not asked | Asked → follow deployment.md
    Hard gates         FE build 0 before push | DNS SES MAIL FROM N/A or done | One intent
    Board verify       N/A | Pass B1–B7 (see sdk/BOARD_VERIFY.md) | Not board-verified (static only)
+   Audit note         N/A | Written → audits/<file>.md (paste summary below)
+
+Audit note: <N/A | 3–10 lines or path to audits/…-response.md>
 
 You (founder): <bullet list of only your actions, or “none”>
 ```

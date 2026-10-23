@@ -21,3 +21,9 @@ presentations/
 training-videos/
 screenshots/
 
+# Board flash backups hold Wi-Fi + device token — never commit
+qa171-sketches/founder_backup.bin
+qa171-sketches/**/*_flashed.bin
+qa171-sketches/**/qa171_secrets.h
+**/founder_backup.bin
+
