@@ -114,12 +114,18 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.69` | 2026-10-23 | `git describe` v1.7.69. healthz ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.69` | 2026-10-23 | S3 deploy success. Asset `index-DHnsI_SZ.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.69` | 2026-10-23 | Swagger version 1.7.69. |
-| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Version bump. Unchanged in v1.7.69. |
-| SDK (`autoconnecto-sdk`) | `v1.7.68` | 2026-10-22 | Claim-code example. Not board-verified. Unchanged in v1.7.69. |
-| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Tag v1.7.68. versionCode 29. Unchanged in v1.7.69. |
+| Backend (`api.autoconnecto.in`) | `v1.7.70` | 2026-10-23 | `git describe` v1.7.70. healthz ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.70` | 2026-10-23 | S3 deploy success. Asset `index-BQ6fkLB7.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.70` | 2026-10-23 | Swagger version 1.7.70. |
+| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Version bump. Unchanged in v1.7.70. |
+| SDK (`autoconnecto-sdk`) | `v1.7.68` | 2026-10-22 | Claim-code example. Not board-verified. Unchanged in v1.7.70. |
+| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Tag v1.7.68. versionCode 29. Unchanged in v1.7.70. |
+
+**What v1.7.70 ships (delta vs v1.7.69):**
+
+- A trip is recorded when queued HTTP telemetry is accepted, including a reading the plan interval does not store.
+- Each tenant gets its own Solution sample profile. Sample On no longer fails when another tenant already used that Solution.
+- If Sample does not start, the reason stays on the preview.
 
 **What v1.7.69 ships (delta vs v1.7.68):**
 
