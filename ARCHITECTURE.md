@@ -114,12 +114,18 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.70` | 2026-10-23 | `git describe` v1.7.70. healthz ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.70` | 2026-10-23 | S3 deploy success. Asset `index-BQ6fkLB7.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.70` | 2026-10-23 | Swagger version 1.7.70. |
-| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Version bump. Unchanged in v1.7.70. |
-| SDK (`autoconnecto-sdk`) | `v1.7.68` | 2026-10-22 | Claim-code example. Not board-verified. Unchanged in v1.7.70. |
-| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Tag v1.7.68. versionCode 29. Unchanged in v1.7.70. |
+| Backend (`api.autoconnecto.in`) | `v1.7.71` | 2026-10-23 | `git describe` v1.7.71. healthz ok. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.71` | 2026-10-23 | S3 deploy success. Asset `index-LVtBtbjx.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.71` | 2026-10-23 | Swagger version 1.7.71. |
+| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Version bump. Unchanged in v1.7.71. |
+| SDK (`autoconnecto-sdk`) | `v1.7.68` | 2026-10-22 | Claim-code example. Not board-verified. Unchanged in v1.7.71. |
+| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Tag v1.7.68. versionCode 29. Unchanged in v1.7.71. |
+
+**What v1.7.71 ships (delta vs v1.7.70):**
+
+- A revoked API key can be removed from the list.
+- A closed work order can be deleted by a tenant admin.
+- Cancel rollout ends a rollout with no active updates and does not raise the halt alarm.
 
 **What v1.7.70 ships (delta vs v1.7.69):**
 
