@@ -116,8 +116,8 @@ Operational values below are confirmed for the current production layout; substi
 |---|---|---|---|
 | Backend (`api.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | `git describe` v1.7.73. healthz ok. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | S3 deploy success. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.72` | 2026-10-23 | Unchanged in v1.7.73. |
-| Website (`www.autoconnecto.in`) | `v1.7.68` | 2026-10-22 | Unchanged in v1.7.73. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | ESP32 quick start live. |
+| Website (`www.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | SEO landings live (`/esp32-mqtt`, `/use-cases`, …). |
 | SDK (`autoconnecto-sdk`) | `v1.7.73` | 2026-10-23 | Token-redacted MQTT logs; OfflineBuffer NTP. Not board-reverified. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged in v1.7.73. |
 
