@@ -114,12 +114,21 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.75` | 2026-10-24 | `git describe` v1.7.75. healthz ok. Image contains `claimLookupMiss`. v1.7.74 was tagged and did not boot. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | Unchanged in this release. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.74` | 2026-10-24 | Quick start has the PlatformIO install line. |
-| Website (`www.autoconnecto.in`) | `v1.7.74` | 2026-10-24 | ESP32 is the tested board. PlatformIO install line is on the ESP32 page. |
-| SDK (`autoconnecto-sdk`) | `v1.7.74` | 2026-10-24 | Tagged for Library Manager. Wi-Fi join, claim handoff, package text. Code review + static only — not board-verified. |
+| Backend (`api.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | `git describe` v1.7.76. healthz ok. Image contains `allowSnapshotPublish`. CI `Backend build` passed. v1.7.74 did not boot (TS2339). |
+| Frontend (`app.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | S3 deploy run 40092678107 success. Create Device form and masked Check connectivity token. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | Deploy run 40092679870 success. In-app docs refresh 40092803945 success. |
+| Website (`www.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | Deploy run 40092679657 success. Operator, refunds, governing law, API in Mumbai. |
+| SDK (`autoconnecto-sdk`) | `v1.7.76` | 2026-10-24 | Tag and GitHub release. Join callback, one shared-attribute delivery, fault-injection example. Code review + static only — not board-verified. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.76 ships:**
+
+- Shared attributes: the API does not republish an unchanged retained snapshot, and does not send the same response twice inside 2 seconds. The SDK does not pull again when the retained push already arrived, and it does not let the broker client reconnect on top of the SDK backoff.
+- `onWifiJoin` / `lastWifiJoin` report BSSID, channel, and RSSI when serial logs are off. `examples/MqttConnectFault_mqtt` fails connects in software.
+- Create Device form loads when the tenant already has devices. Check connectivity masks the device token until Show.
+- CI runs `npm run build` on backend push. v1.7.74 failed that build (`TS2339` on the claim lookup union) and did not replace the running container.
+- Terms name the operator as the founder from Jaipur. GST is not registered, so no GST number is shown. Refunds and Indian governing law are on the terms page.
+- Audit: `audits/v1.7.76-response-2026-10-24.md`.
 
 **What v1.7.74 / v1.7.75 ships:**
 
