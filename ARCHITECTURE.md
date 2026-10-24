@@ -114,12 +114,18 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | `git describe` v1.7.73. healthz ok. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | S3 deploy success. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | ESP32 quick start live. |
-| Website (`www.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | SEO landings live (`/esp32-mqtt`, `/use-cases`, …). |
-| SDK (`autoconnecto-sdk`) | `v1.7.73` | 2026-10-23 | Token-redacted MQTT logs; OfflineBuffer NTP. Not board-reverified. |
-| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged in v1.7.73. |
+| Backend (`api.autoconnecto.in`) | `v1.7.75` | 2026-10-24 | `git describe` v1.7.75. healthz ok. Image contains `claimLookupMiss`. v1.7.74 was tagged and did not boot. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.73` | 2026-10-23 | Unchanged in this release. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.74` | 2026-10-24 | Quick start has the PlatformIO install line. |
+| Website (`www.autoconnecto.in`) | `v1.7.74` | 2026-10-24 | ESP32 is the tested board. PlatformIO install line is on the ESP32 page. |
+| SDK (`autoconnecto-sdk`) | `v1.7.74` | 2026-10-24 | Tagged for Library Manager. Wi-Fi join, claim handoff, package text. Code review + static only — not board-verified. |
+| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.74 / v1.7.75 ships:**
+
+- SDK 1.7.74: strongest-AP Wi-Fi join, claim handoff accepts HTTP 201, README and `library.properties` text, `library.json`. Not board-verified.
+- Backend 1.7.75: claim handoff messages. A poll before redeem is not treated as a used code. v1.7.74 did not boot (Nest type error).
+- Docs and website 1.7.74: PlatformIO `lib_deps = autoconnecto/AutoconnectoSDK`. ESP32 is the tested board.
 
 **What v1.7.73 ships (delta vs v1.7.72):**
 
