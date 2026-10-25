@@ -114,12 +114,18 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | `git describe` v1.7.76. healthz ok. Image contains `allowSnapshotPublish`. CI `Backend build` passed. v1.7.74 did not boot (TS2339). |
-| Frontend (`app.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | S3 deploy run 40092678107 success. Create Device form and masked Check connectivity token. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | Deploy run 40092679870 success. In-app docs refresh 40092803945 success. |
-| Website (`www.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | Deploy run 40092679657 success. Operator, refunds, governing law, API in Mumbai. |
-| SDK (`autoconnecto-sdk`) | `v1.7.76` | 2026-10-24 | Tag and GitHub release. Join callback, one shared-attribute delivery, fault-injection example. Code review + static only — not board-verified. |
+| Backend (`api.autoconnecto.in`) | `v1.7.77` | 2026-10-25 | `git describe` v1.7.77. healthz ok. Container healthy. Migration `0056_signup_email_alerts`. CI `Backend build` 40159952109 success. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.77` | 2026-10-25 | S3 deploy run 40159951920 success. Bundle `index-KfiwzNgT.js`. Geofences screen. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.77` | 2026-10-25 | Deploy run 40159952104 success. `/guide/geofences.html` returns 200. EC2 docs sync included that page. |
+| Website (`www.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | Unchanged this release. |
+| SDK (`autoconnecto-sdk`) | `v1.7.77` | 2026-10-25 | Tag and GitHub release. One TLS connection for OTA chunks, named attribute request, boot-image confirm. Code review + static only — not board-verified. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.77 ships:**
+
+- OTA stays running through the soak and the post-update watch on every wave, including the last wave and a one-device rollout. Cancel stops pending devices and leaves updated devices. A stopped `QA ` rehearsal can be deleted. A missed download is resent, then fails as “download never started”. A boot version that is not the target fails that update. Manual halt does not raise an alarm. Signup email alerts stay off unless the box is ticked. Code review + static only — not board-verified.
+- A geofence node rejects latitude outside -90 to 90, longitude outside -180 to 180, and degrees × 1e6. That failure does not change the remembered side. Preview evaluates the fence. The Geofences screen draws a circle or a polygon. Enter and exit alarms on that screen start off. A failure branch counts in the engine metrics. Code review + static only — not board-verified.
+- Audit: `audits/ota-ep4-corrections-2026-10-25.md`, `audits/geofence-2026-10-25.md`.
 
 **What v1.7.76 ships:**
 
