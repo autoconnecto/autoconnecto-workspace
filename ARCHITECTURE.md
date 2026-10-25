@@ -114,12 +114,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.77` | 2026-10-25 | `git describe` v1.7.77. healthz ok. Container healthy. Migration `0056_signup_email_alerts`. CI `Backend build` 40159952109 success. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.77` | 2026-10-25 | S3 deploy run 40159951920 success. Bundle `index-KfiwzNgT.js`. Geofences screen. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.77` | 2026-10-25 | Deploy run 40159952104 success. `/guide/geofences.html` returns 200. EC2 docs sync included that page. |
+| Backend (`api.autoconnecto.in`) | `v1.7.78` | 2026-10-25 | `git describe` v1.7.78. healthz ok. Container healthy. Migration `0057_ota_plain_reasons`. CI `Backend build` 40218127714 success. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.78` | 2026-10-25 | S3 deploy run 40218133852 success. Bundle `index-C2bRp3pd.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.78` | 2026-10-25 | Deploy run 40218149142 success. |
 | Website (`www.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | Unchanged this release. |
-| SDK (`autoconnecto-sdk`) | `v1.7.77` | 2026-10-25 | Tag and GitHub release. One TLS connection for OTA chunks, named attribute request, boot-image confirm. Code review + static only — not board-verified. |
+| SDK (`autoconnecto-sdk`) | `v1.7.78` | 2026-10-25 | Tag and GitHub release. Helper ESP32 re-test Pass for cancel/reason and failed-download vs UPDATED. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.78 ships:**
+
+- Geofence create accepts `enabled` from the screen. Fence “first” means name order A–Z. Rule engine header shows the geofence link warning. Example Block the next start connects `entered`.
+- OTA: plain failure reasons (`fw_error` / `statusReason`), cancel clears shared targets, boot report only fails the latest UPDATED row, rollback parent leaves ROLLING_BACK, last-wave device pin, `QA ` and `QA-` delete. Stale `fw_error` does not overwrite an older plain reason. A failed download’s package version is not a boot report. Progress does not delete the stored running `fw_version`. Migration `0057_ota_plain_reasons`. Helper board re-test Pass on the ESP32 paths in `audits/v1.7.77-retest-2026-10-25.md`. Running-version UI retention after progress was not board-retested.
 
 **What v1.7.77 ships:**
 
