@@ -116,10 +116,16 @@ Operational values below are confirmed for the current production layout; substi
 |---|---|---|---|
 | Backend (`api.autoconnecto.in`) | `v1.7.78` | 2026-10-25 | `git describe` v1.7.78. healthz ok. Container healthy. Migration `0057_ota_plain_reasons`. CI `Backend build` 40218127714 success. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.78` | 2026-10-25 | S3 deploy run 40218133852 success. Bundle `index-C2bRp3pd.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.78` | 2026-10-25 | Deploy run 40218149142 success. |
-| Website (`www.autoconnecto.in`) | `v1.7.76` | 2026-10-24 | Unchanged this release. |
-| SDK (`autoconnecto-sdk`) | `v1.7.78` | 2026-10-25 | Tag and GitHub release. Helper ESP32 re-test Pass for cancel/reason and failed-download vs UPDATED. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.79` | 2026-10-25 | Compatible hardware + Linux SBC quick start. CI pending confirm. |
+| Website (`www.autoconnecto.in`) | `v1.7.79` | 2026-10-25 | `/compatible-hardware` page. CI pending confirm. |
+| SDK (`autoconnecto-sdk`) | `v1.7.79` | 2026-10-25 | Tag + GitHub release. Python package `autoconnecto` (MQTT/HTTPS/GPIO). Arduino version aligned; no ESP32 behaviour change. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.79 ships (docs / website / SDK only — backend and frontend stay v1.7.78):**
+
+- Compatible hardware: ESP32, STM32, named Linux SBCs (Pi 5/4/3/Zero 2 W, Orange Pi 5, Radxa ROCK 5, BeagleBone), PUSR DR154, XY-MD02, Multispan AVH-14-M1, Modbus energy meters.
+- Installable Python SBC SDK under `sdk/python/` (`pip install -e "./python[gpio,dotenv]"`). PyPI publish still pending.
+- Linux SBC quick start in customer docs. Website `/compatible-hardware`.
 
 **What v1.7.78 ships:**
 
