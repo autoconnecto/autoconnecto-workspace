@@ -114,12 +114,19 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.80` | 2026-10-26 | `git describe` v1.7.80. healthz ok. Container healthy. CI `Backend build` 40268455385 success. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.80` | 2026-10-26 | S3 deploy run 40268455168 success. Bundle `index-CfaA-M9X.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.80` | 2026-10-26 | Deploy run 40268454547 success. Connectivity → Integrations. |
-| Website (`www.autoconnecto.in`) | `v1.7.80` | 2026-10-26 | Deploy run 40268454263 success. Version align. |
+| Backend (`api.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | `git describe` v1.7.81. healthz ok. `TRUST_PROXY=1`. CI `Backend build` 40338023174 success. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | S3 deploy run 40338039646 success. Bundle `index-B40XWf0m.js`. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | Deploy run 40338055576 success. Share revoke copy. |
+| Website (`www.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | Deploy run 40338069049 success. Version align. |
 | SDK (`autoconnecto-sdk`) | `v1.7.79` | 2026-10-25 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.81 ships:**
+
+- Public share links: correct scope (including fleet deviceType/profile), read-only controls, revoke/expiry/password, redacted tenant fields, per-IP lockout, and D5 fix (ignore spoofed `X-Forwarded-For`; `TRUST_PROXY`; per-link soft throttle).
+- Viewer cosmetics: skip `__dashboardState__` device fetch; revoked text “This link is no longer available”.
+- List search on Platform Admin Tenants/Plans and major tenant list pages.
+- Helper response map: `audits/v1.7.81-share-links-response-2026-10-26.md`.
 
 **What v1.7.80 ships:**
 
