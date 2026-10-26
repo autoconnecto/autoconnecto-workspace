@@ -114,12 +114,19 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | `git describe` v1.7.81. healthz ok. `TRUST_PROXY=1`. CI `Backend build` 40338023174 success. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | S3 deploy run 40338039646 success. Bundle `index-B40XWf0m.js`. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | Deploy run 40338055576 success. Share revoke copy. |
-| Website (`www.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | Deploy run 40338069049 success. Version align. |
+| Backend (`api.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | Unchanged this release. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.82` | 2026-10-26 | S3 + CloudFront OK (CI heap fix `88840fd`). Tablet stack ≤1280; alarm/device Scope; Device Count Summary. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.82` | 2026-10-26 | Public docs deploy OK. |
+| Website (`www.autoconnecto.in`) | `v1.7.82` | 2026-10-26 | Version align deploy OK. |
 | SDK (`autoconnecto-sdk`) | `v1.7.79` | 2026-10-25 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.82 ships:**
+
+- Dashboards: tablets stack when window ≤1280 px (phones ≤640 unchanged; laptops ~1366+ keep the grid).
+- Alarm Summary and Alarm Table: shared Scope (device / devices / type / asset / profile / dashboard state / whole tenant).
+- Device Count Summary: Active / Inactive / Total with Scope; clicks pass status to a Device Table; list Scope configured to match.
+- Backend unchanged (`v1.7.81`).
 
 **What v1.7.81 ships:**
 
