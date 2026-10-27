@@ -115,11 +115,19 @@ Operational values below are confirmed for the current production layout; substi
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
 | Backend (`api.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | Unchanged this release. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.82` | 2026-10-26 | S3 + CloudFront OK (CI heap fix `88840fd`). Tablet stack ≤1280; alarm/device Scope; Device Count Summary. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.82` | 2026-10-26 | Public docs deploy OK. |
-| Website (`www.autoconnecto.in`) | `v1.7.82` | 2026-10-26 | Version align deploy OK. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.83` | 2026-10-27 | S3 + CloudFront OK. Count-tile filter persistence; per-tile list states; sidebar hide; stack edit; alarm latest-N. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.83` | 2026-10-27 | Public docs deploy OK. |
+| Website (`www.autoconnecto.in`) | `v1.7.83` | 2026-10-27 | Version align deploy OK. |
 | SDK (`autoconnecto-sdk`) | `v1.7.79` | 2026-10-25 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.83 ships:**
+
+- Device Count Summary: status filter survives screen change; optional Active / Inactive / Total → different dashboard states.
+- App shell: full-hide sidebar (edge arrow + header fold).
+- Dashboard edit on stack (↑↓ reorder) and grid; no widen-to-edit gate.
+- Alarm Table / Device Alarms: selectable latest-N cap (Summary counts stay uncapped).
+- Backend unchanged (`v1.7.81`).
 
 **What v1.7.82 ships:**
 
