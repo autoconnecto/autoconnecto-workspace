@@ -114,18 +114,24 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.85` | 2026-10-27 | API root discovery JSON; healthz OK. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.83` | 2026-10-27 | Unchanged this release. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.85` | 2026-10-27 | Unique meta, OG image, folder CF rewrite, title fixes. |
-| Website (`www.autoconnecto.in`) | `v1.7.85` | 2026-10-27 | Title/desc lengths, page OG images, charset + cache. |
+| Backend (`api.autoconnecto.in`) | `v1.7.86` | 2026-10-27 | PlantOee/FuelOps/TripOps seeded; healthz OK. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.86` | 2026-10-27 | Fuel events + Trips list widgets; OEE/Fuel/Trips left-bar demoted. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.86` | 2026-10-27 | Plant OEE / Fuel Ops / Trip Ops + ops widget pages. |
+| Website (`www.autoconnecto.in`) | `v1.7.85` | 2026-10-27 | Unchanged this release. |
 | SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.86 ships:**
+
+- Frontend: `fuelEvents` and `tripsList` widgets; left-bar OEE/Fuel/Trips removed (expert routes `/oee` `/fuel` `/trips` remain); Help Wizard points at Solutions.
+- Backend: catalog seed for PlantOee / FuelOps / TripOps; setup-guide + reference-doc URLs; ops seed wired into `--seed-solutions`.
+- Docs: solution pages + OEE / Fuel events / Trips list widget guides; plant-operations guide updated.
 
 **What v1.7.85 ships:**
 
 - Docs: per-page meta descriptions, OG/Twitter image, shortened/unique titles, sitemap `…/index.html`, CloudFront folder→index rewrite helper, FAQ links to healthz/Swagger.
 - Website: shortened titles/descriptions, use-case OG screenshots, single SoftwareApplication JSON-LD, HTML charset + asset cache headers.
-- Backend: `GET /` returns service discovery JSON (no bare 404). Frontend unchanged (`v1.7.83`).
+- Backend: `GET /` returns service discovery JSON (no bare 404). Frontend was still `v1.7.83`.
 
 **What v1.7.84 ships (docs / website / SDK only):**
 
