@@ -114,12 +114,18 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.86` | 2026-10-27 | PlantOee/FuelOps/TripOps seeded; healthz OK. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.86` | 2026-10-27 | Fuel events + Trips list widgets; OEE/Fuel/Trips left-bar demoted. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.86` | 2026-10-27 | Plant OEE / Fuel Ops / Trip Ops + ops widget pages. |
-| Website (`www.autoconnecto.in`) | `v1.7.85` | 2026-10-27 | Unchanged this release. |
+| Backend (`api.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | Fleet alias on all seed Solutions; TripOps/SiteTrackingFleet reseeded. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | Empty-state CTAs; Help BasicTelemetry; work-order Opened by / Job to be done. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | ESP32 sketch names; CF leaf `/path/` → `.html`. |
+| Website (`www.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | ESP32 use-case sketch names. |
 | SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.87 ships:**
+
+- Solutions Sample On: fleet `manualGroup` alias always registered (fixes Fleet live map / trips “Widget not configured”).
+- First-customer journey: correct `BasicTelemetry_mqtt` names; docs folder URL rewrite for leaf pages; dashboard/alarms empty CTAs.
+- Work orders: Opened by column; Job to be done label.
 
 **What v1.7.86 ships:**
 
