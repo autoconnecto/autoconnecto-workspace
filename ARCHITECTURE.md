@@ -115,11 +115,18 @@ Operational values below are confirmed for the current production layout; substi
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
 | Backend (`api.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | Unchanged this release. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.83` | 2026-10-27 | S3 + CloudFront OK. Count-tile filter persistence; per-tile list states; sidebar hide; stack edit; alarm latest-N. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.83` | 2026-10-27 | Public docs deploy OK. |
-| Website (`www.autoconnecto.in`) | `v1.7.83` | 2026-10-27 | Version align deploy OK. |
-| SDK (`autoconnecto-sdk`) | `v1.7.79` | 2026-10-25 | Unchanged this release. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.83` | 2026-10-27 | Unchanged this release. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.84` | 2026-10-27 | Public docs deploy OK. SEO meta + Search Console verify tag. |
+| Website (`www.autoconnecto.in`) | `v1.7.84` | 2026-10-27 | S3 + CloudFront OK. SEO / use-case landings. |
+| SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | README encoding + `library.json` (PlatformIO not published). |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.84 ships (docs / website / SDK only):**
+
+- Website: unique titles/descriptions, canonical/OG/Twitter, Organization/WebSite/SoftwareApplication JSON-LD, sitemap lastmod + docs sitemap link, six use-case landings, ESP32 quickstart links, asset cache headers.
+- Docs: per-page SEO head, Google site verification meta, canonical URLs.
+- SDK: UTF-8 README, Library Manager already-listed wording, `library.json` for PlatformIO (not published), `library.properties` 1.7.84.
+- Backend/frontend unchanged (`v1.7.81` / `v1.7.83`).
 
 **What v1.7.83 ships:**
 
