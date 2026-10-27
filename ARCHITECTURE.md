@@ -114,12 +114,18 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.81` | 2026-10-26 | Unchanged this release. |
+| Backend (`api.autoconnecto.in`) | `v1.7.85` | 2026-10-27 | API root discovery JSON; healthz OK. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.83` | 2026-10-27 | Unchanged this release. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.84` | 2026-10-27 | Public docs deploy OK. SEO meta + Search Console verify tag. |
-| Website (`www.autoconnecto.in`) | `v1.7.84` | 2026-10-27 | S3 + CloudFront OK. SEO / use-case landings. |
-| SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | README encoding + `library.json` (PlatformIO not published). |
+| Docs (`docs.autoconnecto.in`) | `v1.7.85` | 2026-10-27 | Unique meta, OG image, folder CF rewrite, title fixes. |
+| Website (`www.autoconnecto.in`) | `v1.7.85` | 2026-10-27 | Title/desc lengths, page OG images, charset + cache. |
+| SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.85 ships:**
+
+- Docs: per-page meta descriptions, OG/Twitter image, shortened/unique titles, sitemap `…/index.html`, CloudFront folder→index rewrite helper, FAQ links to healthz/Swagger.
+- Website: shortened titles/descriptions, use-case OG screenshots, single SoftwareApplication JSON-LD, HTML charset + asset cache headers.
+- Backend: `GET /` returns service discovery JSON (no bare 404). Frontend unchanged (`v1.7.83`).
 
 **What v1.7.84 ships (docs / website / SDK only):**
 
