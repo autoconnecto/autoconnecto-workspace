@@ -14,7 +14,7 @@ This document reflects the architecture confirmed from the current codebase. Any
 - Storage dependencies:
   - Postgres via `pg` pool (`DatabaseService`)
   - Redis via `ioredis` (presence; also BullMQ when enabled)
-  - Production backup/restore: `backend/docs/BACKUP_RESTORE.md` (code rollback ≠ DB restore). Daily `pg_dump` cron on EC2 → `~/backups/` (14-day retain); off-box copy still recommended.
+  - Production backup/restore: `backend/docs/BACKUP_RESTORE.md` (code rollback ≠ DB restore). Daily `pg_dump` cron on EC2 → `~/backups/` and `s3://autoconnecto-db-backups/pg/` (14-day retain, private bucket, ap-south-1).
 
 ### Frontend (`frontend/`) — confirmed
 
@@ -629,7 +629,9 @@ Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts u
 
 ### MQTT broker (EMQX) — license posture and version policy
 
-**Current state (confirmed):** the production broker is pinned to `emqx/emqx:6.0.0` in `backend/docker-compose.yml`. Single-node deployment on the EC2 host. No clustering.
+**Current state (confirmed 2026-10-29):** the production broker is pinned to `emqx/emqx:5.8.9` in `backend/docker-compose.yml`, data volume `emqx_data_58`. Single-node. The previous `6.0.0` data volume `emqx_data` is still on the host for rollback. Do not run `docker compose down -v`.
+
+**Decision (2026-10-29):** moved to 5.8.9. The 5.8 open-source line stays Apache 2.0. Broker came up healthy and the previous connections returned. Shared-attribute snapshots were republished from Postgres the same day (16 devices, 54 keys). Other retained messages that lived only in the 6.0 volume were not copied.
 
 **Licensing context (verified against EMQ's own documentation as of 2026-05):**
 
@@ -654,11 +656,7 @@ Marketing/docs delivery uses other artifacts (VitePress under `docs/`, scripts u
 | **B. Roll back to EMQX 5.8.x (Apache 2.0)** | $0 cash + one scheduled maintenance window | Loss of EMQX 6.0 features (operator dashboard refresh, MQTT 5 enhancements, gateway updates). Need to verify mnesia state / named volume compatibility — likely needs starting fresh, which means re-creating any dashboard config (we don't use the dashboard for config, so impact is small). Eventually 5.x reaches end-of-maintenance. | Apache 2.0 freedom — no commercial restrictions of any kind, clustering remains free if we ever need it. |
 | **C. Buy EMQX Enterprise** | $$ annual | Commercial subscription with EMQ; license model becomes per-node / per-connection. Vendor lock to EMQ commercial terms. | Full clustering, full SaaS rights, vendor support, all 6.x+ features. |
 
-**Recommended path (assistant's read, not a decision):** **B** — roll back to EMQX 5.8.x at the next maintenance window. Our deployment is single-node and not using any 6.0-only feature today. Apache 2.0 eliminates the SaaS ambiguity entirely with zero recurring cost. We re-evaluate **C** only when clustering or 6.x-specific features become real product requirements.
-
-**Operator call required:** pick A / B / C and record the decision date in this section. Until then we are on A by default, with the SaaS clause as an open legal risk.
-
-**Tracked as:** workspace todo `p8`.
+**Decision recorded 2026-10-29:** **B.** Production is `emqx/emqx:5.8.9` on volume `emqx_data_58`. The `6.0.0` volume `emqx_data` is kept. Re-evaluate **C** only when clustering becomes a real requirement. 5.8 LTS patches from EMQ stop on 27 August 2027; the Apache 2.0 licence does not expire.
 
 ## Engineering risks (confirmed)
 
