@@ -114,12 +114,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | Fleet alias on all seed Solutions; TripOps/SiteTrackingFleet reseeded. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | Empty-state CTAs; Help BasicTelemetry; work-order Opened by / Job to be done. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | ESP32 sketch names; CF leaf `/path/` → `.html`. |
-| Website (`www.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | ESP32 use-case sketch names. |
+| Backend (`api.autoconnecto.in`) | `v1.7.89` | 2026-10-29 | `healthz` ok; `git describe` v1.7.89; Titan Mail + maps on open. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.89` | 2026-10-29 | Actions deploy-s3 success; Tenant Maps + basemap. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.89` | 2026-10-29 | Actions deploy success; Maps + Titan Mail pages. |
+| Website (`www.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | Unchanged this release. |
 | SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.89 ships:**
+
+- Tenant BYO Google Maps: Tenant Settings → Maps; Map/Route basemap inherit/OSM/Google/style URL; shared dashboards get maps on link open.
+- Titan Mail preset SMTP provider (`smtp.titan.email:465`) in Mail and SMS.
 
 **What v1.7.87 ships:**
 
