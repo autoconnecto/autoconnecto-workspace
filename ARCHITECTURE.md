@@ -117,9 +117,13 @@ Operational values below are confirmed for the current production layout; substi
 | Backend (`api.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | Mail/SMS form keep + GoDaddy preset + 535 hint. |
 | Frontend (`app.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | Sticky test toast; form hydration after save. |
 | Docs (`docs.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | GoDaddy / Titan / Other mail docs. |
-| Website (`www.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | Unchanged this release. |
+| Website (`www.autoconnecto.in`) | `v1.7.91` | 2026-10-29 | Drop homepage SocialMediaPosting JSON-LD (GSC forum false positive). |
 | SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.91 ships (website only):**
+
+- Homepage: remove `SocialMediaPosting` ItemList JSON-LD (LinkedIn note links). Google Search Console treated those as discussion-forum posts missing `author` / `datePublished`. HTML “From Autoconnecto” links unchanged.
 
 **What v1.7.90 ships:**
 
