@@ -60,7 +60,7 @@ This is the primary control pattern for widgets that manage device state: **Swit
 **Write path (dashboard → device):**
 1. User changes a value on the dashboard widget (e.g. toggles a switch).
 2. Frontend writes to the **shared attribute** via `POST /api/devices/:deviceId/attributes` with `scope: "SHARED"`.
-3. Backend persists the shared attribute to DB and publishes it to the device via MQTT (retained, so the device receives it even after reconnection).
+3. Backend persists the shared attribute to DB and publishes it to the device via MQTT (retained, so the device receives it even after reconnection). When the platform’s broker connection returns, it republishes every stored shared snapshot. A save that lands during that republish is the one that stays.
 
 **Confirmation path (device → dashboard):**
 4. Device receives the shared attribute update.
@@ -114,12 +114,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | Mail/SMS form keep + GoDaddy preset + 535 hint. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | Sticky test toast; form hydration after save. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | GoDaddy / Titan / Other mail docs. |
+| Backend (`api.autoconnecto.in`) | `v1.7.92` | 2026-10-29 | Republish stored shared attributes when the broker connection returns. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | Unchanged this release. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.92` | 2026-10-29 | Same sentence on Telemetry and attributes. |
 | Website (`www.autoconnecto.in`) | `v1.7.91` | 2026-10-29 | Drop homepage SocialMediaPosting JSON-LD (GSC forum false positive). |
 | SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.92 ships:**
+
+- When the platform’s broker connection returns, it republishes every stored shared-attribute snapshot. A save during that pass stays. Code review + static only — not board-verified.
+- Customer guide: one sentence on Telemetry and attributes. App, website, SDK, and mobile unchanged.
 
 **What v1.7.91 ships (website only):**
 
