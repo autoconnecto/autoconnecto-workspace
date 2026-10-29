@@ -114,12 +114,16 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.89` | 2026-10-29 | `healthz` ok; `git describe` v1.7.89; Titan Mail + maps on open. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.89` | 2026-10-29 | Actions deploy-s3 success; Tenant Maps + basemap. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.89` | 2026-10-29 | Actions deploy success; Maps + Titan Mail pages. |
+| Backend (`api.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | Mail/SMS form keep + GoDaddy preset + 535 hint. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | Sticky test toast; form hydration after save. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | GoDaddy / Titan / Other mail docs. |
 | Website (`www.autoconnecto.in`) | `v1.7.87` | 2026-10-27 | Unchanged this release. |
 | SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
 | Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+
+**What v1.7.90 ships:**
+
+- Mail and SMS: keep public fields after save; sticky test toast; GoDaddy preset; Titan/Other host+port; plain 535 hint; show API validation errors.
 
 **What v1.7.89 ships:**
 
