@@ -114,12 +114,17 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.92` | 2026-10-29 | Republish stored shared attributes when the broker connection returns. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.90` | 2026-10-29 | Unchanged this release. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.92` | 2026-10-29 | Same sentence on Telemetry and attributes. |
-| Website (`www.autoconnecto.in`) | `v1.7.91` | 2026-10-29 | Drop homepage SocialMediaPosting JSON-LD (GSC forum false positive). |
+| Backend (`api.autoconnecto.in`) | `v1.7.92` | 2026-10-29 | Unchanged this release. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.93` | 2026-10-30 | New Autoconnecto mark (favicon + default logos). |
+| Docs (`docs.autoconnecto.in`) | `v1.7.93` | 2026-10-30 | Favicon updated to new mark. |
+| Website (`www.autoconnecto.in`) | `v1.7.93` | 2026-10-30 | New mark on favicon, apple-touch, header logo. |
 | SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
-| Mobile (Android APK) | `v1.7.68` | 2026-10-22 | Unchanged. |
+| Mobile (Android APK) | `v1.7.93` | 2026-10-30 | New mark on launcher, splash, and in-app icons. |
+
+**What v1.7.93 ships:**
+
+- Brand mark: ocean teal hub with six equal arms, centre **A**, compact wifi above A. Replaces old hexagon / pixel favicons on website, app, docs, and mobile.
+- Backend and SDK unchanged (`v1.7.92` / `v1.7.84`).
 
 **What v1.7.92 ships:**
 
