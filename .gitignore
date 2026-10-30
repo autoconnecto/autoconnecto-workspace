@@ -27,3 +27,7 @@ qa171-sketches/**/*_flashed.bin
 qa171-sketches/**/qa171_secrets.h
 **/founder_backup.bin
 
+
+__pycache__/
+*.pyc
+
