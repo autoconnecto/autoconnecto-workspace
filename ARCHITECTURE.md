@@ -115,11 +115,17 @@ Operational values below are confirmed for the current production layout; substi
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
 | Backend (`api.autoconnecto.in`) | `v1.7.92` | 2026-10-29 | Unchanged this release. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.93` | 2026-10-30 | New Autoconnecto mark (favicon + default logos). |
-| Docs (`docs.autoconnecto.in`) | `v1.7.93` | 2026-10-30 | Favicon updated to new mark. |
-| Website (`www.autoconnecto.in`) | `v1.7.93` | 2026-10-30 | New mark on favicon, apple-touch, header logo. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.94` | 2026-10-30 | Control Confirmed echo; Theme + setup tips; dark widget leftovers. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.94` | 2026-10-30 | Theme always on bar; sticky setup tips + toolbar link. |
+| Website (`www.autoconnecto.in`) | `v1.7.93` | 2026-10-30 | Unchanged this release. |
 | SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
-| Mobile (Android APK) | `v1.7.93` | 2026-10-30 | New mark on launcher, splash, and in-app icons. |
+| Mobile (Android APK) | `v1.7.93` | 2026-10-30 | Unchanged this release. |
+
+**What v1.7.94 ships:**
+
+- Control widgets (Switch, Slider, Toggle, GPIO, Mini Switch): open page shows device echo and Confirmed without reload; boolean and 1/0 compare as the same value. Code review + static only — not board-verified.
+- Dashboard Theme always on the toolbar; leftover status/OEE/fuel/trips widgets follow Light/Dark; Realtime/Historical pill contrast; setup guide dismiss sticks with Setup tips recovery.
+- Backend, website, SDK, mobile unchanged.
 
 **What v1.7.93 ships:**
 

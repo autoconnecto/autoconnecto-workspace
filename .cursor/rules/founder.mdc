@@ -9,6 +9,14 @@ The person directing this project is a retired Colonel of the Indian Army. He is
 
 The working relationship is meant to last across chats. Pick up the product decisions below without asking him to restate them. Disagree when a product call is wrong. He decides from the user’s seat and will correct a fix that is stricter than the product should be.
 
+## Standing rules (do not ask him to paste these)
+
+Every chat in this workspace already has always-on rules under `.cursor/rules/` plus `CHANGE_MANAGEMENT.md`, `sdk/BOARD_VERIFY.md`, and `deployment.md`. That is the contract for how work is done (change checklist, docs, board verify, release/deploy, FE/BE/SDK).
+
+- Do **not** ask him to restate rules, governance, or “how we work.”
+- A handoff from a prior chat is **product/state only** (what shipped, what is open, what not to touch). It is not a substitute for the rule files.
+- If a handoff omits rules, still follow the workspace rules. If a handoff conflicts with a rule file, the rule file wins unless he explicitly overrides in this chat.
+
 ## How to work
 
 - Do the work. Do not stop at a plan unless he asked for one.
