@@ -114,12 +114,19 @@ Operational values below are confirmed for the current production layout; substi
 
 | Component | Tag | Deployed (UTC) | Verification |
 |---|---|---|---|
-| Backend (`api.autoconnecto.in`) | `v1.7.92` | 2026-10-29 | Unchanged this release. |
-| Frontend (`app.autoconnecto.in`) | `v1.7.94` | 2026-10-30 | Control Confirmed echo; Theme + setup tips; dark widget leftovers. |
-| Docs (`docs.autoconnecto.in`) | `v1.7.94` | 2026-10-30 | Theme always on bar; sticky setup tips + toolbar link. |
-| Website (`www.autoconnecto.in`) | `v1.7.93` | 2026-10-30 | Unchanged this release. |
-| SDK (`autoconnecto-sdk`) | `v1.7.84` | 2026-10-27 | Unchanged this release. |
-| Mobile (Android APK) | `v1.7.93` | 2026-10-30 | Unchanged this release. |
+| Backend (`api.autoconnecto.in`) | `v1.7.95` | 2026-10-31 | Access Scope type/profile; rule-engine template/metrics fixes; migration 0058. |
+| Frontend (`app.autoconnecto.in`) | `v1.7.95` | 2026-10-31 | Users Access Scope type/profile; rule-engine throttled metric; APK link 1.7.95. |
+| Docs (`docs.autoconnecto.in`) | `v1.7.95` | 2026-10-31 | SI playbook; Access Scope; mobile APK 1.7.95. |
+| Website (`www.autoconnecto.in`) | `v1.7.95` | 2026-10-31 | Mobile APK download link → v1.7.95. |
+| SDK (`autoconnecto-sdk`) | `v1.7.95` | 2026-10-31 | MQTT reconnect after Wi-Fi flap (B8). Code review + static — not board-verified. |
+| Mobile (Android APK) | `v1.7.95` | 2026-10-31 | Capacitor FCM push registration; versionCode 31. |
+
+**What v1.7.95 ships:**
+
+- Access Scope: live device **type** and **profile** grants (OR with assets/IDs). Migration `0058`. SI playbook in the customer guide.
+- Rule engine: `{{deviceName}}` / `{{deviceType}}` in notify templates; float display rounding / `{{key:N}}`; throttle counted as **throttled** not failures; nested `engine_ref` metrics; command-wait resume note uses reply/timeout correctly.
+- Mobile: `@capacitor/push-notifications` registers FCM tokens; APK links updated on app, website, docs.
+- SDK: MQTT reconnect after Wi-Fi flap. Code review + static only — not board-verified.
 
 **What v1.7.94 ships:**
 
